@@ -685,6 +685,61 @@ body > * {
   transform: translateY(-2px);
 }
 
+
+/* ============================================ */
+/* 16.1. CORREÇÕES PARA MOBILE */
+/* ============================================ */
+
+/* Garantir que o modal fique acima de tudo no mobile */
+@media (max-width: 768px) {
+    .auth-container {
+        z-index: 10000 !important;
+        width: 95%;
+        max-width: 350px;
+        padding: 1.5rem;
+    }
+    
+    /* Inputs com tamanho maior para evitar zoom no iOS */
+    .auth-input {
+        font-size: 16px !important; /* 16px evita zoom automático no iOS */
+        padding: 12px 15px !important;
+        -webkit-appearance: none;
+        appearance: none;
+    }
+    
+    /* Melhorar área de toque */
+    .auth-tab {
+        padding: 12px 0;
+        font-size: 1rem;
+    }
+    
+    .auth-btn, .guest-btn {
+        padding: 12px;
+        font-size: 1rem;
+    }
+    
+    /* Garantir que o body não bloqueie os inputs */
+    body {
+        overflow: auto !important;
+        position: relative !important;
+    }
+}
+
+/* Corrigir possível bloqueio de eventos de toque */
+.auth-input, 
+.auth-btn, 
+.guest-btn, 
+.auth-tab {
+    touch-action: manipulation;
+    cursor: pointer;
+}
+
+/* Garantir que o container não bloqueie interações */
+.auth-container * {
+    pointer-events: auto;
+}
+
+
 /* ============================================ */
 /* 17. USUÁRIO */
 /* ============================================ */
