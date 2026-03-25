@@ -8,11 +8,12 @@ const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/
 // CONFIGURAÇÕES ESPECÍFICAS PARA MOBILE
 // ============================================
 
+
 const MOBILE_CONFIG = {
-    // Animações
-    eagleAnimationDelay: isMobile ? 70 : 50,
-    jumpSpeed: isMobile ? 0.01 : 0.015,
-    horizontalEasing: isMobile ? 0.1 : 0.15,
+    // Animações - valores mais rápidos para mobile
+    eagleAnimationDelay: isMobile ? 35 : 50,    // 35ms no mobile (bem mais rápido)
+    jumpSpeed: isMobile ? 0.014 : 0.015,        // Pulos quase iguais
+    horizontalEasing: isMobile ? 0.13 : 0.15,   // Movimento suave
     
     // Timer
     timerInterval: isMobile ? 300 : 200,
@@ -22,21 +23,25 @@ const MOBILE_CONFIG = {
     perfectTime: isMobile ? 3.0 : 2.5,
     
     // Qualidade visual
-    reduceAnimations: isMobile,
+    reduceAnimations: false,  // Não reduzir, manter fluido
     disableParticles: isMobile,
     canvasScale: isMobile ? 0.9 : 1.0,
     
     // Toque
-    tapDelay: isMobile ? 150 : 100,
+    tapDelay: isMobile ? 100 : 80,  // Mais rápido
     platformFontSize: isMobile ? '24px' : '32px',
     wordFontSize: isMobile ? '24px' : '32px'
 };
 
-// Constantes do jogo (usando as configs mobile)
+// Constantes do jogo
 const JUMP_SPEED = MOBILE_CONFIG.jumpSpeed;
 const HORIZONTAL_EASING = MOBILE_CONFIG.horizontalEasing;
 let lastAnimationFrame = 0;
+let lastFrameTime = 0;  // Para controle de FPS da animação
 const EAGLE_ANIMATION_DELAY = MOBILE_CONFIG.eagleAnimationDelay;
+
+
+
 
 // ============================================
 // SISTEMA DE PONTUAÇÃO
@@ -531,6 +536,7 @@ function animate() {
 }
 
 function updateEagleMovement() {
+    // Movimento do pulo (sempre atualiza)
     if (isJumping) {
         jumpProgress += JUMP_SPEED;
         if (jumpProgress >= 1) {
@@ -546,6 +552,7 @@ function updateEagleMovement() {
         }
     }
     
+    // Animação dos sprites - SEM DELAY EXTRA, apenas o EAGLE_ANIMATION_DELAY
     const now = Date.now();
     if (now - lastAnimationFrame >= EAGLE_ANIMATION_DELAY) {
         lastAnimationFrame = now;
@@ -553,19 +560,26 @@ function updateEagleMovement() {
         if (isAnimating) {
             animationFrame++;
             
-            if (currentAnimation === 'flap' && animationFrame >= eagleImages.flap.length) {
-                animationFrame = 0;
+            if (currentAnimation === 'flap') {
+                if (animationFrame >= eagleImages.flap.length) {
+                    animationFrame = 0;
+                }
             }
-            else if (currentAnimation === 'celebrate' && animationFrame >= eagleImages.celebrate.length) {
-                stopAnimation();
-                if (!isJumping && gameActive && answered) nextRound();
+            else if (currentAnimation === 'celebrate') {
+                if (animationFrame >= eagleImages.celebrate.length) {
+                    stopAnimation();
+                    if (!isJumping && gameActive && answered) nextRound();
+                }
             }
-            else if (currentAnimation === 'wrong' && animationFrame >= eagleImages.wrong.length) {
-                stopAnimation();
+            else if (currentAnimation === 'wrong') {
+                if (animationFrame >= eagleImages.wrong.length) {
+                    stopAnimation();
+                }
             }
         }
     }
 }
+
 
 function drawEagle() {
     if (!DOM.ctx) return;
