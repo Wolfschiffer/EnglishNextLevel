@@ -1549,12 +1549,12 @@ function renderVocabularyLists() {
             div.addEventListener('dragover', handleDragOver);
             div.addEventListener('drop', handleDrop);
             
-            // Eventos de toque (mobile) - APENAS PARA REORGANIZAR
+            // Eventos de toque (mobile)
             div.addEventListener('touchstart', handleTouchStart, { passive: false });
             div.addEventListener('touchmove', handleTouchMove, { passive: false });
             div.addEventListener('touchend', handleTouchEnd);
         }
-        div.textContent = item.text;
+        div.textContent = item.text;  // ← TEXTO DO VERBO
         englishList.appendChild(div);
     });
     
@@ -1567,7 +1567,7 @@ function renderVocabularyLists() {
             div.className = 'vocab-item portuguese-item';
             div.setAttribute('data-id', item.id);
         }
-        div.textContent = item.text;
+        div.textContent = item.text;  // ← TEXTO DA TRADUÇÃO
         portugueseList.appendChild(div);
     });
     
@@ -1580,6 +1580,7 @@ function renderVocabularyLists() {
         item.style.color = '';
     });
 }
+
 
 // ============================================
 // SUPORTE A TOQUE (MOBILE) - MESMO COMPORTAMENTO DO DESKTOP
