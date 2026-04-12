@@ -52,8 +52,14 @@ const SCREENS = {
 
 // Função para mostrar a tela
 // Função para mostrar a tela
-function showScreen(screen, options = {}) {
 
+function showScreen(screen, options = {}) {
+    // Só esconde o auth-container se não for a tela de login
+    if (!window.currentUser && !window.isGuest && screen !== SCREENS.LOGIN) {
+        screen = SCREENS.LOGIN;
+    }
+    
+    ScreenManager.setScreen(screen);
     ScreenManager.setScreen(screen);
 
     console.log(`📱 Mostrando tela: ${screen}`);
@@ -201,12 +207,27 @@ function startNumberGame(gameType) {
 
 // Inicializar
 function initNavigation() {
-    if (window.currentUser || window.isGuest) {
-        showScreen(SCREENS.CATEGORIES);
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', () => {
+            setTimeout(() => {
+                if (window.currentUser || window.isGuest) {
+                    showScreen(SCREENS.CATEGORIES);
+                } else {
+                    showScreen(SCREENS.LOGIN);
+                }
+            }, 100);
+        });
     } else {
-        showScreen(SCREENS.LOGIN);
+        setTimeout(() => {
+            if (window.currentUser || window.isGuest) {
+                showScreen(SCREENS.CATEGORIES);
+            } else {
+                showScreen(SCREENS.LOGIN);
+            }
+        }, 100);
     }
 }
+
 // ============================================
 // SISTEMA DE PONTUAÇÃO
 // ============================================
@@ -1630,98 +1651,92 @@ function handleDrop(e) {
 }
 
 // ============================================
-// SUPORTE A TOQUE (MOBILE) PARA DRAG AND DROP
+// SUPORTE A TOQUE (MOBILE) - VERSÃO SIMPLIFICADA
 // ============================================
 
-let touchStartElement = null;
-let touchStartIndex = null;
-let touchClone = null;
-let touchStartX = 0, touchStartY = 0;
+let touchActive = false;
+let touchSourceElement = null;
+let touchSourceId = null;
 
 function handleTouchStart(e) {
-    e.preventDefault();
+    // Verifica se o evento pode ser cancelado antes de chamar preventDefault
+    if (e.cancelable) {
+        e.preventDefault();
+    }
+    
     const target = e.target.closest('.english-item');
     if (!target || target.classList.contains('locked')) return;
     
-    touchStartElement = target;
-    touchStartIndex = parseInt(target.getAttribute('data-index'));
-    touchStartX = e.touches[0].clientX;
-    touchStartY = e.touches[0].clientY;
+    touchActive = true;
+    touchSourceElement = target;
+    touchSourceId = parseInt(target.getAttribute('data-id'));
     
-    // Cria um clone visual para feedback
-    touchClone = target.cloneNode(true);
-    touchClone.style.position = 'fixed';
-    touchClone.style.top = `${touchStartY - 20}px`;
-    touchClone.style.left = `${touchStartX - 20}px`;
-    touchClone.style.width = `${target.offsetWidth}px`;
-    touchClone.style.opacity = '0.7';
-    touchClone.style.pointerEvents = 'none';
-    touchClone.style.zIndex = '9999';
-    touchClone.style.transform = 'scale(1.05)';
-    touchClone.style.transition = 'transform 0.1s';
-    document.body.appendChild(touchClone);
-    
-    target.style.opacity = '0.3';
+    target.style.opacity = '0.5';
+    target.style.transform = 'scale(0.98)';
+    document.body.classList.add('dragging');
 }
 
 function handleTouchMove(e) {
-    if (!touchClone) return;
-    e.preventDefault();
+    if (!touchActive) return;
+    
+    // Verifica se o evento pode ser cancelado
+    if (e.cancelable) {
+        e.preventDefault();
+    }
     
     const touchX = e.touches[0].clientX;
     const touchY = e.touches[0].clientY;
     
-    touchClone.style.top = `${touchY - 20}px`;
-    touchClone.style.left = `${touchX - 20}px`;
-    
-    // Encontra o elemento abaixo do dedo
-    const elemUnderTouch = document.elementsFromPoint(touchX, touchY);
-    let targetPortuguese = null;
-    
-    for (let elem of elemUnderTouch) {
-        if (elem.classList && elem.classList.contains('portuguese-item')) {
-            targetPortuguese = elem;
-            break;
-        }
-    }
-    
-    // Remove highlight de todos
     document.querySelectorAll('.portuguese-item').forEach(item => {
         item.classList.remove('drag-over');
     });
     
-    // Adiciona highlight no alvo
-    if (targetPortuguese && !targetPortuguese.classList.contains('locked')) {
-        targetPortuguese.classList.add('drag-over');
+    const elemUnderTouch = document.elementsFromPoint(touchX, touchY);
+    for (let elem of elemUnderTouch) {
+        if (elem.classList && elem.classList.contains('portuguese-item') && !elem.classList.contains('locked')) {
+            elem.classList.add('drag-over');
+            break;
+        }
     }
 }
 
+
 function handleTouchEnd(e) {
-    e.preventDefault();
+    if (!touchActive) {
+        document.querySelectorAll('.portuguese-item').forEach(item => {
+            item.classList.remove('drag-over');
+        });
+        return;
+    }
     
-    if (!touchStartElement) return;
+    // Verifica se o evento pode ser cancelado
+    if (e.cancelable) {
+        e.preventDefault();
+    }
     
     const touchEndX = e.changedTouches[0].clientX;
     const touchEndY = e.changedTouches[0].clientY;
     
-    // Encontra o elemento abaixo do dedo ao soltar
+    if (touchSourceElement) {
+        touchSourceElement.style.opacity = '1';
+        touchSourceElement.style.transform = '';
+    }
+    
     const elemUnderTouch = document.elementsFromPoint(touchEndX, touchEndY);
     let targetPortuguese = null;
     
     for (let elem of elemUnderTouch) {
-        if (elem.classList && elem.classList.contains('portuguese-item')) {
+        if (elem.classList && elem.classList.contains('portuguese-item') && !elem.classList.contains('locked')) {
             targetPortuguese = elem;
             break;
         }
     }
     
-    if (targetPortuguese && !targetPortuguese.classList.contains('locked')) {
+    if (targetPortuguese && touchSourceId !== null) {
         const targetId = parseInt(targetPortuguese.getAttribute('data-id'));
-        const sourceId = parseInt(touchStartElement.getAttribute('data-id'));
         
-        if (sourceId === targetId) {
-            // Match correto!
-            const englishItem = currentEnglishWords.find(item => item.id === sourceId && !item.locked);
+        if (touchSourceId === targetId) {
+            const englishItem = currentEnglishWords.find(item => item.id === touchSourceId && !item.locked);
             const portugueseItem = currentPortugueseWords.find(item => item.id === targetId && !item.locked);
             
             if (englishItem && portugueseItem) {
@@ -1730,11 +1745,11 @@ function handleTouchEnd(e) {
                 matchesCount++;
                 
                 if (vocabMatchesSpan) vocabMatchesSpan.textContent = matchesCount;
-                showVocabMessage('✓ Correct match! Pair locked!', 'success');
+                showVocabMessage('✓ Correct match!', 'success');
                 renderVocabularyLists();
                 
                 if (matchesCount === currentEnglishWords.length) {
-                    showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
+                    showVocabMessage('🎉 PERFECT! 🎉', 'win');
                 }
             }
         } else {
@@ -1742,24 +1757,14 @@ function handleTouchEnd(e) {
         }
     }
     
-    // Limpa o clone
-    if (touchClone) {
-        touchClone.remove();
-        touchClone = null;
-    }
-    
-    // Restaura opacidade do elemento original
-    if (touchStartElement) {
-        touchStartElement.style.opacity = '1';
-    }
-    
-    // Remove highlights
     document.querySelectorAll('.portuguese-item').forEach(item => {
         item.classList.remove('drag-over');
     });
     
-    touchStartElement = null;
-    touchStartIndex = null;
+    touchActive = false;
+    touchSourceElement = null;
+    touchSourceId = null;
+    document.body.classList.remove('dragging');
 }
 
 function checkAndLockMatches() {
@@ -2377,3 +2382,4 @@ if (DOMcat.categoryLogoutBtn) {
         }
     });
 }
+

@@ -1126,6 +1126,10 @@ if (!window.navigation) {
 
 <script src="js/firebase-config.js"></script>
 <script src="js/game.js"></script>
-
+<script>
+    if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
+        document.body.style.width = "calc(100% + 1px)";
+    }
+</script>
 </body>
 </html>

@@ -619,7 +619,6 @@ body > * {
 
 .auth-form {
   display: none;
-  flex-direction: column;
   gap: 1rem;
 }
 
@@ -685,60 +684,51 @@ body > * {
   transform: translateY(-2px);
 }
 
-
 /* ============================================ */
 /* 16.1. CORREÇÕES PARA MOBILE */
 /* ============================================ */
-
-/* Garantir que o modal fique acima de tudo no mobile */
-@media (max-width: 768px) {
-    .auth-container {
-        z-index: 10000 !important;
-        width: 95%;
-        max-width: 350px;
-        padding: 1.5rem;
-    }
-    
-    /* Inputs com tamanho maior para evitar zoom no iOS */
-    .auth-input {
-        font-size: 16px !important; /* 16px evita zoom automático no iOS */
-        padding: 12px 15px !important;
-        -webkit-appearance: none;
-        appearance: none;
-    }
-    
-    /* Melhorar área de toque */
-    .auth-tab {
-        padding: 12px 0;
-        font-size: 1rem;
-    }
-    
-    .auth-btn, .guest-btn {
-        padding: 12px;
-        font-size: 1rem;
-    }
-    
-    /* Garantir que o body não bloqueie os inputs */
-    body {
-        overflow: auto !important;
-        position: relative !important;
-    }
+@media (max-width: 770px) {
+  .auth-container {
+    z-index: 10000 !important;
+    width: 95%;
+    max-width: 350px;
+    padding: 1.5rem;
+  }
+  
+  .auth-input {
+    font-size: 16px !important;
+    padding: 12px 15px !important;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  
+  .auth-tab {
+    padding: 12px 0;
+    font-size: 1rem;
+  }
+  
+  .auth-btn, .guest-btn {
+    padding: 12px;
+    font-size: 1rem;
+  }
+  
+  body {
+    overflow: auto !important;
+    position: relative !important;
+  }
 }
 
-/* Corrigir possível bloqueio de eventos de toque */
 .auth-input, 
 .auth-btn, 
 .guest-btn, 
 .auth-tab {
-    touch-action: manipulation;
-    cursor: pointer;
+  touch-action: manipulation;
+  cursor: pointer;
 }
 
-/* Garantir que o container não bloqueie interações */
 .auth-container * {
-    pointer-events: auto;
+  pointer-events: auto;
 }
-
 
 /* ============================================ */
 /* 17. USUÁRIO */
@@ -788,23 +778,23 @@ body > * {
 }
 
 .leaderboard-header-btn {
-    width: 45px;
-    height: 45px;
-    border: 2px solid #c9a13b;
-    border-radius: 50%;
-    background: none;
-    font-size: 1.3rem;
-    cursor: pointer;
-    color: #c9a13b;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+  width: 45px;
+  height: 45px;
+  border: 2px solid #c9a13b;
+  border-radius: 50%;
+  background: none;
+  font-size: 1.3rem;
+  cursor: pointer;
+  color: #c9a13b;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .leaderboard-header-btn:hover {
-    background: #f8f4ec;
-    transform: scale(1.1);
+  background: #f8f4ec;
+  transform: scale(1.1);
 }
 
 /* ============================================ */
@@ -1107,402 +1097,555 @@ body > * {
   .name-entry-content h3 {
     font-size: 1.3rem;
   }
+}
 
 /* ============================================ */
-/* BOTÃO LEADERBOARD - ESTILO DOS GAME CARDS */
+/* 22. BOTÃO LEADERBOARD - ESTILO DOS GAME CARDS */
 /* ============================================ */
-
 .leaderboard-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin: 20px auto 35px auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 20px auto 35px auto;
 }
 
 .leaderboard-global {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: #7f8c8d;
-    letter-spacing: 2px;
-    margin-bottom: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #7f8c8d;
+  letter-spacing: 2px;
+  margin-bottom: 8px;
 }
 
 .leaderboard-card-btn {
-    background: #f8fafc;
-    border: 3px solid #c9a13b;
-    border-radius: 20px;
-    width: 80px;
-    height: 80px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    padding: 0;
+  background: #f8fafc;
+  border: 3px solid #c9a13b;
+  border-radius: 20px;
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  padding: 0;
 }
 
 .leaderboard-card-btn:hover {
-    transform: translateY(-5px);
-    background: white;
-    box-shadow: 0 10px 20px rgba(201, 161, 59, 0.2);
+  transform: translateY(-5px);
+  background: white;
+  box-shadow: 0 10px 20px rgba(201, 161, 59, 0.2);
 }
 
 .leaderboard-trophy {
-    font-size: 2.5rem;
+  font-size: 2.5rem;
 }
 
 .leaderboard-leaderboards {
-    font-size: 0.9rem;
-    font-weight: 800;
-    color: #1e3c5c;
-    letter-spacing: 1px;
-    margin-top: 8px;
-
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #1e3c5c;
+  letter-spacing: 1px;
+  margin-top: 8px;
 }
 
 .leaderboard-card {
-    display: flex;
-    justify-content: center;
-    margin: 20px auto;
+  display: flex;
+  justify-content: center;
+  margin: 20px auto;
 }
 
 .leaderboard-card .game-card {
-    transition: all 0.3s ease;
+  transition: all 0.3s ease;
 }
 
 .leaderboard-card .game-card:hover {
-    transform: translateY(-5px);
-    background: white;
-    box-shadow: 0 10px 20px rgba(201, 161, 59, 0.2);
+  transform: translateY(-5px);
+  background: white;
+  box-shadow: 0 10px 20px rgba(201, 161, 59, 0.2);
 }
-/* ============================================ */
-/* POPUP DE PONTUAÇÃO */
-/* ============================================ */
 
+/* ============================================ */
+/* 23. POPUP DE PONTUAÇÃO */
+/* ============================================ */
 .score-popup {
-    animation: floatUp 0.8s ease-out forwards;
-    pointer-events: none;
-    white-space: nowrap;
-    font-family: inherit;
+  animation: floatUp 0.8s ease-out forwards;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: inherit;
 }
 
 @keyframes floatUp {
-    0% {
-        opacity: 1;
-        transform: translate(-50%, -50%) scale(0.8);
-    }
-    100% {
-        opacity: 0;
-        transform: translate(-50%, -150%) scale(1.2);
-    }
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -150%) scale(1.2);
+  }
 }
 
 /* ============================================ */
-/* TELA DE CATEGORIAS (NUMBERS / WORDS) */
+/* 24. TELA DE CATEGORIAS (NUMBERS / WORDS) */
 /* ============================================ */
-
 #category-container .category-buttons {
-    display: flex;
-    flex-direction: column;
-    gap: 25px;
-    margin: 30px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+  margin: 30px 0;
 }
 
 #category-container .category-card {
-    background: #f8fafc;
-    border: 3px solid #c9a13b;
-    border-radius: 20px;
-    padding: 25px 20px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.3s ease;
+  background: #f8fafc;
+  border: 3px solid #c9a13b;
+  border-radius: 20px;
+  padding: 25px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
 }
 
 #category-container .category-card:hover {
-    transform: translateY(-5px);
-    background: white;
-    box-shadow: 0 10px 20px rgba(201, 161, 59, 0.2);
+  transform: translateY(-5px);
+  background: white;
+  box-shadow: 0 10px 20px rgba(201, 161, 59, 0.2);
 }
 
 #category-container .category-card:active {
-    transform: translateY(-2px);
+  transform: translateY(-2px);
 }
 
 #category-container .category-icon {
-    font-size: 3.5rem;
-    margin-bottom: 12px;
+  font-size: 3.5rem;
+  margin-bottom: 12px;
 }
 
 #category-container .category-card h2 {
-    color: #1e3c5c;
-    font-size: 1.5rem;
-    margin-bottom: 8px;
-    font-weight: 700;
+  color: #1e3c5c;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+  font-weight: 700;
 }
 
 #category-container .category-card p {
-    color: #7f8c8d;
-    font-size: 0.85rem;
-    margin-bottom: 12px;
+  color: #7f8c8d;
+  font-size: 0.85rem;
+  margin-bottom: 12px;
 }
 
 #category-container .category-badge {
-    display: inline-block;
-    background: #c9a13b;
-    color: white;
-    padding: 5px 15px;
-    border-radius: 30px;
-    font-size: 0.75rem;
-    font-weight: bold;
+  display: inline-block;
+  background: #c9a13b;
+  color: white;
+  padding: 5px 15px;
+  border-radius: 30px;
+  font-size: 0.75rem;
+  font-weight: bold;
 }
 
 /* Botão de voltar */
 #back-to-category-btn {
-    background: #f8fafc;
-    border: 2px solid #c9a13b;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    font-size: 1.2rem;
-    cursor: pointer;
-    color: #c9a13b;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
+  background: #f8fafc;
+  border: 2px solid #c9a13b;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #c9a13b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
 }
 
 #back-to-category-btn:hover {
-    background: #f8f4ec;
-    transform: scale(1.1);
+  background: #f8f4ec;
+  transform: scale(1.1);
 }
 
 /* Responsivo */
 @media (max-width: 500px) {
-    #category-container .category-card {
-        padding: 20px 15px;
-    }
-    #category-container .category-icon {
-        font-size: 2.8rem;
-    }
-    #category-container .category-card h2 {
-        font-size: 1.3rem;
-    }
-}
-
-/* ============================================ */
-/* JOGO DE VOCABULÁRIO - VOCABULARY MATCH */
-/* ============================================ */
-
-#vocab-game-container {
-    margin-top: 20px;
-}
-
-.vocab-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #c9a13b;
-}
-
-.vocab-header h2 {
-    color: #1e3c5c;
+  #category-container .category-card {
+    padding: 20px 15px;
+  }
+  #category-container .category-icon {
+    font-size: 2.8rem;
+  }
+  #category-container .category-card h2 {
     font-size: 1.3rem;
-}
-
-.vocab-stats {
-    background: #f8fafc;
-    padding: 5px 12px;
-    border-radius: 20px;
-    border: 1px solid #c9a13b;
-    font-weight: bold;
-    color: #1e3c5c;
-}
-
-.vocab-back-btn {
-    background: #f8fafc;
-    border: 2px solid #c9a13b;
-    border-radius: 25px;
-    padding: 5px 12px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    color: #1e3c5c;
-    transition: all 0.3s ease;
-}
-
-.vocab-back-btn:hover {
-    background: white;
-    transform: scale(1.02);
-}
-
-.vocab-game-area {
-    display: flex;
-    gap: 30px;
-    justify-content: center;
-    flex-wrap: wrap;
-}
-
-.vocab-column {
-    flex: 1;
-    min-width: 200px;
-    background: #f8fafc;
-    border-radius: 15px;
-    padding: 15px;
-    border: 2px solid #c9a13b;
-}
-
-.vocab-column h3 {
-    text-align: center;
-    color: #c9a13b;
-    margin-bottom: 15px;
-    font-size: 1.2rem;
-}
-
-.vocab-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.vocab-item {
-    background: white;
-    border: 2px solid #d1d9e6;
-    border-radius: 12px;
-    padding: 12px;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    font-weight: 500;
-    color: #1e3c5c;
-}
-
-.vocab-item:hover {
-    border-color: #c9a13b;
-    transform: scale(1.02);
-    background: #fff8f0;
-}
-
-.vocab-item.selected {
-    background: #c9a13b;
-    color: white;
-    border-color: #b38f32;
-    transform: scale(1.02);
-}
-
-.vocab-item.matched {
-    visibility: hidden;
-    display: none;
-}
-
-.vocab-message {
-    text-align: center;
-    margin-top: 20px;
-    padding: 10px;
-    border-radius: 10px;
-    font-weight: bold;
-}
-
-.vocab-message.success {
-    background: #dcfce7;
-    color: #166534;
-    border: 1px solid #22c55e;
-}
-
-.vocab-message.error {
-    background: #fee2e2;
-    color: #991b1b;
-    border: 1px solid #ef4444;
-}
-
-.vocab-message.win {
-    background: #c9a13b;
-    color: white;
-    font-size: 1.2rem;
-}
-
-/* Responsivo */
-@media (max-width: 600px) {
-    .vocab-game-area {
-        flex-direction: column;
-        gap: 20px;
-    }
-    
-    .vocab-column {
-        min-width: auto;
-    }
+  }
 }
 
 /* ============================================ */
-/* HEADER PADRONIZADO */
+/* 25. JOGO DE VOCABULÁRIO - VOCABULARY MATCH */
 /* ============================================ */
-
-.header-right {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+#vocab-game-container {
+  margin-top: 20px;
 }
 
-.header-buttons {
-    display: flex;
-    gap: 8px;
-}
-
-/* Vocabulário header */
 .vocab-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-    padding-bottom: 10px;
-    border-bottom: 2px solid #c9a13b;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #c9a13b;
 }
 
 .vocab-header-left {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .vocab-header-left h2 {
-    color: #1e3c5c;
-    font-size: 1.3rem;
-    margin: 0;
+  color: #1e3c5c;
+  font-size: 1.3rem;
+  margin: 0;
 }
 
 .vocab-header-right {
-    display: flex;
-    align-items: center;
-    gap: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
 }
 
 .vocab-stats {
-    background: #f8fafc;
-    padding: 5px 12px;
-    border-radius: 20px;
-    border: 1px solid #c9a13b;
-    font-weight: bold;
-    color: #1e3c5c;
+  background: #f8fafc;
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1px solid #c9a13b;
+  font-weight: bold;
+  color: #1e3c5c;
 }
 
-/* ESCONDE BOTÕES FORA DA TELA WORDS */
+.vocab-back-btn {
+  background: #f8fafc;
+  border: 2px solid #c9a13b;
+  border-radius: 25px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: #1e3c5c;
+  transition: all 0.3s ease;
+}
+
+.vocab-back-btn:hover {
+  background: white;
+  transform: scale(1.02);
+}
+
+/* SEM flex-wrap: nowrap para NUNCA quebrar */
+.vocab-game-area {
+  display: flex;
+  gap: 30px;
+  justify-content: center;
+  flex-wrap: nowrap !important;
+}
+
+.vocab-column {
+  flex: 1;
+  min-width: 0;
+  background: #f8fafc;
+  border-radius: 15px;
+  padding: 15px;
+  border: 2px solid #c9a13b;
+}
+
+.vocab-column h3 {
+  text-align: center;
+  color: #c9a13b;
+  margin-bottom: 15px;
+  font-size: 1.2rem;
+}
+
+.vocab-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.vocab-item {
+  background: white;
+  border: 2px solid #d1d9e6;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  color: #1e3c5c;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.vocab-item:hover {
+  border-color: #c9a13b;
+  transform: scale(1.02);
+  background: #fff8f0;
+}
+
+.vocab-item.selected {
+  background: #c9a13b;
+  color: white;
+  border-color: #b38f32;
+  transform: scale(1.02);
+}
+
+.vocab-item.matched {
+  display: none;
+}
+
+.vocab-message {
+  text-align: center;
+  margin-top: 20px;
+  padding: 10px;
+  border-radius: 10px;
+  font-weight: bold;
+}
+
+.vocab-message.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #22c55e;
+}
+
+.vocab-message.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #ef4444;
+}
+
+.vocab-message.win {
+  background: #c9a13b;
+  color: white;
+  font-size: 1.2rem;
+}
+
+/* ============================================ */
+/* 26. HEADER PADRONIZADO */
+/* ============================================ */
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.header-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+/* ============================================ */
+/* 27. DRAG AND DROP (MOBILE) */
+/* ============================================ */
+body.dragging {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
+.portuguese-item.drag-over {
+  background: #c9a13b !important;
+  color: white !important;
+  border-color: #b38f32 !important;
+  transform: scale(1.02);
+  transition: all 0.1s ease;
+}
+
+/* ============================================ */
+/* 28. ESCONDE BOTÕES FORA DA TELA WORDS */
+/* ============================================ */
 body:not([data-screen="words"]) [data-words-only="true"] {
   display: none !important;
 }
 
-/* Feedback visual para drag and drop no mobile */
-.portuguese-item.drag-over {
-    background: #c9a13b !important;
-    color: white !important;
-    border-color: #b38f32 !important;
-    transform: scale(1.02);
-    transition: all 0.1s ease;
+/* ============================================ */
+/* MOBILE - JOGO DE VOCABULÁRIO */
+/* ============================================ */
+
+/* Para tablets e celulares maiores (768px ou menos) */
+@media (max-width: 770px) {
+    /* Força as colunas ficarem lado a lado */
+    .vocab-game-area {
+        flex-direction: row !important;
+        gap: 10px !important;
+    }
+    
+    .vocab-column {
+  flex: 1;
+  min-width: 0;  /* ← PERMITE ENCOLHER */
+    
+    .vocab-column h3 {
+        font-size: 0.9rem !important;
+        margin-bottom: 8px !important;
+    }
+    
+    .vocab-item {
+        padding: 6px 8px !important;
+        font-size: 0.75rem !important;
+        border-radius: 8px !important;
+    }
+    
+    .vocab-list {
+        gap: 6px !important;
+        min-height: auto !important;
+    }
+    
+    .vocab-header-left h2 {
+        font-size: 1rem !important;
+    }
+    
+    .vocab-stats {
+        padding: 3px 8px !important;
+        font-size: 0.7rem !important;
+    }
+    
+    .menu-btn {
+        width: 30px !important;
+        height: 30px !important;
+        font-size: 0.9rem !important;
+    }
 }
 
-/* Desabilita seleção de texto durante o drag */
-.vocab-item {
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
+
+/* ============================================ */
+/* 29. TELAS MUITO PEQUENAS (iPhone SE, 375px) */
+/* ============================================ */
+
+@media (max-width: 400px) {
+    /* Reduz padding do body */
+    body {
+        padding: 8px !important;
+    }
+    
+    /* Container principal mais compacto */
+    .game-container {
+        padding: 10px !important;
+    }
+    
+    /* Título menor */
+    .title-section h1 {
+        font-size: 16px !important;
+    }
+    
+    .title-section .highlight {
+        font-size: 20px !important;
+    }
+    
+    .title-section .subtitle {
+        font-size: 8px !important;
+    }
+    
+    /* Botões de menu menores */
+    .menu-btn, .speaker-btn {
+        width: 28px !important;
+        height: 28px !important;
+        font-size: 12px !important;
+    }
+    
+    /* Nome do usuário menor */
+    .user-name {
+        font-size: 0.65rem !important;
+        padding: 0.2rem 0.5rem !important;
+    }
+    
+    /* Botões de categoria (NUMBERS e WORDS) */
+    #category-container .category-card {
+        padding: 12px 8px !important;
+    }
+    
+    #category-container .category-icon {
+        font-size: 2rem !important;
+    }
+    
+    #category-container .category-card h2 {
+        font-size: 1rem !important;
+    }
+    
+    #category-container .category-card p {
+        font-size: 0.65rem !important;
+    }
+    
+    .category-badge {
+        font-size: 0.6rem !important;
+        padding: 2px 8px !important;
+    }
+    
+    /* Jogo de vocabulário */
+    .vocab-header-left h2 {
+        font-size: 0.85rem !important;
+    }
+    
+    .vocab-stats {
+        font-size: 0.6rem !important;
+        padding: 2px 5px !important;
+    }
+    
+    .vocab-column h3 {
+        font-size: 0.75rem !important;
+    }
+    
+    .vocab-item {
+        padding: 5px !important;
+        font-size: 0.65rem !important;
+    }
+    
+    /* Águia */
+    .eagle-menu-icon img {
+        width: 80px !important;
+        height: 60px !important;
+    }
+    
+    .menu-title {
+        font-size: 16px !important;
+        margin: 8px 0 !important;
+    }
+    
+    /* Cards */
+    .game-card {
+        padding: 8px !important;
+    }
+    
+    .game-card h3 {
+        font-size: 12px !important;
+    }
+    
+    .game-card p {
+        font-size: 9px !important;
+    }
+    
+    .card-icon {
+        font-size: 24px !important;
+    }
+    
+    /* Jogo de números */
+    .platform {
+        font-size: 18px !important;
+        min-height: 40px !important;
+    }
+    
+    .word-box {
+        font-size: 16px !important;
+        padding: 6px !important;
+        min-height: 45px !important;
+    }
+    
+    .start-btn {
+        font-size: 16px !important;
+        padding: 6px !important;
+    }
+    
+    .stats {
+        padding: 6px !important;
+    }
+    
+    /* Rodapé */
+    .menu-footer, .ebook-credit {
+        font-size: 8px !important;
+        margin-top: 8px !important;
+    }
 }

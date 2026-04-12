@@ -1,4 +1,42 @@
 // ============================================
+// CONFIGURAÇÃO ESPECIAL PARA MOBILE
+// ============================================
+
+// Detecta se é mobile
+const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// Força modo guest em mobile se houver erro (fallback)
+if (isMobileDevice && window.location.protocol === 'file:') {
+    console.log('📱 Mobile detectado em file:// - usando modo guest automático');
+    
+    window.forceGuestMode = true;
+    window.isGuest = true;
+    window.currentUserName = 'Guest';
+    
+    window.addEventListener('DOMContentLoaded', () => {
+        // FORÇA REMOÇÃO DO LOGIN
+        const authContainer = document.getElementById('auth-container');
+        const categoryContainer = document.getElementById('category-container');
+        
+        if (authContainer) {
+            authContainer.style.display = 'none';
+        }
+        
+        if (categoryContainer) {
+            categoryContainer.style.display = 'block';
+        }
+        
+        // FORÇA O DATA-SCREEN NO BODY PARA O CSS FUNCIONAR
+        document.body.setAttribute('data-screen', 'categories');
+        
+        if (typeof updateAllUserNames === 'function') {
+            updateAllUserNames('Guest');
+        }
+    });
+}
+
+
+// ============================================
 // FIREBASE CONFIGURAÇÃO
 // ============================================
 
@@ -119,11 +157,28 @@ function logout() {
 // EVENTOS DE AUTENTICAÇÃO
 // ============================================
 
+// ============================================
+// EVENTOS DE AUTENTICAÇÃO
+// ============================================
+
 auth.onAuthStateChanged((user) => {
     console.log("Auth state changed:", user ? "User logged in" : "No user");
     
+    // 🔥 Se for modo guest forçado (mobile local), ignora completamente
+    if (window.forceGuestMode === true) {
+        console.log("🔒 forceGuestMode ativo - ignorando onAuthStateChanged");
+        return;
+    }
+    
     if (isGuest) {
         console.log("Guest mode active, ignoring auth change");
+        return;
+    }
+    
+    // 🔥 Se já está na tela de categorias como guest, não faz nada
+    const categoryContainer = document.getElementById('category-container');
+    if (window.isGuest === true && categoryContainer && categoryContainer.style.display === 'block') {
+        console.log("👤 Guest já logado, mantendo tela atual");
         return;
     }
     
@@ -135,25 +190,18 @@ auth.onAuthStateChanged((user) => {
         
         db.collection('users').doc(user.uid).get()
             .then((doc) => {
-
                 if (doc.exists) {
-    currentUserName = doc.data().name;
-    window.currentUserName = currentUserName;
-    console.log('📛 Nome do Firestore:', currentUserName);
-    
-    // FORÇAR ATUALIZAÇÃO EM TODAS AS TELAS
-    updateAllUserNames(currentUserName);
-    
-} else {
-    currentUserName = user.email.split('@')[0];
-    window.currentUserName = currentUserName;
-    console.log('📛 Nome do email (fallback):', currentUserName);
-    updateAllUserNames(currentUserName);
-}
+                    currentUserName = doc.data().name;
+                    window.currentUserName = currentUserName;
+                    console.log('📛 Nome do Firestore:', currentUserName);
+                    updateAllUserNames(currentUserName);
+                } else {
+                    currentUserName = user.email.split('@')[0];
+                    window.currentUserName = currentUserName;
+                    console.log('📛 Nome do email (fallback):', currentUserName);
+                    updateAllUserNames(currentUserName);
+                }
                 
-                updateAllUserNames(currentUserName);
-                
-                // USAR A MESMA LÓGICA DO GUEST
                 const authContainer = document.getElementById('auth-container');
                 const categoryContainer = document.getElementById('category-container');
                 const categoryButtons = document.querySelector('.category-buttons');
@@ -180,13 +228,12 @@ auth.onAuthStateChanged((user) => {
                 if (typeof updateGameUserName === 'function') updateGameUserName();
             });
     } else {
-        if (!isGuest) {
+        if (!isGuest && !window.forceGuestMode) {
             currentUser = null;
             showLoginScreen();
         }
     }
 });
-
 
 // ============================================
 // INICIALIZAR EVENTOS DA TELA DE LOGIN
