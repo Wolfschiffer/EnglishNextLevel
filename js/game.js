@@ -714,6 +714,8 @@ function playAudio() {
     });
 }
 
+
+
 // ============================================
 // 9. FUNÇÕES DO LEADERBOARD
 // ============================================
@@ -1349,6 +1351,115 @@ function toggleAudio() {
     if (DOM.speakerToggle) DOM.speakerToggle.textContent = isAudioMuted ? '🔇' : '🔊';
 }
 
+
+// ============================================
+// ÁUDIO DO JOGO VERBS
+// ============================================
+
+// Mapa para casos especiais de TRADUÇÃO (português)
+const TRANSLATION_AUDIO_MAP = {
+    "ser / estar": "ser_estar",
+    "contar / dizer": "contar_dizer",
+    "conseguir / obter": "conseguir_obter",
+    "fazer / criar": "fazer_criar",
+    "saber / conhecer": "saber_conhecer",
+    "pegar / levar": "pegar_levar",
+    "deixar / sair": "deixar_sair",
+    "chamar / ligar": "chamar_ligar",
+    "deixar / permitir": "deixar_permitir",
+    "conversar / falar": "conversar_falar",
+    "viver / morar": "viver_morar",
+    "ficar / permanecer": "ficar_permanecer",
+    "encontrar / conhecer": "encontrar_conhecer",
+    "definir / colocar": "definir_colocar",
+    "assistir / observar": "assistir_observar",
+    "ganhar / vencer": "ganhar_vencer",
+    "esperar / aguardar": "esperar_aguardar",
+    "levantar / aumentar": "levantar_aumentar",
+    "esperar / ter esperança": "esperar_ter_esperanca",
+    "carregar / levar": "carregar_levar"
+};
+
+// Mapa para casos especiais de PAST TENSE (inglês passado)
+const PAST_AUDIO_MAP = {
+    "read": "read_past",
+    "was / were": "was_were"
+};
+
+let verbsAudioPlayer = null;
+
+function normalizeAudioFileName(text) {
+    // Remove acentos usando normalização Unicode
+    const semAcentos = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    
+    return semAcentos.toLowerCase()
+        .replace(/[ /-]/g, '_')
+        .replace(/[^a-z_]/g, '');
+}
+
+function playVerbAudio(text, context) {
+    if (isAudioMuted) return;
+    if (!text) return;
+    
+    let fileName = null;
+    
+    if (context === 'english') {
+        fileName = normalizeAudioFileName(text);
+    } 
+    else if (context === 'translation') {
+        fileName = TRANSLATION_AUDIO_MAP[text] || normalizeAudioFileName(text);
+    }
+    else if (context === 'past') {
+        fileName = PAST_AUDIO_MAP[text] || normalizeAudioFileName(text);
+    }
+    
+    if (!fileName) return;
+    
+    const audioPath = `audio/${fileName}.mp3`;
+    
+    if (verbsAudioPlayer) {
+        verbsAudioPlayer.pause();
+        verbsAudioPlayer.currentTime = 0;
+    }
+    
+    verbsAudioPlayer = new Audio(audioPath);
+    verbsAudioPlayer.play().catch(err => {
+        console.warn(`🔊 Áudio não encontrado: ${audioPath}`);
+    });
+}
+
+// Função para criar botão de áudio com proteção contra drag
+// Função para criar botão de áudio com proteção MINIMAL contra drag
+function createAudioButton(text, context, position = 'left') {
+    const btn = document.createElement('button');
+    btn.className = `vocab-audio-btn ${position}`;
+    btn.setAttribute('aria-label', `Ouvir ${text}`);
+    btn.setAttribute('draggable', 'false');
+    
+    // SVG icon profissional (alto-falante)
+    btn.innerHTML = `
+        <svg viewBox="0 0 24 24" width="16" height="16">
+            <path d="M3 9v6h4l5 5V4L7 9H3z" stroke="currentColor" fill="none" stroke-width="2"/>
+            <path d="M16 8a5 5 0 0 1 0 8" stroke="currentColor" fill="none" stroke-width="2"/>
+            <path d="M19 5a9 9 0 0 1 0 14" stroke="currentColor" fill="none" stroke-width="2"/>
+        </svg>
+    `;
+    
+    btn.addEventListener('dragstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+    });
+    
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        playVerbAudio(text, context);
+    });
+    
+    return btn;
+}
+
+
 // ============================================
 // 12. SELEÇÃO DE JOGO
 // ============================================
@@ -1484,6 +1595,7 @@ const vocabularyData = [
 let currentEnglishWords = [];
 let currentPortugueseWords = [];
 let matchesCount = 0;
+let currentVerbGameType = 'present';
 
 const englishList = document.getElementById('english-words-list');
 const portugueseList = document.getElementById('portuguese-words-list');
@@ -1499,11 +1611,13 @@ function shuffleArray(array) {
     return array;
 }
 
-function startVocabularyGame(vocabularyDataParam = null) {
+function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     console.log("🎮 Iniciando jogo de vocabulário");
     
     // Usar dados específicos do jogo ou o padrão
     const activeData = vocabularyDataParam || vocabularyDataVerbs1;
+    
+    console.log(`📊 Tipo de jogo: ${gameType}`);
     console.log(`📊 Usando ${activeData.length} verbos para este jogo`);
     
     currentEnglishWords = activeData.map(item => ({
@@ -1520,9 +1634,12 @@ function startVocabularyGame(vocabularyDataParam = null) {
     if (vocabMatchesSpan) vocabMatchesSpan.textContent = matchesCount;
     if (vocabTotalSpan) vocabTotalSpan.textContent = activeData.length;
     
+    // Armazena o tipo do jogo para uso na renderização dos áudios
+    currentVerbGameType = gameType;
+    
     renderVocabularyLists();
     if (vocabMessage) vocabMessage.innerHTML = '';
-currentScreen = SCREENS.WORDS_GAME;
+    currentScreen = SCREENS.WORDS_GAME;
 }
 
 
@@ -1530,14 +1647,18 @@ currentScreen = SCREENS.WORDS_GAME;
 // DRAG AND DROP PARA DESKTOP (REORGANIZAR)
 // ============================================
 
-let draggedItem = null;
+let draggedElement = null;
 let draggedIndex = null;
 
 function handleDragStart(e) {
-    draggedElement = e.target;  // ← mudou de draggedItem para draggedElement
+    draggedElement = e.target.closest('.english-item');
+    if (!draggedElement) return;
+    
     draggedIndex = parseInt(draggedElement.getAttribute('data-index'));
-    e.target.style.opacity = '0.5';
-    e.dataTransfer.setData('text/plain', '');
+    draggedElement.style.opacity = '0.5';
+    
+    const englishId = draggedElement.getAttribute('data-id');
+    e.dataTransfer.setData('text/plain', englishId);
     e.dataTransfer.effectAllowed = 'move';
 }
 
@@ -1564,45 +1685,55 @@ function handleDragOver(e) {
 
 function handleDrop(e) {
     e.preventDefault();
-    const target = e.target.closest('.english-item');
-    if (!target || draggedElement === null || draggedIndex === null) return;
-    if (target.classList.contains('locked')) return;
     
-    const targetIndex = parseInt(target.getAttribute('data-index'));
-    if (isNaN(targetIndex) || draggedIndex === targetIndex) return;
-    
-    const activeEnglish = currentEnglishWords.filter(item => !item.locked);
-    
-    let realDraggedIndex = -1;
-    let realTargetIndex = -1;
-    let filteredIndex = 0;
-    for (let i = 0; i < currentEnglishWords.length; i++) {
-        if (!currentEnglishWords[i].locked) {
-            if (i === draggedIndex) realDraggedIndex = filteredIndex;
-            if (i === targetIndex) realTargetIndex = filteredIndex;
-            filteredIndex++;
-        }
+    if (!draggedElement || draggedElement.classList.contains('locked')) {
+        if (draggedElement) draggedElement.style.opacity = '1';
+        draggedElement = null;
+        draggedIndex = null;
+        return;
     }
     
-    if (realDraggedIndex === -1 || realTargetIndex === -1) return;
+    let targetPortuguese = e.target.closest('.portuguese-item');
     
-    const [movedItem] = activeEnglish.splice(realDraggedIndex, 1);
-    activeEnglish.splice(realTargetIndex, 0, movedItem);
-    
-    let activePos = 0;
-    for (let i = 0; i < currentEnglishWords.length; i++) {
-        if (!currentEnglishWords[i].locked) {
-            currentEnglishWords[i] = activeEnglish[activePos];
-            activePos++;
-        }
+    if (!targetPortuguese) {
+        if (draggedElement) draggedElement.style.opacity = '1';
+        draggedElement = null;
+        draggedIndex = null;
+        return;
     }
     
-    renderVocabularyLists();
-    checkAndLockMatches();
+    if (targetPortuguese.classList.contains('locked')) {
+        if (draggedElement) draggedElement.style.opacity = '1';
+        draggedElement = null;
+        draggedIndex = null;
+        return;
+    }
+    
+    const englishId = parseInt(draggedElement.getAttribute('data-id'));
+    const portugueseId = parseInt(targetPortuguese.getAttribute('data-id'));
+    
+    if (englishId === portugueseId) {
+        lockAndMoveToTop(englishId, portugueseId);
+        showVocabMessage('✓ Correct match!', 'success');
+        renderVocabularyLists();
+        
+        if (matchesCount === currentEnglishWords.length) {
+            showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
+        }
+    } else {
+        showVocabMessage('✗ Wrong match! Try again!', 'error');
+    }
+    
+    if (draggedElement) draggedElement.style.opacity = '1';
+    
+    document.querySelectorAll('.english-item').forEach(item => {
+        item.classList.remove('drag-over');
+    });
     
     draggedElement = null;
     draggedIndex = null;
 }
+
 
 // ============================================
 // MOSTRA MENSAGEM NO JOGO DE VOCABULÁRIO
@@ -1651,6 +1782,40 @@ function checkAndLockMatches() {
     }
 }
 
+// ============================================
+// TRAVA O PAR E MOVE PARA O TOPO (MANTENDO ORDEM)
+// ============================================
+
+function lockAndMoveToTop(englishId, portugueseId) {
+    // Encontra os índices dos itens
+    const englishIndex = currentEnglishWords.findIndex(item => item.id === englishId && !item.locked);
+    const portugueseIndex = currentPortugueseWords.findIndex(item => item.id === portugueseId && !item.locked);
+    
+    if (englishIndex === -1 || portugueseIndex === -1) return false;
+    
+    // Trava os itens
+    currentEnglishWords[englishIndex].locked = true;
+    currentPortugueseWords[portugueseIndex].locked = true;
+    
+    // Remove o par da posição atual
+    const [movedEnglish] = currentEnglishWords.splice(englishIndex, 1);
+    const [movedPortuguese] = currentPortugueseWords.splice(portugueseIndex, 1);
+    
+    // Conta quantos itens já estão locked (para inserir após eles)
+    const lockedCount = currentEnglishWords.filter(item => item.locked).length;
+    
+    // Insere o novo par na posição correta (após os locked existentes)
+    // Se lockedCount = 0, insere na posição 0
+    // Se lockedCount = 1, insere na posição 1
+    // Se lockedCount = 2, insere na posição 2, etc.
+    currentEnglishWords.splice(lockedCount, 0, movedEnglish);
+    currentPortugueseWords.splice(lockedCount, 0, movedPortuguese);
+    
+    matchesCount++;
+    if (vocabMatchesSpan) vocabMatchesSpan.textContent = matchesCount;
+    
+    return true;
+}
 
 // ============================================
 // RENDERIZA AS LISTAS (SUA VERSÃO)
@@ -1659,13 +1824,22 @@ function checkAndLockMatches() {
 function renderVocabularyLists() {
     if (!englishList || !portugueseList) return;
     
-    console.log('Renderizando listas...');
-    console.log('English words:', currentEnglishWords);
-    console.log('Portuguese words:', currentPortugueseWords);
+    // Ordena: locked primeiro, depois unlocked
+    const lockedEnglish = currentEnglishWords.filter(item => item.locked);
+    const unlockedEnglish = currentEnglishWords.filter(item => !item.locked);
+    const sortedEnglish = [...lockedEnglish, ...unlockedEnglish];
     
+    const lockedPortuguese = currentPortugueseWords.filter(item => item.locked);
+    const unlockedPortuguese = currentPortugueseWords.filter(item => !item.locked);
+    const sortedPortuguese = [...lockedPortuguese, ...unlockedPortuguese];
+    
+    // ============================================
+    // COLUNA INGLESA (ESQUERDA)
+    // ============================================
     englishList.innerHTML = '';
-    currentEnglishWords.forEach((item, idx) => {
+    sortedEnglish.forEach((item, idx) => {
         const div = document.createElement('div');
+        
         if (item.locked) {
             div.className = 'vocab-item english-item locked';
             div.setAttribute('draggable', 'false');
@@ -1684,23 +1858,62 @@ function renderVocabularyLists() {
             div.addEventListener('touchmove', handleTouchMove, { passive: false });
             div.addEventListener('touchend', handleTouchEnd);
         }
-        div.textContent = item.text || item.english || item.word || '?';
+        
+        // Texto do item (sempre presente)
+        const textSpan = document.createElement('span');
+        textSpan.className = 'vocab-text';
+        textSpan.textContent = item.text || item.english || item.word || '?';
+        div.appendChild(textSpan);
+        
+        // 🔥 BOTÃO DE ÁUDIO: APENAS SE LOCKED
+        // ESQUERDA: texto + botão à direita
+        if (item.locked) {
+            const audioBtn = createAudioButton(item.text, 'english', 'right');
+            div.appendChild(audioBtn);
+        }
+        
         englishList.appendChild(div);
     });
     
+    // ============================================
+    // COLUNA PORTUGUESA (DIREITA)
+    // ============================================
     portugueseList.innerHTML = '';
-    currentPortugueseWords.forEach((item) => {
+    sortedPortuguese.forEach((item, idx) => {
         const div = document.createElement('div');
+        
         if (item.locked) {
             div.className = 'vocab-item portuguese-item locked';
         } else {
             div.className = 'vocab-item portuguese-item';
             div.setAttribute('data-id', item.id);
+            
+            div.setAttribute('draggable', 'false');
+            div.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+            div.addEventListener('drop', handleDrop);
         }
-        div.textContent = item.text || item.portuguese || item.translation || '?';
+        
+        // 🔥 BOTÃO DE ÁUDIO: APENAS SE LOCKED
+        // DIREITA: botão à esquerda + texto
+        if (item.locked) {
+            const context = currentVerbGameType === 'past' ? 'past' : 'translation';
+            const audioBtn = createAudioButton(item.text, context, 'left');
+            div.appendChild(audioBtn);
+        }
+        
+        // Texto do item (sempre presente)
+        const textSpan = document.createElement('span');
+        textSpan.className = 'vocab-text';
+        textSpan.textContent = item.text || item.portuguese || item.translation || '?';
+        div.appendChild(textSpan);
+        
         portugueseList.appendChild(div);
     });
     
+    // Limpa estilos visuais
     document.querySelectorAll('.english-item').forEach(item => {
         item.classList.remove('drag-over', 'dragging-source');
         item.style.opacity = '';
@@ -1709,6 +1922,8 @@ function renderVocabularyLists() {
         item.style.color = '';
     });
 }
+
+
 // ============================================
 // SUPORTE A TOQUE (MOBILE) - MESMO COMPORTAMENTO DO DESKTOP
 // ============================================
@@ -1829,54 +2044,57 @@ function handleTouchEnd(e) {
         touchClone = null;
     }
     
-    // Encontra o alvo abaixo do dedo
+    // Se o elemento fonte está locked, cancela
+    if (touchSourceElement && touchSourceElement.classList.contains('locked')) {
+        touchActive = false;
+        touchSourceElement = null;
+        touchSourceIndex = null;
+        document.body.classList.remove('dragging');
+        return;
+    }
+    
+    // Encontra o alvo abaixo do dedo (prioriza português)
     const elemUnderTouch = document.elementsFromPoint(touchEndX, touchEndY);
-    let targetItem = null;
+    let targetPortuguese = null;
     
     for (let elem of elemUnderTouch) {
-        if (elem.classList && elem.classList.contains('english-item') && !elem.classList.contains('locked')) {
-            targetItem = elem;
+        if (elem.classList && elem.classList.contains('portuguese-item') && !elem.classList.contains('locked')) {
+            targetPortuguese = elem;
             break;
         }
     }
     
-    // Se encontrou um alvo diferente, reorganiza (comportamento igual ao desktop)
-    if (targetItem && touchSourceIndex !== null) {
-        const targetIndex = parseInt(targetItem.getAttribute('data-index'));
+    // Se não caiu em português, cancela
+    if (!targetPortuguese || !touchSourceElement) {
+        // Limpa estilos
+        document.querySelectorAll('.english-item').forEach(item => {
+            item.classList.remove('drag-over', 'dragging-source');
+            item.style.opacity = '';
+            item.style.transform = '';
+            item.style.backgroundColor = '';
+            item.style.color = '';
+        });
+        touchActive = false;
+        touchSourceElement = null;
+        touchSourceIndex = null;
+        document.body.classList.remove('dragging');
+        return;
+    }
+    
+    const englishId = parseInt(touchSourceElement.getAttribute('data-id'));
+    const portugueseId = parseInt(targetPortuguese.getAttribute('data-id'));
+    
+    if (englishId === portugueseId) {
+        // Match correto!
+        lockAndMoveToTop(englishId, portugueseId);
+        showVocabMessage('✓ Correct match!', 'success');
+        renderVocabularyLists();
         
-        if (touchSourceIndex !== targetIndex) {
-            // Reorganiza a lista (mesmo comportamento do desktop)
-            const activeEnglish = currentEnglishWords.filter(item => !item.locked);
-            
-            let realSourceIndex = -1;
-            let realTargetIndex = -1;
-            let filteredIndex = 0;
-            
-            for (let i = 0; i < currentEnglishWords.length; i++) {
-                if (!currentEnglishWords[i].locked) {
-                    if (i === touchSourceIndex) realSourceIndex = filteredIndex;
-                    if (i === targetIndex) realTargetIndex = filteredIndex;
-                    filteredIndex++;
-                }
-            }
-            
-            if (realSourceIndex !== -1 && realTargetIndex !== -1) {
-                const [movedItem] = activeEnglish.splice(realSourceIndex, 1);
-                activeEnglish.splice(realTargetIndex, 0, movedItem);
-                
-                let activePos = 0;
-                for (let i = 0; i < currentEnglishWords.length; i++) {
-                    if (!currentEnglishWords[i].locked) {
-                        currentEnglishWords[i] = activeEnglish[activePos];
-                        activePos++;
-                    }
-                }
-                
-                // Re-renderiza e verifica matches
-                renderVocabularyLists();
-                checkAndLockMatches();
-            }
+        if (matchesCount === currentEnglishWords.length) {
+            showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
         }
+    } else {
+        showVocabMessage('✗ Wrong match! Try again!', 'error');
     }
     
     // Limpa todos os estilos visuais
@@ -1894,6 +2112,7 @@ function handleTouchEnd(e) {
     document.body.classList.remove('dragging');
 }
 
+
 // ============================================
 // MENU DE WORDS
 // ============================================
@@ -1907,34 +2126,34 @@ window.selectWordGame = function(gameType) {
     console.log(`📚 Word game selected: ${gameType}`);
     
     const gameDataMap = {
-    // Simple Verbs (presente)
-    'verbs1': vocabularyDataVerbs1,
-    'verbs2': vocabularyDataVerbs2,
-    'verbs3': vocabularyDataVerbs3,
-    'verbs4': vocabularyDataVerbs4,
-    'verbs5': vocabularyDataVerbs5,
-    'verbs6': vocabularyDataVerbs6,
-    'verbs7': vocabularyDataVerbs7,
-    'verbs8': vocabularyDataVerbs8,
-    'verbs9': vocabularyDataVerbs9,
-    'verbs10': vocabularyDataVerbs10,
+        // Simple Verbs (presente)
+        'verbs1': { data: vocabularyDataVerbs1, type: 'present' },
+        'verbs2': { data: vocabularyDataVerbs2, type: 'present' },
+        'verbs3': { data: vocabularyDataVerbs3, type: 'present' },
+        'verbs4': { data: vocabularyDataVerbs4, type: 'present' },
+        'verbs5': { data: vocabularyDataVerbs5, type: 'present' },
+        'verbs6': { data: vocabularyDataVerbs6, type: 'present' },
+        'verbs7': { data: vocabularyDataVerbs7, type: 'present' },
+        'verbs8': { data: vocabularyDataVerbs8, type: 'present' },
+        'verbs9': { data: vocabularyDataVerbs9, type: 'present' },
+        'verbs10': { data: vocabularyDataVerbs10, type: 'present' },
+        
+        // Simple Past
+        'past1': { data: vocabularyDataPast1, type: 'past' },
+        'past2': { data: vocabularyDataPast2, type: 'past' },
+        'past3': { data: vocabularyDataPast3, type: 'past' },
+        'past4': { data: vocabularyDataPast4, type: 'past' },
+        'past5': { data: vocabularyDataPast5, type: 'past' },
+        'past6': { data: vocabularyDataPast6, type: 'past' },
+        'past7': { data: vocabularyDataPast7, type: 'past' },
+        'past8': { data: vocabularyDataPast8, type: 'past' },
+        'past9': { data: vocabularyDataPast9, type: 'past' },
+        'past10': { data: vocabularyDataPast10, type: 'past' }
+    };
     
-    // Simple Past
-    'past1': vocabularyDataPast1,
-    'past2': vocabularyDataPast2,
-    'past3': vocabularyDataPast3,
-    'past4': vocabularyDataPast4,
-    'past5': vocabularyDataPast5,
-    'past6': vocabularyDataPast6,
-    'past7': vocabularyDataPast7,
-    'past8': vocabularyDataPast8,
-    'past9': vocabularyDataPast9,
-    'past10': vocabularyDataPast10
-};
+    const selected = gameDataMap[gameType];
     
-    const selectedData = gameDataMap[gameType];
-    
-    if (selectedData) {
+    if (selected) {
         // Garantir que o container pai está visível
         const categoryContainer = document.getElementById('category-container');
         if (categoryContainer) categoryContainer.style.display = 'block';
@@ -1959,8 +2178,8 @@ window.selectWordGame = function(gameType) {
         // Adicionar ao histórico
         navigateTo(SCREENS.WORDS_GAME);
         
-        // Iniciar o jogo
-        startVocabularyGame(selectedData);
+        // Iniciar o jogo com tipo explícito
+        startVocabularyGame(selected.data, selected.type);
     } else {
         alert(`Game "${gameType}" not found!`);
     }

@@ -1467,17 +1467,16 @@ body:not([data-screen="words"]) [data-words-only="true"] {
 /* MOBILE - JOGO DE VOCABULÁRIO */
 /* ============================================ */
 
-/* Para tablets e celulares maiores (768px ou menos) */
 @media (max-width: 770px) {
-    /* Força as colunas ficarem lado a lado */
     .vocab-game-area {
         flex-direction: row !important;
         gap: 10px !important;
     }
     
     .vocab-column {
-  flex: 1;
-  min-width: 0;  /* ← PERMITE ENCOLHER */
+        flex: 1;
+        min-width: 0;
+    }
     
     .vocab-column h3 {
         font-size: 0.9rem !important;
@@ -1510,6 +1509,7 @@ body:not([data-screen="words"]) [data-words-only="true"] {
         font-size: 0.9rem !important;
     }
 }
+
 
 
 /* ============================================ */
@@ -1668,4 +1668,124 @@ body.dragging {
     overflow: hidden;
     position: fixed;
     width: 100%;
+}
+
+/* ============================================ */
+/* BOTÕES DE ÁUDIO DO JOGO VERBS */
+/* ============================================ */
+
+.vocab-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+}
+
+.vocab-text {
+    flex: 1;
+    text-align: center;
+    font-size: 0.9rem;
+    min-width: 0;
+}
+
+/* Botão com estilo dourado igual ao restante da interface */
+.vocab-audio-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 2px solid #c9a13b;
+    background: #ffffff;
+    color: #111111;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s ease;
+    box-shadow: none;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    padding: 0;
+    font-size: 14px;
+    line-height: 1;
+}
+
+/* Se usar SVG */
+.vocab-audio-btn svg {
+    width: 16px;
+    height: 16px;
+    fill: none;
+    stroke: #111111;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.vocab-audio-btn:hover {
+    background: #f8f4ec;
+    border-color: #c9a13b;
+    transform: scale(1.05);
+    color: #111111;
+}
+
+.vocab-audio-btn:hover svg {
+    stroke: #111111;
+}
+
+.vocab-audio-btn:active {
+    transform: scale(0.98);
+}
+
+/* Locked continua dourado/branco/preto, sem verde */
+.vocab-item.locked .vocab-audio-btn {
+    background: #ffffff;
+    border-color: #c9a13b;
+    color: #111111;
+}
+
+.vocab-item.locked .vocab-audio-btn svg {
+    stroke: #111111;
+}
+
+.vocab-item.locked .vocab-audio-btn:hover {
+    background: #f8f4ec;
+    border-color: #c9a13b;
+}
+
+/* Ordem visual no meio das colunas */
+.english-item.locked .vocab-text {
+    order: 1;
+}
+
+.english-item.locked .vocab-audio-btn {
+    order: 2;
+    margin-left: 8px;
+}
+
+.portuguese-item.locked .vocab-audio-btn {
+    order: 1;
+    margin-right: 8px;
+}
+
+.portuguese-item.locked .vocab-text {
+    order: 2;
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+    .vocab-audio-btn {
+        width: 38px;
+        height: 38px;
+        font-size: 16px;
+    }
+
+    .vocab-audio-btn svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .vocab-text {
+        font-size: 0.8rem;
+    }
 }
