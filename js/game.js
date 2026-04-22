@@ -60,7 +60,6 @@ function showScreen(screen, options = {}) {
     }
     
     ScreenManager.setScreen(screen);
-    ScreenManager.setScreen(screen);
 
     console.log(`📱 Mostrando tela: ${screen}`);
     
@@ -200,10 +199,12 @@ function goBack() {
 }
 
 function startNumberGame(gameType) {
+    loadEagleSprites();
     navigateTo(SCREENS.NUMBERS_GAME);
     window.selectGame(gameType);
     updateGameUserName();
 }
+
 
 // Inicializar
 function initNavigation() {
@@ -517,48 +518,57 @@ const DOM = {
 
 let eagleImages = { idle: null, flap: [], celebrate: [], wrong: [] };
 let menuEagleImage = null;
+let eagleSpritesLoaded = false;
 
-function loadImages() {
-    console.log('Loading images...');
-    
+function loadMenuImages() {
+    console.log('Loading menu images...');
+
     eagleImages.idle = new Image();
     eagleImages.idle.src = 'images/flap_01.png';
     eagleImages.idle.onload = () => console.log('✅ Idle image loaded');
     eagleImages.idle.onerror = () => console.error('❌ Failed: images/flap_01.png');
-    
+
     menuEagleImage = new Image();
     menuEagleImage.src = 'images/flap_01.png';
 
     menuEagleImage.onload = () => {
-    // Menu de números (numbers-menu-container)
-    const menuEagle = document.querySelector('#numbers-menu-container .eagle-menu-icon');
-    if (menuEagle) {
-        menuEagle.innerHTML = '';
-        const img = document.createElement('img');
-        img.src = menuEagleImage.src;
-        img.style.width = '144px';
-        img.style.height = '120px';
-        img.style.objectFit = 'contain';
-        menuEagle.appendChild(img);
-    }
-    
-    // Menu de WORDS (words-menu-container)
-    const wordsEagle = document.querySelector('#words-menu-container .eagle-menu-icon');
-    if (wordsEagle) {
-        wordsEagle.innerHTML = '';
-        const img2 = document.createElement('img');
-        img2.src = menuEagleImage.src;
-        img2.style.width = '144px';
-        img2.style.height = '120px';
-        img2.style.objectFit = 'contain';
-        wordsEagle.appendChild(img2);
-    }
-    
-    console.log('✅ Menu eagle images loaded');
-};
+        const menuEagle = document.querySelector('#numbers-menu-container .eagle-menu-icon');
+        if (menuEagle) {
+            menuEagle.innerHTML = '';
+            const img = document.createElement('img');
+            img.src = menuEagleImage.src;
+            img.style.width = '144px';
+            img.style.height = '120px';
+            img.style.objectFit = 'contain';
+            menuEagle.appendChild(img);
+        }
+
+        const wordsEagle = document.querySelector('#words-menu-container .eagle-menu-icon');
+        if (wordsEagle) {
+            wordsEagle.innerHTML = '';
+            const img2 = document.createElement('img');
+            img2.src = menuEagleImage.src;
+            img2.style.width = '144px';
+            img2.style.height = '120px';
+            img2.style.objectFit = 'contain';
+            wordsEagle.appendChild(img2);
+        }
+
+        console.log('✅ Menu eagle images loaded');
+    };
 
     menuEagleImage.onerror = () => console.error('❌ Failed to load menu eagle');
-    
+}
+
+function loadEagleSprites() {
+    if (eagleSpritesLoaded) return;
+
+    console.log('Loading eagle sprites...');
+
+    eagleImages.flap = [];
+    eagleImages.celebrate = [];
+    eagleImages.wrong = [];
+
     for (let i = 1; i <= 18; i++) {
         const img = new Image();
         const num = i.toString().padStart(2, '0');
@@ -566,7 +576,7 @@ function loadImages() {
         img.onerror = () => console.error(`❌ Failed: images/flap_${num}.png`);
         eagleImages.flap.push(img);
     }
-    
+
     for (let i = 1; i <= 11; i++) {
         const img = new Image();
         const num = i.toString().padStart(2, '0');
@@ -574,7 +584,7 @@ function loadImages() {
         img.onerror = () => console.error(`❌ Failed: images/eagle_center_${num}.png`);
         eagleImages.celebrate.push(img);
     }
-    
+
     for (let i = 1; i <= 19; i++) {
         const img = new Image();
         const num = i.toString().padStart(2, '0');
@@ -582,9 +592,11 @@ function loadImages() {
         img.onerror = () => console.error(`❌ Failed: images/eagle_wrong_${num}.png`);
         eagleImages.wrong.push(img);
     }
-    
-    console.log('All images loading started...');
+
+    eagleSpritesLoaded = true;
+    console.log('✅ Eagle sprites loading started');
 }
+
 
 // ============================================
 // 7.5. SISTEMA DE PONTUAÇÃO
@@ -684,36 +696,64 @@ function showWrongPopup() {
 // 8. ÁUDIO
 // ============================================
 
-function playSound(type) { 
+const sfxCache = {};
+
+function playSound(type) {
     if (isAudioMuted) return;
-    const audio = new Audio(SOUND_EFFECTS[type]);
-    audio.play().catch(e => console.log('Sound error:', e));
+
+    const path = SOUND_EFFECTS[type];
+    if (!path) return;
+
+    if (!sfxCache[path]) {
+        const audio = new Audio(path);
+        audio.preload = 'auto';
+        sfxCache[path] = audio;
+    }
+
+    const playInstance = sfxCache[path].cloneNode();
+    playInstance.play().catch(e => console.log('Sound error:', e));
+}
+
+
+const numbersAudioCache = new Map();
+
+function getCachedNumberAudio(path) {
+    if (!numbersAudioCache.has(path)) {
+        const audio = new Audio(path);
+        audio.preload = 'auto';
+        numbersAudioCache.set(path, audio);
+    }
+    return numbersAudioCache.get(path);
 }
 
 function playAudio() {
     if (!currentNumber || isAudioMuted || !gameActive) return;
-    
-    if (audioPlayer) { 
-        audioPlayer.pause(); 
-        audioPlayer.currentTime = 0; 
-    }
-    
+
     let nomeArquivo = currentNumber.word.toLowerCase();
     nomeArquivo = nomeArquivo.replace(/ /g, '_').replace(/-/g, '_');
-    
-    console.log(`📁 Tentando: audio/${nomeArquivo}.mp3`);
-    
-    audioPlayer = new Audio(`audio/${nomeArquivo}.mp3`);
-    
-    audioPlayer.play().catch(err => {
-        console.log(`❌ Erro: ${nomeArquivo}.mp3 -`, err.message);
-        const nomeComEspaco = currentNumber.word.toLowerCase();
-        console.log(`📁 Tentando fallback: audio/${nomeComEspaco}.mp3`);
-        const fallbackAudio = new Audio(`audio/${nomeComEspaco}.mp3`);
-        fallbackAudio.play().catch(e => console.log(`❌ Fallback também falhou`));
-    });
-}
 
+    const mainPath = `audio/${nomeArquivo}.mp3`;
+    const cached = getCachedNumberAudio(mainPath);
+
+    if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+    }
+
+    const playInstance = cached.cloneNode();
+    playInstance.play().catch(err => {
+        console.log(`❌ Erro: ${nomeArquivo}.mp3 -`, err.message);
+
+        const nomeComEspaco = currentNumber.word.toLowerCase();
+        const fallbackPath = `audio/${nomeComEspaco}.mp3`;
+        const fallbackCached = getCachedNumberAudio(fallbackPath);
+        const fallbackInstance = fallbackCached.cloneNode();
+
+        fallbackInstance.play().catch(() => console.log('❌ Fallback também falhou'));
+    });
+
+    audioPlayer = playInstance;
+}
 
 
 // ============================================
@@ -1574,7 +1614,7 @@ function initGame() {
         DOM.canvas.height = 250;
     }
     
-    loadImages();
+    loadMenuImages();
     audioPlayer = new Audio();
 
 
@@ -1830,22 +1870,6 @@ function checkAndLockMatches() {
         if (vocabMatchesSpan) vocabMatchesSpan.textContent = matchesCount;
         showVocabMessage('✓ Correct match! Pair locked!', 'success');
         renderVocabularyLists();
-        
-        if (englishId === portugueseId) {
-    lockAndMoveToTop(englishId, portugueseId);
-    showVocabMessage('✓ Correct match!', 'success');
-    renderVocabularyLists();
-
-    if (matchesCount === currentEnglishWords.length) {
-        playSound('win');
-        showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
-    } else {
-        playSound('correct');
-    }
-} else {
-    playSound('wrong');
-    showVocabMessage('✗ Wrong match! Try again!', 'error');
-}
     }
 }
 
