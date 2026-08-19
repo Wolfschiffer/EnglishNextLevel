@@ -1642,3 +1642,36 @@
     gap: 7px;
   }
 }
+
+
+/* ============================================
+   GLOBAL AUDIO SETTINGS — TOPICS HEADER ALIGNMENT
+   ============================================ */
+.topic-match-screen .topic-match-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.topic-match-screen .topic-match-header-actions #topic-match-settings-btn,
+.topic-match-screen .topic-match-header-actions #back-from-topic-match {
+  position: static !important;
+  inset: auto !important;
+  margin: 0 !important;
+  flex: 0 0 auto;
+}
+
+/* With both Voice and SFX sliders, keep the Speak settings usable on short phones. */
+.topic-speak-settings-modal {
+  max-height: min(88vh, 620px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (max-width: 560px) {
+  .topic-match-screen .topic-match-header-actions {
+    gap: 7px;
+  }
+}
