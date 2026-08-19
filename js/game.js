@@ -481,7 +481,11 @@ function setWordsVoiceVolume(value) {
     wordsVoiceVolume = clampWordsSfxVolume(value);
     saveWordsVoiceVolume();
     updateWordsVoiceSettingsUI();
-    if (currentPlayingAudio) currentPlayingAudio.volume = wordsVoiceVolume / 100;
+
+    // SpeechSynthesisUtterance não permite alterar o volume de uma fala que já
+    // começou. Ao mutar, interrompemos imediatamente; a próxima reprodução usa
+    // o novo valor do slider.
+    if (wordsVoiceVolume === 0) EnglishSpeechEngine?.stop?.();
 }
 
 function openWordsSettings() {
@@ -983,8 +987,8 @@ const sfxCache = {};
 // MOTOR COMPARTILHADO DE VOZ (AMERICAN ENGLISH)
 // ============================================
 // A pronúncia falada deve usar um único caminho baseado na Web Speech API.
-// NUMBERS já usa este motor. WORDS será migrado em uma etapa separada para
-// manter o teste isolado, e TOPICS permanece congelado durante a estabilização.
+// NUMBERS e WORDS usam este mesmo motor. TOPICS permanece congelado
+// durante a estabilização, embora também use a Web Speech API.
 const EnglishSpeechEngine = (() => {
     const DEFAULT_LANG = 'en-US';
     const DEFAULT_RATE = 0.9;
@@ -1086,14 +1090,14 @@ const EnglishSpeechEngine = (() => {
     return { supported, getAmericanVoice, prime, speak, stop };
 })();
 
-// Exposto para que WORDS/TOPICS possam adotar o mesmo motor nas próximas etapas.
+// Exposto para os módulos que precisarem compartilhar a mesma voz/configuração.
 window.EnglishNextLevelSpeech = EnglishSpeechEngine;
 
 // ============================================
 // MOTOR DE ÁUDIO MOBILE PARA ARQUIVOS (SFX/WORDS LEGADO)
 // ============================================
-// Os SFX ainda usam arquivos. WORDS continua temporariamente no fluxo antigo
-// até sua migração de voz, para não misturar duas etapas de diagnóstico.
+// Os SFX ainda usam arquivos. A voz do NUMBERS e do WORDS já foi
+// migrada para speechSynthesis; este motor de arquivos fica apenas para SFX.
 let mobileAudioContext = null;
 const mobileAudioBufferCache = new Map();
 const mobileAudioActiveSources = { voice: null, sfx: null };
@@ -1251,12 +1255,10 @@ document.addEventListener('pointerdown', () => {
     if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
 }, { once: true, passive: true });
 
-// Players persistentes para WORDS. Em mobile, reutilizar o mesmo HTMLAudioElement
-// é mais confiável do que criar clones novos para cada reprodução.
+// Player persistente apenas para os SFX legados do WORDS. A voz das palavras
+// não usa mais arquivos de áudio; ela é gerada pelo EnglishSpeechEngine.
 const wordsSfxPlayer = new Audio();
-const wordsVoicePlayer = new Audio();
 wordsSfxPlayer.preload = 'auto';
-wordsVoicePlayer.preload = 'auto';
 
 const MOBILE_AUDIO_UNLOCK_SRC = 'data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
 let wordsMobileAudioPrimed = false;
@@ -1264,7 +1266,7 @@ let wordsMobileAudioPrimed = false;
 function primeWordsMobileAudio() {
     if (wordsMobileAudioPrimed) return;
 
-    const players = [wordsSfxPlayer, wordsVoicePlayer];
+    const players = [wordsSfxPlayer];
     players.forEach((player) => {
         try {
             player.pause();
@@ -1999,141 +2001,45 @@ function toggleAudio() {
 // ÁUDIO DO JOGO VERBS
 // ============================================
 
-// Mapa para casos especiais de TRADUÇÃO (português)
-const TRANSLATION_AUDIO_MAP = {
-    "ser / estar": "ser___estar",
-    "contar / dizer": "contar___dizer",
-    "conseguir / obter": "conseguir___obter",
-    "fazer / criar": "fazer___criar",
-    "saber / conhecer": "saber___conhecer",
-    "pegar / levar": "pegar___levar",
-    "deixar / sair": "deixar___sair",
-    "chamar / ligar": "chamar___ligar",
-    "deixar / permitir": "deixar___permitir",
-    "conversar / falar": "conversar___falar",
-    "viver / morar": "viver___morar",
-    "ficar / permanecer": "ficar___permanecer",
-    "encontrar / conhecer": "encontrar___conhecer",
-    "definir / colocar": "definir___colocar",
-    "assistir / observar": "assistir___observar",
-    "ganhar / vencer": "ganhar___vencer",
-    "esperar / aguardar": "esperar___aguardar",
-    "levantar / aumentar": "levantar___aumentar",
-    "esperar / ter esperança": "esperar___ter_esperanca",
-    "carregar / levar": "carregar___levar"
+// A pronúncia do WORDS agora usa o mesmo motor TTS do NUMBERS/TOPICS.
+// Não há dependência de audio/*.mp3 para Simple Verbs nem Past Tense.
+const WORDS_TTS_OVERRIDES = {
+    past: {
+        // O texto escrito continua "read", mas a grafia fonética "red" força
+        // a pronúncia correta do passado em mecanismos TTS sem contexto.
+        'read': 'red',
+        'was / were': 'was, were'
+    }
 };
 
-
-// Mapa para casos especiais de PAST TENSE (inglês passado)
-const PAST_AUDIO_MAP = {
-    "read": "read_past",
-    "was / were": "was_were"
-};
-
-function normalizeAudioFileName(text) {
-    const semAcentos = text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    
-    return semAcentos.toLowerCase()
-        .replace(/[ /-]/g, '_')
-        .replace(/[^a-z_]/g, '');
-}
-
-// ============================================
-// CACHE DE ÁUDIO DO VERBS (COM CLONE)
-// ============================================
-
-const verbsAudioCache = new Map();
-let currentPlayingAudio = null;
-
-function resolveAudioPath(text, context) {
-    if (!text) return null;
-    
-    let fileName = null;
-    
-    if (context === 'english') {
-        fileName = normalizeAudioFileName(text);
-    } else if (context === 'translation') {
-        fileName = TRANSLATION_AUDIO_MAP[text] || normalizeAudioFileName(text);
-    } else if (context === 'past') {
-        fileName = PAST_AUDIO_MAP[text] || normalizeAudioFileName(text);
-    }
-    
-    if (!fileName) return null;
-    return `audio/${fileName}.mp3`;
-}
-
-function ensureAudioInCache(audioPath) {
-    if (!audioPath) return null;
-    
-    if (verbsAudioCache.has(audioPath)) {
-        return verbsAudioCache.get(audioPath);
-    }
-    
-    const audio = new Audio(audioPath);
-    audio.preload = 'auto';
-    verbsAudioCache.set(audioPath, audio);
-    
-    console.log(`📦 Áudio adicionado ao cache: ${audioPath}`);
-    return audio;
+function getVerbSpeechText(text, context) {
+    const cleanText = String(text || '').trim();
+    if (!cleanText) return '';
+    return WORDS_TTS_OVERRIDES[context]?.[cleanText] || cleanText;
 }
 
 function playVerbAudio(text, context) {
-    const audioPath = resolveAudioPath(text, context);
-    if (!audioPath) return;
-
     const voiceVolume = getWordsVoiceVolume();
-    if (voiceVolume <= 0) return;
-
-    if (prefersMobileAudioEngine()) {
-        playWithMobileAudioEngine(audioPath, voiceVolume / 100, 'voice').then((played) => {
-            if (!played) speakMobileFallback(text, voiceVolume / 100);
-        });
+    if (voiceVolume <= 0) {
+        EnglishSpeechEngine.stop();
         return;
     }
 
-    // Desktop mantém o preload/cache e o player HTMLAudio já aprovado.
-    ensureAudioInCache(audioPath);
+    const speechText = getVerbSpeechText(text, context);
+    if (!speechText) return;
 
-    if (currentPlayingAudio && currentPlayingAudio !== wordsVoicePlayer) {
-        currentPlayingAudio.pause();
-        currentPlayingAudio.currentTime = 0;
-    }
-
-    try {
-        wordsVoicePlayer.pause();
-        if (!wordsVoicePlayer.src.endsWith(audioPath)) wordsVoicePlayer.src = audioPath;
-        wordsVoicePlayer.currentTime = 0;
-        wordsVoicePlayer.volume = voiceVolume / 100;
-        wordsVoicePlayer.play().catch(err => {
-            console.warn(`🔊 Erro ao tocar: ${audioPath}`, err);
-        });
-        currentPlayingAudio = wordsVoicePlayer;
-    } catch (error) {
-        console.warn(`🔊 Falha de áudio em ${audioPath}:`, error);
-    }
+    EnglishSpeechEngine.speak(speechText, {
+        lang: 'en-US',
+        rate: 0.9,
+        volume: voiceVolume / 100
+    });
 }
 
 function preloadCurrentGameAudios() {
-    const englishTexts = currentEnglishWords.map(item => item.text);
-    const portugueseTexts = currentPortugueseWords.map(item => item.text);
-
-    const preloadItems = [
-        ...englishTexts.map(text => ({ text, context: 'english' })),
-        // No Simple Verbs, as traduções em português não têm botão de áudio.
-        // No Past Tense, a coluna da direita contém formas em inglês e mantém o áudio.
-        ...(currentVerbGameType === 'past'
-            ? portugueseTexts.map(text => ({ text, context: 'past' }))
-            : [])
-    ];
-
-    preloadItems.forEach(({ text, context }) => {
-        const audioPath = resolveAudioPath(text, context);
-        if (audioPath) {
-            ensureAudioInCache(audioPath);
-        }
-    });
-
-    console.log(`📦 Pré-carregamento concluído. Cache size: ${verbsAudioCache.size}`);
+    // Não existem mais arquivos de voz para pré-carregar. Consultar a lista de
+    // vozes aqui ajuda alguns navegadores a disponibilizá-las antes do primeiro
+    // clique no botão de áudio, mas a ativação real acontece no START.
+    EnglishSpeechEngine.getAmericanVoice('en-US');
 }
 
 
@@ -2347,9 +2253,11 @@ function hideVocabularyStartModal() {
 function beginVocabularyGame() {
     if (vocabGameStarted) return;
 
-    // START é uma ativação explícita do usuário: libera Web Audio no mobile.
+    // START é uma ativação explícita do usuário: libera os SFX legados e,
+    // principalmente, prepara o mesmo sintetizador de voz usado pelo NUMBERS.
     if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
     primeWordsMobileAudio();
+    EnglishSpeechEngine.prime('en-US');
 
     vocabGameStarted = true;
     hideVocabularyStartModal();
@@ -2500,8 +2408,8 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     if (vocabMessage) vocabMessage.innerHTML = '';
     currentScreen = SCREENS.WORDS_GAME;
 
-    // Prepara os áudios enquanto o modal está aberto, mas só inicia
-    // tempo e pontuação depois que o usuário clicar em START.
+    // Prepara a voz disponível enquanto o modal está aberto, mas só inicia
+    // tempo, pontuação e ativação efetiva do TTS depois do clique em START.
     preloadCurrentGameAudios();
     showVocabularyStartModal();
 }
