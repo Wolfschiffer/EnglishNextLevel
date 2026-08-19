@@ -50,7 +50,8 @@ const SCREENS = {
     TOPICS_MENU: 'topicsMenu',
     TOPIC_LEVEL: 'topicLevel',
     TOPIC_GAME_MENU: 'topicGameMenu',
-    TOPIC_MATCH: 'topicMatch'
+    TOPIC_MATCH: 'topicMatch',
+    TOPIC_SPEAK: 'topicSpeak'
 };
 
 
@@ -64,9 +65,12 @@ function showScreen(screen, options = {}) {
         hideVocabularyStartModal();
     }
 
-    // Clean up the TOPICS Match Pairs interaction when leaving its screen.
+    // Clean up TOPICS game interactions when leaving their screens.
     if (currentScreen === SCREENS.TOPIC_MATCH && screen !== SCREENS.TOPIC_MATCH) {
         window.TopicMatchPairs?.leaveGame?.();
+    }
+    if (currentScreen === SCREENS.TOPIC_SPEAK && screen !== SCREENS.TOPIC_SPEAK) {
+        window.TopicSpeakGame?.leaveGame?.();
     }
 
     // Só esconde o auth-container se não for a tela de login
@@ -90,6 +94,7 @@ function showScreen(screen, options = {}) {
     const topicLevel = document.getElementById('topic-level-container');
     const topicGameMenu = document.getElementById('topic-game-menu-container');
     const topicMatch = document.getElementById('topic-match-container');
+    const topicSpeak = document.getElementById('topic-speak-container');
     const simpleVerbsBtn = document.getElementById('simple-verbs-btn');
     const simpleVerbsPastBtn = document.getElementById('simple-verbs-past-btn'); // ADICIONE ESTA LINHA
     
@@ -106,6 +111,7 @@ function showScreen(screen, options = {}) {
     if (topicLevel) topicLevel.style.display = 'none';
     if (topicGameMenu) topicGameMenu.style.display = 'none';
     if (topicMatch) topicMatch.style.display = 'none';
+    if (topicSpeak) topicSpeak.style.display = 'none';
     
     // Mostra a tela escolhida
     switch(screen) {
@@ -184,6 +190,10 @@ function showScreen(screen, options = {}) {
 
         case SCREENS.TOPIC_MATCH:
             if (topicMatch) topicMatch.style.display = 'block';
+            break;
+
+        case SCREENS.TOPIC_SPEAK:
+            if (topicSpeak) topicSpeak.style.display = 'block';
             break;
     }
     
