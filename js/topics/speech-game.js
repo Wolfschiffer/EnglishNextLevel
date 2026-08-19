@@ -637,8 +637,7 @@
     // Current flow: Topic -> Level -> Game -> Speak.
     // Two back operations return to the selected topic's Common/Advanced screen.
     if (typeof window.goBack === 'function') {
-      window.goBack();
-      window.goBack();
+      window.goBack(2);
     }
   }
 

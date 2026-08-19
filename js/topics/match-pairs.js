@@ -386,8 +386,7 @@
     // Current flow is Topic -> Level -> Game -> Match.
     // Two back operations return to the selected topic's Common/Advanced screen.
     if (typeof window.goBack === 'function') {
-      window.goBack();
-      window.goBack();
+      window.goBack(2);
     }
   }
 
