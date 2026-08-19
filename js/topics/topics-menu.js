@@ -124,10 +124,14 @@
       return;
     }
 
-    // SPEAK is intentionally kept disabled at the gameplay level until Phase 4.
-    if (message) {
-      message.textContent = `Speak selected — ${topic.title}, ${level.label}. Voice gameplay will be added in Phase 4.`;
-      message.classList.add('visible');
+    if (gameType === 'speak') {
+      if (!window.TopicSpeakGame || typeof window.TopicSpeakGame.prepare !== 'function') {
+        console.error('TOPICS: Speak module is unavailable.');
+        return;
+      }
+
+      window.TopicSpeakGame.prepare({ topic, level });
+      navigate('topicSpeak');
     }
   }
 
