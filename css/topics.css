@@ -1231,3 +1231,281 @@
     animation: none;
   }
 }
+
+/* ============================================
+   TOPICS — Speak settings + pre-answer audio
+   ============================================ */
+
+.topic-speak-header-actions {
+  flex-wrap: nowrap;
+}
+
+.topic-speak-settings-btn {
+  position: static;
+  flex: 0 0 auto;
+  z-index: 80;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 2px solid #d1d9e6;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1e3c5c;
+  font: inherit;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 5px 14px rgba(30, 60, 92, 0.08);
+  transition: border-color 0.16s ease, background 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .topic-speak-settings-btn:hover {
+    border-color: #c9a13b;
+    background: #fffaf0;
+    box-shadow: 0 8px 20px rgba(201, 161, 59, 0.16);
+    transform: translateY(-1px);
+  }
+}
+
+.topic-speak-settings-btn:focus-visible,
+.topic-speak-settings-close:focus-visible,
+.topic-speak-preview-audio:focus-visible,
+.topic-speak-setting-row:focus-within {
+  outline: 4px solid rgba(201, 161, 59, 0.24);
+  outline-offset: 3px;
+}
+
+.topic-speak-preview-audio {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 2px solid #c9a13b;
+  border-radius: 50%;
+  background: #fffaf0;
+  color: #1e3c5c;
+  font: inherit;
+  font-size: 1.15rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 5px 14px rgba(201, 161, 59, 0.12);
+  transition: background 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.topic-speak-preview-audio[hidden] {
+  display: none !important;
+}
+
+.topic-speak-prompt-card {
+  position: relative;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .topic-speak-preview-audio:hover:not(:disabled) {
+    background: #fff0c1;
+    box-shadow: 0 8px 20px rgba(201, 161, 59, 0.2);
+    transform: translateY(-1px);
+  }
+}
+
+.topic-speak-preview-audio:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.topic-speak-preview-audio.is-playing {
+  background: #fff0c1;
+  box-shadow: 0 0 0 6px rgba(201, 161, 59, 0.12);
+}
+
+.topic-speak-settings-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 4000;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(235, 241, 247, 0.58);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.topic-speak-settings-overlay.visible {
+  display: flex;
+}
+
+.topic-speak-settings-modal {
+  width: min(92vw, 480px);
+  padding: 22px;
+  border: 2px solid #c9a13b;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 20px 50px rgba(30, 60, 92, 0.22);
+  text-align: left;
+}
+
+.topic-speak-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.topic-speak-settings-header h2 {
+  margin: 2px 0 0;
+  color: #1e3c5c;
+  font-size: 1.45rem;
+}
+
+.topic-speak-settings-close {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #eef2f6;
+  color: #1e3c5c;
+  font: inherit;
+  font-size: 1.55rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topic-speak-setting-row {
+  min-height: 88px;
+  padding: 15px 16px;
+  border: 2px solid #d1d9e6;
+  border-radius: 16px;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  cursor: pointer;
+}
+
+.topic-speak-setting-copy {
+  min-width: 0;
+}
+
+.topic-speak-setting-copy strong {
+  display: block;
+  color: #1e3c5c;
+  font-size: 0.94rem;
+  line-height: 1.3;
+}
+
+.topic-speak-setting-copy small {
+  display: block;
+  margin-top: 5px;
+  color: #6f7f8f;
+  font-size: 0.78rem;
+  line-height: 1.42;
+}
+
+.topic-speak-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 28px;
+}
+
+.topic-speak-switch input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.topic-speak-switch-track {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: #cbd5df;
+  transition: background 0.18s ease;
+}
+
+.topic-speak-switch-track::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(30, 60, 92, 0.18);
+  transition: transform 0.18s ease;
+}
+
+.topic-speak-switch input:checked + .topic-speak-switch-track {
+  background: #c9a13b;
+}
+
+.topic-speak-switch input:checked + .topic-speak-switch-track::after {
+  transform: translateX(20px);
+}
+
+@media (max-width: 560px) {
+  .topic-speak-settings-btn {
+    width: 35px;
+    height: 35px;
+    font-size: 0.96rem;
+  }
+
+  .topic-speak-preview-audio {
+    top: 12px;
+    right: 12px;
+    width: 40px;
+    height: 40px;
+    font-size: 1.05rem;
+  }
+
+  .topic-speak-settings-modal {
+    padding: 18px;
+    border-radius: 19px;
+  }
+
+  .topic-speak-setting-row {
+    padding: 14px;
+    gap: 12px;
+  }
+
+  .topic-speak-setting-copy strong {
+    font-size: 0.88rem;
+  }
+
+  .topic-speak-setting-copy small {
+    font-size: 0.74rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .topic-speak-settings-btn,
+  .topic-speak-preview-audio,
+  .topic-speak-switch-track,
+  .topic-speak-switch-track::after {
+    transition: none;
+  }
+}
+
