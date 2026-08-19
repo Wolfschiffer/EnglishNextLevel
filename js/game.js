@@ -558,6 +558,10 @@ function initWordsSettings() {
     document.getElementById('words-sfx-volume')?.addEventListener('input', (event) => {
         setGlobalSfxVolume(event.target.value);
     });
+    document.getElementById('words-sfx-volume')?.addEventListener('change', () => {
+        ProgrammaticSfxEngine.primeFromUserGesture();
+        if (getGlobalSfxVolume() > 0) playSound('correct');
+    });
     document.getElementById('words-voice-volume')?.addEventListener('input', (event) => {
         setGlobalVoiceVolume(event.target.value);
     });
@@ -1149,23 +1153,16 @@ const ProgrammaticSfxEngine = (() => {
 
     function getContext() {
         if (!supported()) return null;
-        if (!context) {
+        if (!context || context.state === 'closed') {
             const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
-            context = new AudioContextCtor();
+            try {
+                context = new AudioContextCtor({ latencyHint: 'interactive' });
+            } catch (error) {
+                // Alguns navegadores antigos não aceitam options no construtor.
+                context = new AudioContextCtor();
+            }
         }
         return context;
-    }
-
-    async function unlock() {
-        const ctx = getContext();
-        if (!ctx) return false;
-        try {
-            if (ctx.state === 'suspended') await ctx.resume();
-            return ctx.state === 'running';
-        } catch (error) {
-            console.warn('SFX engine: could not unlock audio context.', error);
-            return false;
-        }
     }
 
     function tone(ctx, { frequency, start, duration, gain, type = 'sine' }) {
@@ -1185,6 +1182,104 @@ const ProgrammaticSfxEngine = (() => {
         oscillator.stop(start + duration + 0.02);
     }
 
+    // Chrome mobile é mais confiável quando o AudioContext e um source node são
+    // efetivamente usados dentro de um CLICK/TOQUE real. Apenas chamar resume()
+    // em um evento anterior não garante que o contexto saia de "suspended".
+    function primeFromUserGesture() {
+        const ctx = getContext();
+        if (!ctx) return false;
+
+        try {
+            // Source node quase inaudível: start() ocorre SINCRONAMENTE dentro
+            // do gesto do usuário e serve apenas para liberar o output do Web Audio.
+            const oscillator = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const now = ctx.currentTime;
+
+            oscillator.frequency.setValueAtTime(440, now);
+            gain.gain.setValueAtTime(0.00001, now);
+            oscillator.connect(gain);
+            gain.connect(ctx.destination);
+            oscillator.start(now);
+            oscillator.stop(now + 0.025);
+
+            if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+                const resumePromise = ctx.resume();
+                if (resumePromise && typeof resumePromise.catch === 'function') {
+                    resumePromise.catch((error) => {
+                        console.warn('SFX engine: resume after user gesture failed.', error);
+                    });
+                }
+            }
+
+            return true;
+        } catch (error) {
+            console.warn('SFX engine: could not prime audio from user gesture.', error);
+            return false;
+        }
+    }
+
+    async function unlock() {
+        const ctx = getContext();
+        if (!ctx) return false;
+        try {
+            if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
+                await ctx.resume();
+            }
+            return ctx.state === 'running';
+        } catch (error) {
+            console.warn('SFX engine: could not unlock audio context.', error);
+            return false;
+        }
+    }
+
+    function scheduleEffect(ctx, effectType, level) {
+        const now = ctx.currentTime + 0.008;
+        // Um pouco mais forte que a primeira versão; ainda deixa headroom.
+        const master = 0.28 * level;
+
+        switch (effectType) {
+            case 'correct':
+                tone(ctx, { frequency: 660, start: now, duration: 0.12, gain: master, type: 'sine' });
+                tone(ctx, { frequency: 880, start: now + 0.095, duration: 0.16, gain: master, type: 'sine' });
+                break;
+
+            case 'wrong':
+                tone(ctx, { frequency: 220, start: now, duration: 0.19, gain: master * 0.9, type: 'square' });
+                tone(ctx, { frequency: 165, start: now + 0.105, duration: 0.20, gain: master * 0.78, type: 'square' });
+                break;
+
+            case 'win':
+                [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+                    tone(ctx, {
+                        frequency,
+                        start: now + index * 0.085,
+                        duration: 0.21,
+                        gain: master,
+                        type: 'triangle'
+                    });
+                });
+                break;
+
+            case 'gameOver':
+                [392, 293.66, 220].forEach((frequency, index) => {
+                    tone(ctx, {
+                        frequency,
+                        start: now + index * 0.11,
+                        duration: 0.21,
+                        gain: master * 0.92,
+                        type: 'triangle'
+                    });
+                });
+                break;
+
+            default:
+                return false;
+        }
+
+        return true;
+    }
+
     async function play(type, volume = getGlobalSfxVolume() / 100) {
         const level = Math.max(0, Math.min(1, Number(volume) || 0));
         if (level <= 0) return false;
@@ -1193,65 +1288,36 @@ const ProgrammaticSfxEngine = (() => {
         if (!ctx) return false;
 
         try {
-            if (ctx.state === 'suspended') await ctx.resume();
-            if (ctx.state !== 'running') return false;
-
-            const now = ctx.currentTime + 0.005;
-            const master = 0.19 * level;
-
-            switch (type) {
-                case 'correct':
-                    tone(ctx, { frequency: 660, start: now, duration: 0.11, gain: master, type: 'sine' });
-                    tone(ctx, { frequency: 880, start: now + 0.09, duration: 0.15, gain: master, type: 'sine' });
-                    break;
-
-                case 'wrong':
-                    tone(ctx, { frequency: 210, start: now, duration: 0.18, gain: master * 0.85, type: 'square' });
-                    tone(ctx, { frequency: 165, start: now + 0.10, duration: 0.18, gain: master * 0.72, type: 'square' });
-                    break;
-
-                case 'win':
-                    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
-                        tone(ctx, {
-                            frequency,
-                            start: now + index * 0.085,
-                            duration: 0.20,
-                            gain: master,
-                            type: 'triangle'
-                        });
-                    });
-                    break;
-
-                case 'gameOver':
-                    [392, 293.66, 220].forEach((frequency, index) => {
-                        tone(ctx, {
-                            frequency,
-                            start: now + index * 0.11,
-                            duration: 0.20,
-                            gain: master * 0.9,
-                            type: 'triangle'
-                        });
-                    });
-                    break;
-
-                default:
-                    return false;
+            if (ctx.state !== 'running') {
+                await ctx.resume();
+            }
+            if (ctx.state !== 'running') {
+                console.warn(`SFX engine: AudioContext is ${ctx.state}; sound was not scheduled.`);
+                return false;
             }
 
-            return true;
+            return scheduleEffect(ctx, type, level);
         } catch (error) {
             console.warn('SFX engine: playback failed.', error);
             return false;
         }
     }
 
-    return { supported, unlock, play };
+    function getState() {
+        return context?.state || 'not-created';
+    }
+
+    return { supported, unlock, primeFromUserGesture, play, getState };
 })();
 
-// Tenta liberar o contexto no primeiro gesto real. Cada START também chama unlock().
-document.addEventListener('pointerdown', () => {
-    ProgrammaticSfxEngine.unlock();
-}, { once: true, passive: true });
+// IMPORTANTE: Chrome recomenda "click" para user activation de áudio.
+// Usamos capture para liberar o contexto antes dos handlers do jogo executarem.
+function primeSfxOnRealUserGesture() {
+    ProgrammaticSfxEngine.primeFromUserGesture();
+}
+
+document.addEventListener('click', primeSfxOnRealUserGesture, { capture: true });
+document.addEventListener('touchend', primeSfxOnRealUserGesture, { capture: true, passive: true });
 
 function playSound(type) {
     const volume = getGlobalSfxVolume() / 100;
@@ -1267,8 +1333,11 @@ window.EnglishNextLevelAudio = {
     setSfxVolume: setGlobalSfxVolume,
     getVolumeIcon: getAudioVolumeIcon,
     playSfx: playSound,
-    unlockSfx: () => ProgrammaticSfxEngine.unlock(),
-    syncSettingsUI: updateGlobalAudioSettingsUI
+    // Chamado pelos botões START. Como START é um clique/toque real, executamos
+    // start() de um source node imediatamente, em vez de depender só de resume().
+    unlockSfx: () => ProgrammaticSfxEngine.primeFromUserGesture(),
+    syncSettingsUI: updateGlobalAudioSettingsUI,
+    getSfxEngineState: () => ProgrammaticSfxEngine.getState()
 };
 
 function playAudio() {
@@ -1903,7 +1972,7 @@ function startGame() {
     // START é uma interação explícita do usuário e é o melhor ponto para
     // preparar a saída de voz em navegadores móveis.
     // WORDS TTS is activated directly by the user's tap on the pronunciation button.
-    ProgrammaticSfxEngine.unlock();
+    ProgrammaticSfxEngine.primeFromUserGesture();
 
     if (!DOM.game) {
         console.error("DOM.game não encontrado!");
@@ -2229,7 +2298,7 @@ function beginVocabularyGame() {
 
     // START é uma ativação explícita do usuário: libera os SFX legados e,
     // principalmente, prepara o mesmo sintetizador de voz usado pelo NUMBERS.
-    ProgrammaticSfxEngine.unlock();
+    ProgrammaticSfxEngine.primeFromUserGesture();
     EnglishSpeechEngine.prime('en-US');
 
     vocabGameStarted = true;
