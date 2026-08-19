@@ -775,6 +775,137 @@ body:not([data-screen="words"]) [data-words-only="true"] {
   display: none !important;
 }
 
+
+    /* ============================================ */
+    /* VOCABULARY MATCH — STATS + START MODAL */
+    /* ============================================ */
+    .vocab-header-right .vocab-stats,
+    .vocab-bottom-stats .vocab-stats {
+        white-space: nowrap;
+        text-align: center;
+    }
+
+    /* Points e Time ficam fora do cabeçalho para preservar espaço no mobile. */
+    .vocab-bottom-stats {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        margin-top: 18px;
+        padding-top: 16px;
+        border-top: 1px dashed #c9a13b;
+    }
+
+    .vocab-bottom-stats .vocab-stats {
+        min-width: 118px;
+        padding: 7px 14px;
+    }
+
+    /* Modal exibido antes do cronômetro começar. */
+    .vocab-start-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 5000;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(30, 60, 92, 0.18);
+        -webkit-backdrop-filter: blur(4px);
+        backdrop-filter: blur(4px);
+    }
+
+    .vocab-start-overlay.active {
+        display: flex;
+    }
+
+    .vocab-start-modal {
+        width: min(330px, calc(100vw - 40px));
+        background: rgba(255, 255, 255, 0.98);
+        border: 2px solid #c9a13b;
+        border-radius: 22px;
+        padding: 28px 24px 24px;
+        text-align: center;
+        box-shadow: 0 16px 45px rgba(30, 60, 92, 0.24);
+    }
+
+    .vocab-start-modal h2 {
+        margin: 0 0 8px;
+        color: #1e3c5c;
+        font-size: 1.55rem;
+    }
+
+    .vocab-start-modal p {
+        margin: 0 0 20px;
+        color: #7f8c8d;
+        font-size: 0.92rem;
+        line-height: 1.45;
+    }
+
+    .vocab-start-btn {
+        min-width: 150px;
+        border: 2px solid #c9a13b;
+        border-radius: 999px;
+        padding: 11px 28px;
+        background: #c9a13b;
+        color: white;
+        font: inherit;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        cursor: pointer;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .vocab-start-btn:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(201, 161, 59, 0.25);
+    }
+
+    .vocab-start-btn:active {
+        transform: translateY(0);
+    }
+
+    body.vocab-modal-open {
+        overflow: hidden;
+    }
+
+    @media (max-width: 700px) {
+        .vocab-header {
+            gap: 8px;
+        }
+
+        .vocab-header-left {
+            min-width: 0;
+        }
+
+        .vocab-header-left h2 {
+            font-size: 1.15rem;
+        }
+
+        .vocab-header-right {
+            gap: 0;
+            flex-shrink: 0;
+        }
+
+        .vocab-header-right .vocab-stats {
+            padding: 5px 9px !important;
+            font-size: 0.76rem !important;
+        }
+
+        .vocab-bottom-stats {
+            gap: 8px;
+            margin-top: 14px;
+            padding-top: 14px;
+        }
+
+        .vocab-bottom-stats .vocab-stats {
+            min-width: 0;
+            flex: 1;
+            max-width: 150px;
+            padding: 6px 10px;
+            font-size: 0.78rem;
+        }
+    }
   </style>
 
 
@@ -880,7 +1011,23 @@ if (!window.navigation) {
         <div id="portuguese-words-list" class="vocab-list"></div>
       </div>
     </div>
+    <div class="vocab-bottom-stats" aria-label="Game statistics">
+      <div class="vocab-stats">
+        <span>Points: <span id="vocab-score">0</span></span>
+      </div>
+      <div class="vocab-stats">
+        <span>Time: <span id="vocab-timer">00:00</span></span>
+      </div>
+    </div>
     <div id="vocab-message" class="vocab-message"></div>
+  </div>
+
+  <div id="vocab-start-overlay" class="vocab-start-overlay" aria-hidden="true">
+    <div class="vocab-start-modal" role="dialog" aria-modal="true" aria-labelledby="vocab-start-title">
+      <h2 id="vocab-start-title">Ready?</h2>
+      <p>Match all the pairs as fast as you can. The timer starts when you press START.</p>
+      <button id="vocab-start-btn" class="vocab-start-btn" type="button">START</button>
+    </div>
   </div>
 
   <div class="menu-footer">
