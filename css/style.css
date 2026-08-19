@@ -1822,3 +1822,68 @@ body.dragging {
     flex: 1 1 auto;
     text-align: center;
 }
+
+/* ============================================ */
+/* WORDS — AUDIO RESPONSIVO EM CARDS BLOQUEADOS */
+/* Mantém o botão sobreposto sem alterar a altura do card, mas adapta seu */
+/* tamanho às dimensões reduzidas do jogo de vocabulário no mobile. */
+/* ============================================ */
+@media (max-width: 768px) {
+    .vocab-item.locked .vocab-audio-btn {
+        width: 24px !important;
+        height: 24px !important;
+        min-width: 24px !important;
+        min-height: 24px !important;
+        border-width: 1.5px !important;
+        font-size: 11px !important;
+    }
+
+    .vocab-item.locked .vocab-audio-btn svg {
+        width: 13px !important;
+        height: 13px !important;
+    }
+
+    .english-item.locked .vocab-audio-btn {
+        right: 4px !important;
+    }
+
+    .portuguese-item.locked .vocab-audio-btn {
+        left: 4px !important;
+    }
+
+    /* Reserva espaço dos dois lados para o texto continuar centralizado e
+       nunca ficar embaixo do botão de áudio. */
+    .vocab-item.locked .vocab-text {
+        padding-left: 28px !important;
+        padding-right: 28px !important;
+        box-sizing: border-box;
+    }
+}
+
+@media (max-width: 400px) {
+    .vocab-item.locked .vocab-audio-btn {
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+        min-height: 20px !important;
+        font-size: 9px !important;
+    }
+
+    .vocab-item.locked .vocab-audio-btn svg {
+        width: 11px !important;
+        height: 11px !important;
+    }
+
+    .english-item.locked .vocab-audio-btn {
+        right: 3px !important;
+    }
+
+    .portuguese-item.locked .vocab-audio-btn {
+        left: 3px !important;
+    }
+
+    .vocab-item.locked .vocab-text {
+        padding-left: 23px !important;
+        padding-right: 23px !important;
+    }
+}
