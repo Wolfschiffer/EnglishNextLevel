@@ -86,6 +86,10 @@ function pushBrowserState(screen) {
 
 // Função para mostrar a tela
 function showScreen(screen, options = {}) {
+    if (![SCREENS.WORDS_MENU, SCREENS.WORDS_SUBMENU, SCREENS.WORDS_SUBMENU_PAST, SCREENS.WORDS_GAME].includes(screen)) {
+        closeWordsSettings();
+    }
+
     // Se o jogador sair do Vocabulary Match antes de terminar, encerra o cronômetro.
     if (currentScreen === SCREENS.WORDS_GAME && screen !== SCREENS.WORDS_GAME) {
         stopVocabularyTimer();
@@ -372,6 +376,158 @@ const SOUND_EFFECTS = {
     win: 'sfx/Win.mp3',
     gameOver: 'sfx/GameOver.mp3'
 };
+
+
+// WORDS possui controles separados para efeitos sonoros (SFX) e pronúncia.
+// O volume de voz é compartilhado com TOPICS / SPEAK durante a sessão.
+const WORDS_SFX_STORAGE_KEY = 'englishNextLevel.wordsSfxVolume';
+const VOICE_VOLUME_STORAGE_KEY = 'englishNextLevel.voiceVolume';
+let wordsSfxVolume = 100;
+let wordsVoiceVolume = 100;
+
+function clampWordsSfxVolume(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 100;
+    return Math.max(0, Math.min(100, Math.round(numeric)));
+}
+
+function loadWordsSfxVolume() {
+    try {
+        const saved = window.sessionStorage.getItem(WORDS_SFX_STORAGE_KEY);
+        wordsSfxVolume = saved === null ? 100 : clampWordsSfxVolume(saved);
+    } catch (error) {
+        wordsSfxVolume = 100;
+    }
+}
+
+function saveWordsSfxVolume() {
+    try {
+        window.sessionStorage.setItem(WORDS_SFX_STORAGE_KEY, String(wordsSfxVolume));
+    } catch (error) {
+        // Storage indisponível não impede o controle de volume durante a página atual.
+    }
+}
+
+function loadWordsVoiceVolume() {
+    try {
+        const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
+        wordsVoiceVolume = saved === null ? 100 : clampWordsSfxVolume(saved);
+    } catch (error) {
+        wordsVoiceVolume = 100;
+    }
+}
+
+function saveWordsVoiceVolume() {
+    try {
+        window.sessionStorage.setItem(VOICE_VOLUME_STORAGE_KEY, String(wordsVoiceVolume));
+    } catch (error) {
+        // Mantém o valor em memória quando sessionStorage não estiver disponível.
+    }
+}
+
+function getWordsVoiceVolume() {
+    try {
+        const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
+        if (saved !== null) wordsVoiceVolume = clampWordsSfxVolume(saved);
+    } catch (error) {
+        // Usa o valor já carregado em memória.
+    }
+    return wordsVoiceVolume;
+}
+
+function getWordsVolumeIcon(volume = wordsSfxVolume) {
+    const level = clampWordsSfxVolume(volume);
+    if (level === 0) return '🔇';
+    if (level <= 33) return '🔈';
+    if (level <= 66) return '🔉';
+    return '🔊';
+}
+
+function updateWordsSfxSettingsUI() {
+    const slider = document.getElementById('words-sfx-volume');
+    const value = document.getElementById('words-sfx-volume-value');
+    const icon = document.getElementById('words-sfx-volume-icon');
+
+    if (slider) {
+        slider.value = String(wordsSfxVolume);
+        slider.setAttribute('aria-valuenow', String(wordsSfxVolume));
+        slider.style.setProperty('--words-volume-percent', `${wordsSfxVolume}%`);
+    }
+    if (value) value.textContent = `${wordsSfxVolume}%`;
+    if (icon) icon.textContent = getWordsVolumeIcon(wordsSfxVolume);
+}
+
+function updateWordsVoiceSettingsUI() {
+    const slider = document.getElementById('words-voice-volume');
+    const value = document.getElementById('words-voice-volume-value');
+    const icon = document.getElementById('words-voice-volume-icon');
+
+    if (slider) {
+        slider.value = String(wordsVoiceVolume);
+        slider.setAttribute('aria-valuenow', String(wordsVoiceVolume));
+        slider.style.setProperty('--words-volume-percent', `${wordsVoiceVolume}%`);
+    }
+    if (value) value.textContent = `${wordsVoiceVolume}%`;
+    if (icon) icon.textContent = getWordsVolumeIcon(wordsVoiceVolume);
+}
+
+function setWordsSfxVolume(value) {
+    wordsSfxVolume = clampWordsSfxVolume(value);
+    saveWordsSfxVolume();
+    updateWordsSfxSettingsUI();
+}
+
+function setWordsVoiceVolume(value) {
+    wordsVoiceVolume = clampWordsSfxVolume(value);
+    saveWordsVoiceVolume();
+    updateWordsVoiceSettingsUI();
+    if (currentPlayingAudio) currentPlayingAudio.volume = wordsVoiceVolume / 100;
+}
+
+function openWordsSettings() {
+    const overlay = document.getElementById('words-settings-overlay');
+    if (!overlay) return;
+    loadWordsVoiceVolume();
+    updateWordsSfxSettingsUI();
+    updateWordsVoiceSettingsUI();
+    overlay.classList.add('visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('words-settings-open');
+    requestAnimationFrame(() => document.getElementById('words-sfx-volume')?.focus({ preventScroll: true }));
+}
+
+function closeWordsSettings() {
+    const overlay = document.getElementById('words-settings-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('words-settings-open');
+}
+
+function initWordsSettings() {
+    loadWordsSfxVolume();
+    loadWordsVoiceVolume();
+    updateWordsSfxSettingsUI();
+    updateWordsVoiceSettingsUI();
+
+    document.getElementById('words-menu-settings-btn')?.addEventListener('click', openWordsSettings);
+    document.getElementById('words-game-settings-btn')?.addEventListener('click', openWordsSettings);
+    document.getElementById('words-settings-close')?.addEventListener('click', closeWordsSettings);
+    document.getElementById('words-settings-overlay')?.addEventListener('click', (event) => {
+        if (event.target === event.currentTarget) closeWordsSettings();
+    });
+    document.getElementById('words-sfx-volume')?.addEventListener('input', (event) => {
+        setWordsSfxVolume(event.target.value);
+    });
+    document.getElementById('words-voice-volume')?.addEventListener('input', (event) => {
+        setWordsVoiceVolume(event.target.value);
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && document.getElementById('words-settings-overlay')?.classList.contains('visible')) {
+            closeWordsSettings();
+        }
+    });
+}
 
 const PLATFORM_POSITIONS = [100, 250, 400];
 
@@ -829,6 +985,14 @@ function playSound(type) {
     const path = SOUND_EFFECTS[type];
     if (!path) return;
 
+    // Este caminho controla apenas SFX das partidas de vocabulário.
+    // Jogos de números mantêm o volume original; a pronúncia usa o slider Voice volume.
+    const playbackVolume = currentScreen === SCREENS.WORDS_GAME
+        ? wordsSfxVolume / 100
+        : 1;
+
+    if (playbackVolume <= 0) return;
+
     if (!sfxCache[path]) {
         const audio = new Audio(path);
         audio.preload = 'auto';
@@ -836,6 +1000,7 @@ function playSound(type) {
     }
 
     const playInstance = sfxCache[path].cloneNode();
+    playInstance.volume = playbackVolume;
     playInstance.play().catch(e => console.log('Sound error:', e));
 }
 
@@ -1613,7 +1778,11 @@ function playVerbAudio(text, context) {
         currentPlayingAudio.currentTime = 0;
     }
     
+    const voiceVolume = getWordsVoiceVolume();
+    if (voiceVolume <= 0) return;
+
     const playInstance = cachedAudio.cloneNode();
+    playInstance.volume = voiceVolume / 100;
     playInstance.play().catch(err => {
         console.warn(`🔊 Erro ao tocar: ${audioPath}`, err);
     });
@@ -1627,10 +1796,11 @@ function preloadCurrentGameAudios() {
 
     const preloadItems = [
         ...englishTexts.map(text => ({ text, context: 'english' })),
-        ...portugueseTexts.map(text => ({
-            text,
-            context: currentVerbGameType === 'past' ? 'past' : 'translation'
-        }))
+        // No Simple Verbs, as traduções em português não têm botão de áudio.
+        // No Past Tense, a coluna da direita contém formas em inglês e mantém o áudio.
+        ...(currentVerbGameType === 'past'
+            ? portugueseTexts.map(text => ({ text, context: 'past' }))
+            : [])
     ];
 
     preloadItems.forEach(({ text, context }) => {
@@ -2241,6 +2411,7 @@ function renderVocabularyLists() {
         // 🔥 BOTÃO DE ÁUDIO: APENAS SE LOCKED
         // ESQUERDA: texto + botão à direita
         if (item.locked) {
+            div.classList.add('has-audio');
             const audioBtn = createAudioButton(item.text, 'english', 'right');
             div.appendChild(audioBtn);
         }
@@ -2269,12 +2440,14 @@ function renderVocabularyLists() {
             div.addEventListener('drop', handleDrop);
         }
         
-        // 🔥 BOTÃO DE ÁUDIO: APENAS SE LOCKED
-        // DIREITA: botão à esquerda + texto
-        if (item.locked) {
-            const context = currentVerbGameType === 'past' ? 'past' : 'translation';
-            const audioBtn = createAudioButton(item.text, context, 'left');
+        // Áudio na coluna da direita somente no Past Tense, pois ali a palavra
+        // continua sendo inglês. No Simple Verbs, traduções em português não usam áudio.
+        if (item.locked && currentVerbGameType === 'past') {
+            div.classList.add('has-audio');
+            const audioBtn = createAudioButton(item.text, 'past', 'left');
             div.appendChild(audioBtn);
+        } else if (item.locked) {
+            div.classList.add('no-audio');
         }
         
         // Texto do item (sempre presente)
@@ -2958,6 +3131,7 @@ if (backToWordsMenuBtn) {
 }
 
 window.addEventListener('load', () => {
+    initWordsSettings();
     setTimeout(() => {
         initGame();
     }, 100);
