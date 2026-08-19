@@ -1678,6 +1678,27 @@ if (!window.navigation) {
         <output id="words-voice-volume-value" class="words-volume-value" for="words-voice-volume">100%</output>
       </div>
     </div>
+
+    <div class="audio-diagnostics words-settings-control words-settings-control-separated" aria-labelledby="audio-diagnostics-title">
+      <div class="words-settings-copy">
+        <strong id="audio-diagnostics-title">Temporary audio diagnostics</strong>
+        <small>Use these tests on the phone. Each button uses a different audio system.</small>
+      </div>
+
+      <div class="audio-diagnostics-grid">
+        <button id="audio-test-tts" class="audio-test-btn" type="button">Test voice (TTS)</button>
+        <span id="audio-test-tts-status" class="audio-test-status">Not tested</span>
+
+        <button id="audio-test-html" class="audio-test-btn" type="button">Test MP3</button>
+        <span id="audio-test-html-status" class="audio-test-status">Not tested</span>
+
+        <button id="audio-test-webaudio" class="audio-test-btn" type="button">Test Web Audio</button>
+        <span id="audio-test-webaudio-status" class="audio-test-status">Not tested</span>
+      </div>
+
+      <div id="audio-diagnostics-info" class="audio-diagnostics-info" aria-live="polite"></div>
+      <button id="audio-copy-diagnostics" class="audio-copy-btn" type="button">Copy diagnostics</button>
+    </div>
   </div>
 </div>
 
