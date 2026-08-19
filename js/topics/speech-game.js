@@ -17,11 +17,75 @@
     recognition: null,
     currentWordResolved: false,
     recognitionBlocked: false,
-    activeUtterance: null
+    activeUtterance: null,
+    showPreAnswerAudio: false
   };
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+
+  const SETTINGS_STORAGE_KEY = 'englishNextLevel.topicSpeak.showPreAnswerAudio';
+
+  function loadSettings() {
+    try {
+      state.showPreAnswerAudio = window.sessionStorage.getItem(SETTINGS_STORAGE_KEY) === 'true';
+    } catch (error) {
+      state.showPreAnswerAudio = false;
+    }
+  }
+
+  function saveSettings() {
+    try {
+      window.sessionStorage.setItem(SETTINGS_STORAGE_KEY, state.showPreAnswerAudio ? 'true' : 'false');
+    } catch (error) {
+      // Storage can be unavailable in private/restricted browser contexts.
+    }
+  }
+
+  function syncSettingsUI() {
+    const toggle = $('topic-speak-preaudio-toggle');
+    if (toggle) toggle.checked = state.showPreAnswerAudio;
+    updatePreviewAudioVisibility();
+  }
+
+  function updatePreviewAudioVisibility() {
+    const button = $('topic-speak-preview-audio');
+    const word = currentWord();
+    if (!button) return;
+
+    const shouldShow = Boolean(
+      state.started &&
+      !state.currentWordResolved &&
+      word &&
+      state.showPreAnswerAudio
+    );
+
+    button.hidden = !shouldShow;
+    button.disabled = !shouldShow;
+    if (word) {
+      button.setAttribute('aria-label', `Listen to the English pronunciation for ${word.portuguese}`);
+    }
+  }
+
+  function openSettings() {
+    stopRecognition();
+    stopSpeech();
+    const overlay = $('topic-speak-settings-overlay');
+    if (!overlay) return;
+    syncSettingsUI();
+    overlay.classList.add('visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    $('topic-speak-preaudio-toggle')?.focus({ preventScroll: true });
+  }
+
+  function closeSettings() {
+    const overlay = $('topic-speak-settings-overlay');
+    if (!overlay) return;
+    overlay.classList.remove('visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    $('topic-speak-settings-btn')?.focus({ preventScroll: true });
   }
 
   function shuffle(items) {
@@ -231,6 +295,7 @@
 
     state.currentWordResolved = false;
     updateHeader();
+    updatePreviewAudioVisibility();
 
     const portuguese = $('topic-speak-portuguese');
     if (portuguese) portuguese.textContent = word.portuguese;
@@ -259,6 +324,7 @@
 
   function showCorrectResult(word, transcript) {
     state.currentWordResolved = true;
+    updatePreviewAudioVisibility();
     showTranscript(transcript);
     setStatus('Correct!', 'correct');
 
@@ -300,6 +366,7 @@
     if (!word) return;
 
     state.currentWordResolved = true;
+    updatePreviewAudioVisibility();
     hideHeard();
     setStatus('Study the answer and listen to the pronunciation.');
 
@@ -491,6 +558,7 @@
     stopRecognition();
     stopSpeech();
     state.started = false;
+    updatePreviewAudioVisibility();
 
     renderReview();
 
@@ -525,6 +593,7 @@
     state.started = true;
     hideStartOverlay();
     renderCurrentWord();
+    updatePreviewAudioVisibility();
 
     const mic = $('topic-speak-mic');
     const reveal = $('topic-speak-reveal');
@@ -579,6 +648,12 @@
     state.started = false;
     state.currentWordResolved = false;
     hideStartOverlay();
+    updatePreviewAudioVisibility();
+    const settingsOverlay = $('topic-speak-settings-overlay');
+    if (settingsOverlay) {
+      settingsOverlay.classList.remove('visible');
+      settingsOverlay.setAttribute('aria-hidden', 'true');
+    }
   }
 
   $('topic-speak-start-btn')?.addEventListener('click', startRound);
@@ -594,6 +669,33 @@
   $('back-from-topic-speak')?.addEventListener('click', () => {
     if (typeof window.goBack === 'function') window.goBack();
   });
+
+  $('topic-speak-preview-audio')?.addEventListener('click', () => {
+    const word = currentWord();
+    if (word && state.showPreAnswerAudio && !state.currentWordResolved) {
+      playPronunciation(word, $('topic-speak-preview-audio'));
+    }
+  });
+
+  $('topic-speak-settings-btn')?.addEventListener('click', openSettings);
+  $('topic-speak-settings-close')?.addEventListener('click', closeSettings);
+  $('topic-speak-settings-overlay')?.addEventListener('click', (event) => {
+    if (event.target === $('topic-speak-settings-overlay')) closeSettings();
+  });
+  $('topic-speak-preaudio-toggle')?.addEventListener('change', (event) => {
+    state.showPreAnswerAudio = Boolean(event.target.checked);
+    saveSettings();
+    updatePreviewAudioVisibility();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && $('topic-speak-settings-overlay')?.classList.contains('visible')) {
+      closeSettings();
+    }
+  });
+
+  loadSettings();
+  syncSettingsUI();
 
   window.TopicSpeakGame = {
     prepare,
