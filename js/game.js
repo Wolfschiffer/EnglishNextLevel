@@ -46,7 +46,11 @@ const SCREENS = {
     WORDS_MENU: 'wordsMenu',
     WORDS_SUBMENU: 'wordsSubmenu',
     WORDS_SUBMENU_PAST: 'wordsSubmenuPast',
-    WORDS_GAME: 'wordsGame'
+    WORDS_GAME: 'wordsGame',
+    TOPICS_MENU: 'topicsMenu',
+    TOPIC_LEVEL: 'topicLevel',
+    TOPIC_GAME_MENU: 'topicGameMenu',
+    TOPIC_MATCH: 'topicMatch'
 };
 
 
@@ -58,6 +62,11 @@ function showScreen(screen, options = {}) {
     if (currentScreen === SCREENS.WORDS_GAME && screen !== SCREENS.WORDS_GAME) {
         stopVocabularyTimer();
         hideVocabularyStartModal();
+    }
+
+    // Clean up the TOPICS Match Pairs interaction when leaving its screen.
+    if (currentScreen === SCREENS.TOPIC_MATCH && screen !== SCREENS.TOPIC_MATCH) {
+        window.TopicMatchPairs?.leaveGame?.();
     }
 
     // Só esconde o auth-container se não for a tela de login
@@ -77,6 +86,10 @@ function showScreen(screen, options = {}) {
     const wordsMenu = document.getElementById('words-menu-container');
     const simpleVerbsSubmenu = document.getElementById('simple-verbs-submenu');
     const simpleVerbsPastSubmenu = document.getElementById('simple-verbs-past-submenu'); // ADICIONE ESTA LINHA
+    const topicsMenu = document.getElementById('topics-menu-container');
+    const topicLevel = document.getElementById('topic-level-container');
+    const topicGameMenu = document.getElementById('topic-game-menu-container');
+    const topicMatch = document.getElementById('topic-match-container');
     const simpleVerbsBtn = document.getElementById('simple-verbs-btn');
     const simpleVerbsPastBtn = document.getElementById('simple-verbs-past-btn'); // ADICIONE ESTA LINHA
     
@@ -89,6 +102,10 @@ function showScreen(screen, options = {}) {
     if (wordsMenu) wordsMenu.style.display = 'none';
     if (simpleVerbsSubmenu) simpleVerbsSubmenu.style.display = 'none';
     if (simpleVerbsPastSubmenu) simpleVerbsPastSubmenu.style.display = 'none'; // ADICIONE ESTA LINHA
+    if (topicsMenu) topicsMenu.style.display = 'none';
+    if (topicLevel) topicLevel.style.display = 'none';
+    if (topicGameMenu) topicGameMenu.style.display = 'none';
+    if (topicMatch) topicMatch.style.display = 'none';
     
     // Mostra a tela escolhida
     switch(screen) {
@@ -148,6 +165,25 @@ function showScreen(screen, options = {}) {
             
             const categoryContainer = document.getElementById('category-container');
             if (categoryContainer) categoryContainer.style.display = 'block';
+            break;
+
+        case SCREENS.TOPICS_MENU:
+            if (topicsMenu) topicsMenu.style.display = 'block';
+            if (window.TopicApp && typeof window.TopicApp.syncUserInfo === 'function') {
+                window.TopicApp.syncUserInfo();
+            }
+            break;
+
+        case SCREENS.TOPIC_LEVEL:
+            if (topicLevel) topicLevel.style.display = 'block';
+            break;
+
+        case SCREENS.TOPIC_GAME_MENU:
+            if (topicGameMenu) topicGameMenu.style.display = 'block';
+            break;
+
+        case SCREENS.TOPIC_MATCH:
+            if (topicMatch) topicMatch.style.display = 'block';
             break;
     }
     
@@ -2853,6 +2889,7 @@ const DOMcat = {
     numbersMenuContainer: document.getElementById('numbers-menu-container'),
     categoryNumbersBtn: document.getElementById('category-numbers'),
     categoryWordsBtn: document.getElementById('category-words'),
+    categoryTopicsBtn: document.getElementById('category-topics'),
     backToCategoryBtn: document.getElementById('back-to-category-btn'),
     categoryUserInfo: document.getElementById('category-user-info'),
     categoryUserName: document.getElementById('category-user-name'),
@@ -2866,6 +2903,9 @@ function showCategoryScreen() {
     if (DOM.menu) DOM.menu.style.display = 'none';
     if (DOMcat.numbersMenuContainer) DOMcat.numbersMenuContainer.style.display = 'none';
     if (DOM.game) DOM.game.style.display = 'none';
+    document.getElementById('topics-menu-container')?.style.setProperty('display', 'none');
+    document.getElementById('topic-level-container')?.style.setProperty('display', 'none');
+    document.getElementById('topic-game-menu-container')?.style.setProperty('display', 'none');
     
     // FORÇAR O ESTILO DOS BOTÕES DE CATEGORIA
     const catBtns = document.querySelector('.category-buttons');
@@ -2919,6 +2959,12 @@ if (DOMcat.categoryNumbersBtn) {
 if (DOMcat.categoryWordsBtn) {
     DOMcat.categoryWordsBtn.addEventListener('click', () => {
         navigateTo(SCREENS.WORDS_MENU);
+    });
+}
+
+if (DOMcat.categoryTopicsBtn) {
+    DOMcat.categoryTopicsBtn.addEventListener('click', () => {
+        navigateTo(SCREENS.TOPICS_MENU);
     });
 }
 

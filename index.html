@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>ENL - English Next Level</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/topics.css">
 
   <style>
     /* ============================================ */
@@ -987,6 +988,12 @@ if (!window.navigation) {
       <p>Expand your vocabulary</p>
       <span class="category-badge">10 verbs</span>
     </div>
+    <div class="category-card" id="category-topics">
+      <div class="category-icon">🧩</div>
+      <h2>TOPICS</h2>
+      <p>Learn vocabulary by topic</p>
+      <span class="category-badge">13 topics</span>
+    </div>
   </div>
 
   <div id="vocab-game-container" style="display: none;">
@@ -1033,6 +1040,198 @@ if (!window.navigation) {
   <div class="menu-footer">
     <p>📘 from the ebook <strong>"English Next Level"</strong> by Mylena Machado</p>
   </div>
+</div>
+
+<!-- MENU CONTAINER (TOPICS) -->
+<div class="game-container topics-shell" id="topics-menu-container" style="display: none; max-width: 900px;">
+  <div class="header">
+    <div class="title-section">
+      <h1>ENGLISH <span class="highlight">NEXT LEVEL</span></h1>
+      <p class="subtitle">vocabulary by topic</p>
+    </div>
+    <div class="header-buttons">
+      <button id="back-to-category-from-topics" class="menu-btn" type="button" aria-label="Back">◀</button>
+      <div class="user-info" id="topics-user-info" style="display: none;">
+        <span id="topics-user-name" class="user-name"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="menu-content">
+    <div class="topics-menu-intro">
+      <div class="topics-menu-icon">🧩</div>
+      <h2 class="menu-title">Choose a Topic</h2>
+      <p>Practice useful vocabulary organized by everyday situations.</p>
+    </div>
+
+    <div class="topics-grid" id="topics-grid">
+      <button class="topic-card topic-card-active" type="button" data-topic-id="kitchen">
+        <span class="topic-card-icon">🍽️</span>
+        <span class="topic-card-title">Kitchen Objects</span>
+        <span class="topic-card-description">Common objects you use in the kitchen</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">✨</span><span class="topic-card-title">Adjectives</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">😊</span><span class="topic-card-title">Feelings</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🏠</span><span class="topic-card-title">Parts of the House</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🛁</span><span class="topic-card-title">Bathroom Objects</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🛏️</span><span class="topic-card-title">Bedroom Objects</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🛋️</span><span class="topic-card-title">Living Room Objects</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🧍</span><span class="topic-card-title">Body Parts</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">☀️</span><span class="topic-card-title">Summer Clothes</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">❄️</span><span class="topic-card-title">Winter Clothes</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🍂</span><span class="topic-card-title">Spring / Autumn Clothes</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">✈️</span><span class="topic-card-title">Airport Vocabulary</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🔗</span><span class="topic-card-title">Linking Words</span><span class="topic-card-badge">Coming soon</span></button>
+    </div>
+  </div>
+
+  <div class="menu-footer"><p>📘 from the ebook <strong>"English Next Level"</strong> by Mylena Machado</p></div>
+</div>
+
+<!-- TOPICS: LEVEL SELECTION -->
+<div class="game-container topics-shell" id="topic-level-container" style="display: none; max-width: 760px;">
+  <div class="header">
+    <div class="title-section">
+      <h1>ENGLISH <span class="highlight">NEXT LEVEL</span></h1>
+      <p class="subtitle">vocabulary by topic</p>
+    </div>
+    <div class="header-buttons"><button id="back-to-topics-from-level" class="menu-btn" type="button" aria-label="Back">◀</button></div>
+  </div>
+
+  <div class="topic-selection-heading">
+    <div class="topic-selection-icon" id="selected-topic-icon">🍽️</div>
+    <div>
+      <p class="topic-selection-kicker">TOPIC</p>
+      <h2 id="selected-topic-title">Kitchen Objects</h2>
+      <p id="selected-topic-description">Common objects you use in the kitchen</p>
+    </div>
+  </div>
+
+  <h3 class="topics-step-title">Choose a Level</h3>
+  <div class="topic-choice-grid">
+    <button class="topic-choice-card" type="button" data-topic-level="common">
+      <span class="topic-choice-icon">🌱</span>
+      <span class="topic-choice-title">COMMON</span>
+      <span class="topic-choice-description">Easy and frequently used vocabulary</span>
+      <span class="topic-choice-badge">10 words</span>
+    </button>
+    <button class="topic-choice-card" type="button" data-topic-level="advanced">
+      <span class="topic-choice-icon">⭐</span>
+      <span class="topic-choice-title">ADVANCED</span>
+      <span class="topic-choice-description">Less common and more challenging vocabulary</span>
+      <span class="topic-choice-badge">5 words</span>
+    </button>
+  </div>
+
+  <div class="menu-footer"><p>📘 from the ebook <strong>"English Next Level"</strong> by Mylena Machado</p></div>
+</div>
+
+<!-- TOPICS: GAME TYPE SELECTION -->
+<div class="game-container topics-shell" id="topic-game-menu-container" style="display: none; max-width: 760px;">
+  <div class="header">
+    <div class="title-section">
+      <h1>ENGLISH <span class="highlight">NEXT LEVEL</span></h1>
+      <p class="subtitle">vocabulary by topic</p>
+    </div>
+    <div class="header-buttons"><button id="back-to-level-from-game-menu" class="menu-btn" type="button" aria-label="Back">◀</button></div>
+  </div>
+
+  <div class="topic-selection-heading compact">
+    <div class="topic-selection-icon" id="game-menu-topic-icon">🍽️</div>
+    <div>
+      <p class="topic-selection-kicker" id="game-menu-level-label">COMMON · 10 WORDS</p>
+      <h2 id="game-menu-topic-title">Kitchen Objects</h2>
+      <p>Choose how you want to practice.</p>
+    </div>
+  </div>
+
+  <h3 class="topics-step-title">Choose Your Game</h3>
+  <div class="topic-choice-grid">
+    <button class="topic-choice-card topic-game-choice" id="topic-match-pairs-btn" type="button" data-topic-game="match">
+      <span class="topic-choice-icon">🧩</span>
+      <span class="topic-choice-title">MATCH PAIRS</span>
+      <span class="topic-choice-description">Find the matching English and Portuguese cards</span>
+      <span class="topic-choice-badge">Next step</span>
+    </button>
+    <button class="topic-choice-card topic-game-choice" id="topic-speak-btn" type="button" data-topic-game="speak">
+      <span class="topic-choice-icon">🎙️</span>
+      <span class="topic-choice-title">SPEAK</span>
+      <span class="topic-choice-description">See the word in Portuguese and say it in English</span>
+      <span class="topic-choice-badge">Next step</span>
+    </button>
+  </div>
+
+  <div id="topic-phase-message" class="topic-phase-message" role="status" aria-live="polite"></div>
+  <div class="menu-footer"><p>📘 from the ebook <strong>"English Next Level"</strong> by Mylena Machado</p></div>
+</div>
+
+<!-- TOPICS: MATCH PAIRS -->
+<div class="game-container topics-shell topic-match-screen" id="topic-match-container" style="display: none; max-width: 920px;">
+  <div class="header">
+    <div class="title-section">
+      <h1>ENGLISH <span class="highlight">NEXT LEVEL</span></h1>
+      <p class="subtitle">match pairs</p>
+    </div>
+    <div class="header-buttons">
+      <button id="back-from-topic-match" class="menu-btn" type="button" aria-label="Back">◀</button>
+    </div>
+  </div>
+
+  <div class="topic-match-heading">
+    <div>
+      <p class="topic-selection-kicker" id="topic-match-level">COMMON · 10 WORDS</p>
+      <h2 id="topic-match-title">Kitchen Objects</h2>
+      <p class="topic-match-instruction">Tap two cards to find each English–Portuguese pair.</p>
+    </div>
+    <div class="topic-match-progress" aria-live="polite">
+      <span>Matches</span>
+      <strong><span id="topic-match-count">0</span>/<span id="topic-match-total">10</span></strong>
+    </div>
+  </div>
+
+  <div class="topic-match-content">
+    <div id="topic-match-grid" class="topic-match-grid" aria-label="Shuffled vocabulary cards"></div>
+
+    <section id="topic-match-review" class="topic-match-review" aria-labelledby="topic-review-title" aria-hidden="true">
+      <div class="topic-review-success" role="status" aria-live="polite">
+        <div class="topic-review-success-icon">✓</div>
+        <div>
+          <strong>All pairs matched!</strong>
+          <p>Review the words from this round and listen to the American English pronunciation.</p>
+        </div>
+      </div>
+
+      <div class="topic-review-heading">
+        <div>
+          <p class="topic-selection-kicker">REVIEW</p>
+          <h3 id="topic-review-title">Words from this round</h3>
+        </div>
+        <span class="topic-review-variant">🇺🇸 American English</span>
+      </div>
+
+      <div class="topic-review-column-labels" aria-hidden="true">
+        <span>English</span>
+        <span>Português</span>
+      </div>
+      <div id="topic-review-list" class="topic-review-list"></div>
+
+      <div class="topic-review-actions">
+        <button id="topic-match-play-again" class="topic-review-btn topic-review-btn-primary" type="button">PLAY AGAIN</button>
+        <button id="topic-match-back-topic" class="topic-review-btn topic-review-btn-secondary" type="button">BACK TO TOPIC</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="topic-match-start-overlay" class="topic-match-start-overlay" aria-hidden="true">
+    <div class="topic-match-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-match-start-title">
+      <h2 id="topic-match-start-title">Ready?</h2>
+      <p>Find every English word and its matching Portuguese card.</p>
+      <button id="topic-match-start-btn" class="topic-match-start-btn" type="button">START</button>
+    </div>
+  </div>
+
+  <div class="menu-footer"><p>📘 from the ebook <strong>"English Next Level"</strong> by Mylena Machado</p></div>
 </div>
 
 <!-- MENU CONTAINER (NÚMEROS) -->
@@ -1331,6 +1530,9 @@ if (!window.navigation) {
 
 <script src="js/firebase-config.js"></script>
 <script src="js/game.js"></script>
+<script src="js/topics/topics-data.js"></script>
+<script src="js/topics/match-pairs.js"></script>
+<script src="js/topics/topics-menu.js"></script>
 <script>
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         document.body.style.width = "calc(100% + 1px)";
