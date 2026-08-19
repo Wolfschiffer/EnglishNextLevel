@@ -54,6 +54,12 @@ const SCREENS = {
 // Função para mostrar a tela
 
 function showScreen(screen, options = {}) {
+    // Se o jogador sair do Vocabulary Match antes de terminar, encerra o cronômetro.
+    if (currentScreen === SCREENS.WORDS_GAME && screen !== SCREENS.WORDS_GAME) {
+        stopVocabularyTimer();
+        hideVocabularyStartModal();
+    }
+
     // Só esconde o auth-container se não for a tela de login
     if (!window.currentUser && !window.isGuest && screen !== SCREENS.LOGIN) {
         screen = SCREENS.LOGIN;
@@ -1686,13 +1692,135 @@ let currentPortugueseWords = [];
 let matchesCount = 0;
 let currentVerbGameType = 'present';
 
+// Estado independente de pontuação/tempo dos jogos de vocabulário.
+// Não reutiliza as variáveis do jogo de números para evitar interferência entre modos.
+let vocabScore = 0;
+let vocabStartTime = null;
+let vocabLastMatchTime = null;
+let vocabElapsedSeconds = 0;
+let vocabTimerInterval = null;
+let vocabGameFinished = false;
+let vocabGameStarted = false;
+
 const englishList = document.getElementById('english-words-list');
 const portugueseList = document.getElementById('portuguese-words-list');
 const vocabMatchesSpan = document.getElementById('vocab-matches');
 const vocabTotalSpan = document.getElementById('vocab-total');
+const vocabScoreSpan = document.getElementById('vocab-score');
+const vocabTimerSpan = document.getElementById('vocab-timer');
 const vocabMessage = document.getElementById('vocab-message');
 const vocabLeftHeading = document.getElementById('vocab-left-heading');
 const vocabRightHeading = document.getElementById('vocab-right-heading');
+const vocabStartOverlay = document.getElementById('vocab-start-overlay');
+const vocabStartBtn = document.getElementById('vocab-start-btn');
+
+function showVocabularyStartModal() {
+    if (!vocabStartOverlay) return;
+    vocabStartOverlay.classList.add('active');
+    vocabStartOverlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('vocab-modal-open');
+
+    // Move o foco para o botão sem iniciar o jogo automaticamente.
+    requestAnimationFrame(() => vocabStartBtn?.focus());
+}
+
+function hideVocabularyStartModal() {
+    if (!vocabStartOverlay) return;
+    vocabStartOverlay.classList.remove('active');
+    vocabStartOverlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('vocab-modal-open');
+}
+
+function beginVocabularyGame() {
+    if (vocabGameStarted) return;
+    vocabGameStarted = true;
+    hideVocabularyStartModal();
+    startVocabularyTimer();
+}
+
+vocabStartBtn?.addEventListener('click', beginVocabularyGame);
+
+function formatVocabularyTime(totalSeconds) {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+}
+
+function updateVocabularyStats() {
+    if (vocabScoreSpan) vocabScoreSpan.textContent = vocabScore;
+    if (vocabTimerSpan) vocabTimerSpan.textContent = formatVocabularyTime(vocabElapsedSeconds);
+}
+
+function stopVocabularyTimer() {
+    if (vocabTimerInterval) {
+        clearInterval(vocabTimerInterval);
+        vocabTimerInterval = null;
+    }
+
+    if (vocabStartTime && !vocabGameFinished) {
+        vocabElapsedSeconds = Math.floor((Date.now() - vocabStartTime) / 1000);
+    }
+    updateVocabularyStats();
+}
+
+function startVocabularyTimer() {
+    if (vocabTimerInterval) clearInterval(vocabTimerInterval);
+
+    vocabGameStarted = true;
+    vocabStartTime = Date.now();
+    vocabLastMatchTime = vocabStartTime;
+    vocabElapsedSeconds = 0;
+    vocabGameFinished = false;
+    updateVocabularyStats();
+
+    vocabTimerInterval = setInterval(() => {
+        if (vocabGameFinished || !vocabStartTime) return;
+        vocabElapsedSeconds = Math.floor((Date.now() - vocabStartTime) / 1000);
+        updateVocabularyStats();
+    }, 250);
+}
+
+function calculateVocabularyMatchPoints() {
+    const now = Date.now();
+    const referenceTime = vocabLastMatchTime || vocabStartTime || now;
+    const secondsSinceLastMatch = (now - referenceTime) / 1000;
+    vocabLastMatchTime = now;
+
+    // 100 pontos fixos por acerto + bônus de velocidade.
+    // No celular damos um pouco mais de margem porque o gesto de arrastar é naturalmente mais lento.
+    const thresholds = isMobile
+        ? { perfect: 5, fast: 8, good: 13, fair: 20 }
+        : { perfect: 4, fast: 7, good: 12, fair: 18 };
+
+    let speedBonus = 0;
+    if (secondsSinceLastMatch <= thresholds.perfect) speedBonus = 100;
+    else if (secondsSinceLastMatch <= thresholds.fast) speedBonus = 75;
+    else if (secondsSinceLastMatch <= thresholds.good) speedBonus = 50;
+    else if (secondsSinceLastMatch <= thresholds.fair) speedBonus = 25;
+
+    return 100 + speedBonus;
+}
+
+function awardVocabularyMatchPoints() {
+    if (vocabGameFinished || !vocabGameStarted) return;
+    vocabScore += calculateVocabularyMatchPoints();
+    updateVocabularyStats();
+}
+
+function finishVocabularyGameStats() {
+    if (vocabGameFinished) return;
+    vocabElapsedSeconds = vocabStartTime
+        ? Math.floor((Date.now() - vocabStartTime) / 1000)
+        : vocabElapsedSeconds;
+    vocabGameFinished = true;
+    vocabGameStarted = false;
+
+    if (vocabTimerInterval) {
+        clearInterval(vocabTimerInterval);
+        vocabTimerInterval = null;
+    }
+    updateVocabularyStats();
+}
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -1721,9 +1849,22 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     
     currentEnglishWords = shuffleArray([...currentEnglishWords]);
     
+    // Garante que nenhum cronômetro de uma partida anterior continue rodando.
+    if (vocabTimerInterval) {
+        clearInterval(vocabTimerInterval);
+        vocabTimerInterval = null;
+    }
+
     matchesCount = 0;
+    vocabScore = 0;
+    vocabStartTime = null;
+    vocabLastMatchTime = null;
+    vocabElapsedSeconds = 0;
+    vocabGameFinished = false;
+    vocabGameStarted = false;
     if (vocabMatchesSpan) vocabMatchesSpan.textContent = matchesCount;
     if (vocabTotalSpan) vocabTotalSpan.textContent = activeData.length;
+    updateVocabularyStats();
     
     // Armazena o tipo do jogo para uso na renderização dos áudios
     currentVerbGameType = gameType;
@@ -1741,7 +1882,10 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     if (vocabMessage) vocabMessage.innerHTML = '';
     currentScreen = SCREENS.WORDS_GAME;
 
-	preloadCurrentGameAudios();
+    // Prepara os áudios enquanto o modal está aberto, mas só inicia
+    // tempo e pontuação depois que o usuário clicar em START.
+    preloadCurrentGameAudios();
+    showVocabularyStartModal();
 }
 
 
@@ -1915,6 +2059,14 @@ function lockAndMoveToTop(englishId, portugueseId) {
     
     matchesCount++;
     if (vocabMatchesSpan) vocabMatchesSpan.textContent = matchesCount;
+
+    // Cada par correto pontua uma única vez. Como esta função só chega aqui
+    // quando encontrou dois itens ainda não travados, chamadas duplicadas não somam pontos.
+    awardVocabularyMatchPoints();
+
+    if (matchesCount === currentEnglishWords.length) {
+        finishVocabularyGameStats();
+    }
     
     return true;
 }
