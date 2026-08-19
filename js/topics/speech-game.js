@@ -19,7 +19,9 @@
     recognitionBlocked: false,
     activeUtterance: null,
     showPreAnswerAudio: false,
-    voiceVolume: 100
+    voiceVolume: 100,
+    speechOutputPrimed: false,
+    pendingPronunciation: null
   };
 
   function $(id) {
@@ -254,6 +256,25 @@
       null;
   }
 
+  function primeSpeechOutput() {
+    if (state.speechOutputPrimed || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
+      return;
+    }
+
+    try {
+      const utterance = new SpeechSynthesisUtterance(' ');
+      utterance.lang = state.topic?.englishVariant || 'en-US';
+      utterance.volume = 0;
+      utterance.rate = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.speak(utterance);
+      window.speechSynthesis.resume?.();
+      state.speechOutputPrimed = true;
+    } catch (error) {
+      console.warn('TOPICS Speak: could not prime speech output.', error);
+    }
+  }
+
   function playPronunciation(word, button) {
     if (!word || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
       if (button) {
@@ -287,7 +308,11 @@
 
     utterance.onend = cleanup;
     utterance.onerror = cleanup;
+
+    // Alguns navegadores móveis deixam o sintetizador pausado depois de usar o microfone.
+    window.speechSynthesis.resume?.();
     window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.resume?.();
   }
 
   function updateHeader() {
@@ -420,7 +445,13 @@
       audio.setAttribute('aria-label', `Listen to ${word.english} in American English`);
     }
 
-    playPronunciation(word, audio);
+    // Em mobile, reconhecimento de voz e síntese podem disputar a sessão de áudio.
+    // Se o microfone ainda está finalizando, aguardamos recognition.onend.
+    if (state.listening) {
+      state.pendingPronunciation = { word, button: audio };
+    } else {
+      playPronunciation(word, audio);
+    }
   }
 
   function showWrongResult(transcript) {
@@ -529,6 +560,14 @@
 
     recognition.onend = () => {
       setMicState(false);
+
+      if (state.pendingPronunciation) {
+        const pending = state.pendingPronunciation;
+        state.pendingPronunciation = null;
+        // Pequeno respiro para o sistema devolver a rota de áudio após encerrar o microfone.
+        window.setTimeout(() => playPronunciation(pending.word, pending.button), 120);
+      }
+
       if (!state.currentWordResolved) {
         const mic = $('topic-speak-mic');
         if (mic) mic.disabled = false;
@@ -661,6 +700,10 @@
   }
 
   function startRound() {
+    // START é um gesto explícito do usuário e serve para liberar a saída de voz
+    // em navegadores móveis que aplicam políticas mais rígidas de reprodução.
+    primeSpeechOutput();
+
     state.started = true;
     hideStartOverlay();
     renderCurrentWord();
@@ -691,6 +734,7 @@
     state.currentWordResolved = false;
     state.recognitionBlocked = false;
     state.recognition = null;
+    state.pendingPronunciation = null;
 
     updateHeader();
     hideReview();
@@ -717,6 +761,7 @@
     stopSpeech();
     state.started = false;
     state.currentWordResolved = false;
+    state.pendingPronunciation = null;
     hideStartOverlay();
     updatePreviewAudioVisibility();
     const settingsOverlay = $('topic-speak-settings-overlay');
