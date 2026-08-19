@@ -370,133 +370,158 @@ const SCORE_CONFIG = {
     MAX_TIME: 12
 };
 
-const SOUND_EFFECTS = {
-    correct: 'sfx/CorrectAnswer.mp3',
-    wrong: 'sfx/IncorrectAnswer.mp3',
-    win: 'sfx/Win.mp3',
-    gameOver: 'sfx/GameOver.mp3'
-};
-
-
-// WORDS possui controles separados para efeitos sonoros (SFX) e pronúncia.
-// O volume de voz é compartilhado com TOPICS / SPEAK durante a sessão.
-const WORDS_SFX_STORAGE_KEY = 'englishNextLevel.wordsSfxVolume';
+// ============================================
+// CONFIGURAÇÕES GLOBAIS DE ÁUDIO
+// ============================================
+// Voz e SFX usam os mesmos volumes em NUMBERS, WORDS e TOPICS.
+// Mantemos os IDs CSS/HTML "words-*" do modal existente por compatibilidade,
+// mas o controle agora é global.
+const GLOBAL_SFX_STORAGE_KEY = 'englishNextLevel.sfxVolume';
+const LEGACY_WORDS_SFX_STORAGE_KEY = 'englishNextLevel.wordsSfxVolume';
 const VOICE_VOLUME_STORAGE_KEY = 'englishNextLevel.voiceVolume';
-let wordsSfxVolume = 100;
-let wordsVoiceVolume = 100;
 
-function clampWordsSfxVolume(value) {
+let globalSfxVolume = 100;
+let globalVoiceVolume = 100;
+
+function clampAudioVolume(value) {
     const numeric = Number(value);
     if (!Number.isFinite(numeric)) return 100;
     return Math.max(0, Math.min(100, Math.round(numeric)));
 }
 
-function loadWordsSfxVolume() {
+function readSessionVolume(key, fallback = 100) {
     try {
-        const saved = window.sessionStorage.getItem(WORDS_SFX_STORAGE_KEY);
-        wordsSfxVolume = saved === null ? 100 : clampWordsSfxVolume(saved);
+        const saved = window.sessionStorage.getItem(key);
+        return saved === null ? fallback : clampAudioVolume(saved);
     } catch (error) {
-        wordsSfxVolume = 100;
+        return fallback;
     }
 }
 
-function saveWordsSfxVolume() {
+function writeSessionVolume(key, value) {
     try {
-        window.sessionStorage.setItem(WORDS_SFX_STORAGE_KEY, String(wordsSfxVolume));
-    } catch (error) {
-        // Storage indisponível não impede o controle de volume durante a página atual.
-    }
-}
-
-function loadWordsVoiceVolume() {
-    try {
-        const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
-        wordsVoiceVolume = saved === null ? 100 : clampWordsSfxVolume(saved);
-    } catch (error) {
-        wordsVoiceVolume = 100;
-    }
-}
-
-function saveWordsVoiceVolume() {
-    try {
-        window.sessionStorage.setItem(VOICE_VOLUME_STORAGE_KEY, String(wordsVoiceVolume));
+        window.sessionStorage.setItem(key, String(clampAudioVolume(value)));
     } catch (error) {
         // Mantém o valor em memória quando sessionStorage não estiver disponível.
     }
 }
 
-function getWordsVoiceVolume() {
+function loadGlobalAudioVolumes() {
+    globalVoiceVolume = readSessionVolume(VOICE_VOLUME_STORAGE_KEY, 100);
+
     try {
-        const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
-        if (saved !== null) wordsVoiceVolume = clampWordsSfxVolume(saved);
+        const globalSaved = window.sessionStorage.getItem(GLOBAL_SFX_STORAGE_KEY);
+        if (globalSaved !== null) {
+            globalSfxVolume = clampAudioVolume(globalSaved);
+        } else {
+            // Migra automaticamente o volume antigo do WORDS, se existir.
+            const legacySaved = window.sessionStorage.getItem(LEGACY_WORDS_SFX_STORAGE_KEY);
+            globalSfxVolume = legacySaved === null ? 100 : clampAudioVolume(legacySaved);
+            window.sessionStorage.setItem(GLOBAL_SFX_STORAGE_KEY, String(globalSfxVolume));
+        }
     } catch (error) {
-        // Usa o valor já carregado em memória.
+        globalSfxVolume = 100;
     }
-    return wordsVoiceVolume;
 }
 
-function getWordsVolumeIcon(volume = wordsSfxVolume) {
-    const level = clampWordsSfxVolume(volume);
+function getGlobalVoiceVolume() {
+    globalVoiceVolume = readSessionVolume(VOICE_VOLUME_STORAGE_KEY, globalVoiceVolume);
+    return globalVoiceVolume;
+}
+
+function getGlobalSfxVolume() {
+    globalSfxVolume = readSessionVolume(GLOBAL_SFX_STORAGE_KEY, globalSfxVolume);
+    return globalSfxVolume;
+}
+
+function getAudioVolumeIcon(volume) {
+    const level = clampAudioVolume(volume);
     if (level === 0) return '🔇';
     if (level <= 33) return '🔈';
     if (level <= 66) return '🔉';
     return '🔊';
 }
 
-function updateWordsSfxSettingsUI() {
-    const slider = document.getElementById('words-sfx-volume');
-    const value = document.getElementById('words-sfx-volume-value');
-    const icon = document.getElementById('words-sfx-volume-icon');
+function syncNumbersSpeakerIcon() {
+    if (!DOM?.speakerToggle) return;
+    const effectiveVolume = isAudioMuted ? 0 : getGlobalVoiceVolume();
+    DOM.speakerToggle.textContent = getAudioVolumeIcon(effectiveVolume);
+    DOM.speakerToggle.classList.toggle('muted', effectiveVolume === 0);
+    DOM.speakerToggle.setAttribute('aria-label', effectiveVolume === 0 ? 'Unmute voice' : 'Mute voice');
+}
 
-    if (slider) {
-        slider.value = String(wordsSfxVolume);
-        slider.setAttribute('aria-valuenow', String(wordsSfxVolume));
-        slider.style.setProperty('--words-volume-percent', `${wordsSfxVolume}%`);
+function updateGlobalAudioSettingsUI() {
+    const sfxVolume = getGlobalSfxVolume();
+    const voiceVolume = getGlobalVoiceVolume();
+
+    const sfxSlider = document.getElementById('words-sfx-volume');
+    const sfxValue = document.getElementById('words-sfx-volume-value');
+    const sfxIcon = document.getElementById('words-sfx-volume-icon');
+
+    if (sfxSlider) {
+        sfxSlider.value = String(sfxVolume);
+        sfxSlider.setAttribute('aria-valuenow', String(sfxVolume));
+        sfxSlider.style.setProperty('--words-volume-percent', `${sfxVolume}%`);
     }
-    if (value) value.textContent = `${wordsSfxVolume}%`;
-    if (icon) icon.textContent = getWordsVolumeIcon(wordsSfxVolume);
-}
+    if (sfxValue) sfxValue.textContent = `${sfxVolume}%`;
+    if (sfxIcon) sfxIcon.textContent = getAudioVolumeIcon(sfxVolume);
 
-function updateWordsVoiceSettingsUI() {
-    const slider = document.getElementById('words-voice-volume');
-    const value = document.getElementById('words-voice-volume-value');
-    const icon = document.getElementById('words-voice-volume-icon');
+    const voiceSlider = document.getElementById('words-voice-volume');
+    const voiceValue = document.getElementById('words-voice-volume-value');
+    const voiceIcon = document.getElementById('words-voice-volume-icon');
 
-    if (slider) {
-        slider.value = String(wordsVoiceVolume);
-        slider.setAttribute('aria-valuenow', String(wordsVoiceVolume));
-        slider.style.setProperty('--words-volume-percent', `${wordsVoiceVolume}%`);
+    if (voiceSlider) {
+        voiceSlider.value = String(voiceVolume);
+        voiceSlider.setAttribute('aria-valuenow', String(voiceVolume));
+        voiceSlider.style.setProperty('--words-volume-percent', `${voiceVolume}%`);
     }
-    if (value) value.textContent = `${wordsVoiceVolume}%`;
-    if (icon) icon.textContent = getWordsVolumeIcon(wordsVoiceVolume);
+    if (voiceValue) voiceValue.textContent = `${voiceVolume}%`;
+    if (voiceIcon) voiceIcon.textContent = getAudioVolumeIcon(voiceVolume);
+
+    syncNumbersSpeakerIcon();
+    window.dispatchEvent(new CustomEvent('english-next-level-audio-volume-change', {
+        detail: { voiceVolume, sfxVolume }
+    }));
 }
 
-function setWordsSfxVolume(value) {
-    wordsSfxVolume = clampWordsSfxVolume(value);
-    saveWordsSfxVolume();
-    updateWordsSfxSettingsUI();
+function setGlobalSfxVolume(value) {
+    globalSfxVolume = clampAudioVolume(value);
+    writeSessionVolume(GLOBAL_SFX_STORAGE_KEY, globalSfxVolume);
+    updateGlobalAudioSettingsUI();
 }
 
-function setWordsVoiceVolume(value) {
-    wordsVoiceVolume = clampWordsSfxVolume(value);
-    saveWordsVoiceVolume();
-    updateWordsVoiceSettingsUI();
+function setGlobalVoiceVolume(value) {
+    globalVoiceVolume = clampAudioVolume(value);
+    writeSessionVolume(VOICE_VOLUME_STORAGE_KEY, globalVoiceVolume);
 
-    // SpeechSynthesisUtterance não permite alterar o volume de uma fala que já
-    // começou. Ao mutar, interrompemos imediatamente; a próxima reprodução usa
-    // o novo valor do slider.
-    if (wordsVoiceVolume === 0) {
+    if (globalVoiceVolume === 0) {
         EnglishSpeechEngine?.stop?.();
-        stopWordsPronunciation();
+        stopWordsPronunciation?.();
     }
+
+    updateGlobalAudioSettingsUI();
+}
+
+function getAudioSettingsLabel() {
+    if (currentScreen === SCREENS.NUMBERS_GAME || currentScreen === SCREENS.NUMBERS_MENU) return 'NUMBERS';
+    if (currentScreen === SCREENS.WORDS_GAME || currentScreen === SCREENS.WORDS_MENU ||
+        currentScreen === SCREENS.WORDS_SUBMENU || currentScreen === SCREENS.WORDS_SUBMENU_PAST) return 'WORDS';
+    if (currentScreen === SCREENS.TOPIC_MATCH) return 'MATCH PAIRS';
+    if (currentScreen === SCREENS.TOPICS_MENU || currentScreen === SCREENS.TOPIC_LEVEL ||
+        currentScreen === SCREENS.TOPIC_GAME_MENU) return 'TOPICS';
+    return 'AUDIO';
 }
 
 function openWordsSettings() {
     const overlay = document.getElementById('words-settings-overlay');
     if (!overlay) return;
-    loadWordsVoiceVolume();
-    updateWordsSfxSettingsUI();
-    updateWordsVoiceSettingsUI();
+
+    loadGlobalAudioVolumes();
+    updateGlobalAudioSettingsUI();
+
+    const kicker = document.getElementById('audio-settings-kicker');
+    if (kicker) kicker.textContent = getAudioSettingsLabel();
+
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.add('words-settings-open');
@@ -512,22 +537,29 @@ function closeWordsSettings() {
 }
 
 function initWordsSettings() {
-    loadWordsSfxVolume();
-    loadWordsVoiceVolume();
-    updateWordsSfxSettingsUI();
-    updateWordsVoiceSettingsUI();
+    loadGlobalAudioVolumes();
+    updateGlobalAudioSettingsUI();
 
-    document.getElementById('words-menu-settings-btn')?.addEventListener('click', openWordsSettings);
-    document.getElementById('words-game-settings-btn')?.addEventListener('click', openWordsSettings);
+    [
+        'words-menu-settings-btn',
+        'words-game-settings-btn',
+        'numbers-menu-settings-btn',
+        'numbers-game-settings-btn',
+        'topics-menu-settings-btn',
+        'topic-match-settings-btn'
+    ].forEach((id) => {
+        document.getElementById(id)?.addEventListener('click', openWordsSettings);
+    });
+
     document.getElementById('words-settings-close')?.addEventListener('click', closeWordsSettings);
     document.getElementById('words-settings-overlay')?.addEventListener('click', (event) => {
         if (event.target === event.currentTarget) closeWordsSettings();
     });
     document.getElementById('words-sfx-volume')?.addEventListener('input', (event) => {
-        setWordsSfxVolume(event.target.value);
+        setGlobalSfxVolume(event.target.value);
     });
     document.getElementById('words-voice-volume')?.addEventListener('input', (event) => {
-        setWordsVoiceVolume(event.target.value);
+        setGlobalVoiceVolume(event.target.value);
     });
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && document.getElementById('words-settings-overlay')?.classList.contains('visible')) {
@@ -536,7 +568,14 @@ function initWordsSettings() {
     });
 }
 
+// Aliases temporários para código legado que ainda use os nomes antigos.
+function getWordsVoiceVolume() { return getGlobalVoiceVolume(); }
+function setWordsVoiceVolume(value) { setGlobalVoiceVolume(value); }
+function setWordsSfxVolume(value) { setGlobalSfxVolume(value); }
+function getWordsVolumeIcon(volume) { return getAudioVolumeIcon(volume); }
+
 const PLATFORM_POSITIONS = [100, 250, 400];
+
 
 // ============================================
 // 2. GAME DATA
@@ -759,7 +798,7 @@ let highScores = {
 };
 
 let lives = 3, streak = 0, multiplier = 1, answered = false, availableNumbers = [];
-let audioPlayer = null, isAudioMuted = false, gameActive = false, gameEnded = false;
+let isAudioMuted = false, gameActive = false, gameEnded = false;
 let isWaiting = false;
 
 // ============================================
@@ -1097,265 +1136,152 @@ const EnglishSpeechEngine = (() => {
 window.EnglishNextLevelSpeech = EnglishSpeechEngine;
 
 // ============================================
-// MOTOR DE ÁUDIO MOBILE PARA ARQUIVOS (SFX/WORDS LEGADO)
+// MOTOR COMPARTILHADO DE SFX — SEM ARQUIVOS MP3
 // ============================================
-// Os SFX ainda usam arquivos. A voz do NUMBERS e do WORDS já foi
-// migrada para speechSynthesis; este motor de arquivos fica apenas para SFX.
-let mobileAudioContext = null;
-const mobileAudioBufferCache = new Map();
-const mobileAudioActiveSources = { voice: null, sfx: null };
+// Gera efeitos curtos diretamente com Web Audio API. Isso elimina a dependência
+// dos MP3 de SFX e evita o problema de HTMLAudio silencioso observado no mobile.
+const ProgrammaticSfxEngine = (() => {
+    let context = null;
 
-function prefersMobileAudioEngine() {
-    try {
-        const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches === true;
-        const touchCapable = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
-        return coarsePointer || touchCapable;
-    } catch (error) {
-        return false;
+    function supported() {
+        return Boolean(window.AudioContext || window.webkitAudioContext);
     }
-}
 
-function getMobileAudioContext() {
-    if (!prefersMobileAudioEngine()) return null;
-    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-    if (!AudioContextClass) return null;
+    function getContext() {
+        if (!supported()) return null;
+        if (!context) {
+            const AudioContextCtor = window.AudioContext || window.webkitAudioContext;
+            context = new AudioContextCtor();
+        }
+        return context;
+    }
 
-    if (!mobileAudioContext) {
+    async function unlock() {
+        const ctx = getContext();
+        if (!ctx) return false;
         try {
-            mobileAudioContext = new AudioContextClass();
+            if (ctx.state === 'suspended') await ctx.resume();
+            return ctx.state === 'running';
         } catch (error) {
-            console.warn('Mobile Web Audio context could not be created:', error);
-            return null;
+            console.warn('SFX engine: could not unlock audio context.', error);
+            return false;
         }
     }
-    return mobileAudioContext;
-}
 
-async function unlockMobileAudioEngine() {
-    const context = getMobileAudioContext();
-    if (!context) return false;
+    function tone(ctx, { frequency, start, duration, gain, type = 'sine' }) {
+        const oscillator = ctx.createOscillator();
+        const envelope = ctx.createGain();
 
-    try {
-        if (context.state === 'suspended') {
-            await context.resume();
-        }
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(frequency, start);
 
-        // Um buffer silencioso iniciado durante o gesto do usuário ajuda a
-        // liberar a saída em navegadores móveis mais restritivos.
-        if (context.state === 'running') {
-            const buffer = context.createBuffer(1, 1, context.sampleRate || 44100);
-            const source = context.createBufferSource();
-            source.buffer = buffer;
-            source.connect(context.destination);
-            source.start(0);
-        }
+        envelope.gain.setValueAtTime(0.0001, start);
+        envelope.gain.exponentialRampToValueAtTime(Math.max(0.0001, gain), start + 0.012);
+        envelope.gain.exponentialRampToValueAtTime(0.0001, start + duration);
 
-        return context.state === 'running';
-    } catch (error) {
-        console.warn('Mobile Web Audio unlock failed:', error);
-        return false;
-    }
-}
-
-function getMobileAudioBuffer(path) {
-    const context = getMobileAudioContext();
-    if (!context) return Promise.resolve(null);
-
-    if (mobileAudioBufferCache.has(path)) {
-        return mobileAudioBufferCache.get(path);
+        oscillator.connect(envelope);
+        envelope.connect(ctx.destination);
+        oscillator.start(start);
+        oscillator.stop(start + duration + 0.02);
     }
 
-    const promise = fetch(path, { cache: 'force-cache' })
-        .then((response) => {
-            if (!response.ok) throw new Error(`HTTP ${response.status} for ${path}`);
-            return response.arrayBuffer();
-        })
-        .then((arrayBuffer) => context.decodeAudioData(arrayBuffer.slice(0)))
-        .catch((error) => {
-            mobileAudioBufferCache.delete(path);
-            console.warn(`Mobile audio decode failed for ${path}:`, error);
-            return null;
-        });
+    async function play(type, volume = getGlobalSfxVolume() / 100) {
+        const level = Math.max(0, Math.min(1, Number(volume) || 0));
+        if (level <= 0) return false;
 
-    mobileAudioBufferCache.set(path, promise);
-    return promise;
-}
+        const ctx = getContext();
+        if (!ctx) return false;
 
-async function playWithMobileAudioEngine(path, volume = 1, channel = 'sfx') {
-    const context = getMobileAudioContext();
-    if (!context) return false;
+        try {
+            if (ctx.state === 'suspended') await ctx.resume();
+            if (ctx.state !== 'running') return false;
 
-    try {
-        if (context.state === 'suspended') {
-            await context.resume();
-        }
-        if (context.state !== 'running') return false;
+            const now = ctx.currentTime + 0.005;
+            const master = 0.19 * level;
 
-        const buffer = await getMobileAudioBuffer(path);
-        if (!buffer) return false;
+            switch (type) {
+                case 'correct':
+                    tone(ctx, { frequency: 660, start: now, duration: 0.11, gain: master, type: 'sine' });
+                    tone(ctx, { frequency: 880, start: now + 0.09, duration: 0.15, gain: master, type: 'sine' });
+                    break;
 
-        // O contexto pode ser suspenso enquanto o arquivo é carregado.
-        if (context.state === 'suspended') {
-            try { await context.resume(); } catch (_) {}
-        }
-        if (context.state !== 'running') return false;
+                case 'wrong':
+                    tone(ctx, { frequency: 210, start: now, duration: 0.18, gain: master * 0.85, type: 'square' });
+                    tone(ctx, { frequency: 165, start: now + 0.10, duration: 0.18, gain: master * 0.72, type: 'square' });
+                    break;
 
-        const previous = mobileAudioActiveSources[channel];
-        if (previous) {
-            try { previous.stop(); } catch (_) {}
-        }
+                case 'win':
+                    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+                        tone(ctx, {
+                            frequency,
+                            start: now + index * 0.085,
+                            duration: 0.20,
+                            gain: master,
+                            type: 'triangle'
+                        });
+                    });
+                    break;
 
-        const source = context.createBufferSource();
-        const gain = context.createGain();
-        source.buffer = buffer;
-        gain.gain.value = Math.max(0, Math.min(1, Number(volume) || 0));
-        source.connect(gain);
-        gain.connect(context.destination);
-        source.onended = () => {
-            if (mobileAudioActiveSources[channel] === source) {
-                mobileAudioActiveSources[channel] = null;
+                case 'gameOver':
+                    [392, 293.66, 220].forEach((frequency, index) => {
+                        tone(ctx, {
+                            frequency,
+                            start: now + index * 0.11,
+                            duration: 0.20,
+                            gain: master * 0.9,
+                            type: 'triangle'
+                        });
+                    });
+                    break;
+
+                default:
+                    return false;
             }
-        };
-        mobileAudioActiveSources[channel] = source;
-        source.start(0);
-        return true;
-    } catch (error) {
-        console.warn(`Mobile Web Audio playback failed for ${path}:`, error);
-        return false;
-    }
-}
 
-function speakMobileFallback(text, volume = 1) {
-    if (!text || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
-        return false;
+            return true;
+        } catch (error) {
+            console.warn('SFX engine: playback failed.', error);
+            return false;
+        }
     }
 
-    try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.9;
-        utterance.volume = Math.max(0, Math.min(1, Number(volume) || 0));
+    return { supported, unlock, play };
+})();
 
-        const voices = window.speechSynthesis.getVoices?.() || [];
-        const voice = voices.find(v => v.lang?.toLowerCase() === 'en-us') ||
-            voices.find(v => v.lang?.toLowerCase().startsWith('en-us')) ||
-            voices.find(v => v.lang?.toLowerCase().startsWith('en'));
-        if (voice) utterance.voice = voice;
-
-        window.speechSynthesis.resume?.();
-        window.speechSynthesis.speak(utterance);
-        return true;
-    } catch (error) {
-        console.warn('Mobile speech fallback failed:', error);
-        return false;
-    }
-}
-
-// Tenta liberar Web Audio na primeira interação real com a página e volta a
-// tentar nos botões START de cada jogo.
+// Tenta liberar o contexto no primeiro gesto real. Cada START também chama unlock().
 document.addEventListener('pointerdown', () => {
-    if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
+    ProgrammaticSfxEngine.unlock();
 }, { once: true, passive: true });
 
-// Player persistente apenas para os SFX legados do WORDS. A voz das palavras
-// não usa mais arquivos de áudio; ela é gerada pelo EnglishSpeechEngine.
-const wordsSfxPlayer = new Audio();
-wordsSfxPlayer.preload = 'auto';
-
-const MOBILE_AUDIO_UNLOCK_SRC = 'data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-let wordsMobileAudioPrimed = false;
-
-function primeWordsMobileAudio() {
-    if (wordsMobileAudioPrimed) return;
-
-    const players = [wordsSfxPlayer];
-    players.forEach((player) => {
-        try {
-            player.pause();
-            player.src = MOBILE_AUDIO_UNLOCK_SRC;
-            player.volume = 1;
-            player.currentTime = 0;
-            const playPromise = player.play();
-            if (playPromise && typeof playPromise.then === 'function') {
-                playPromise.then(() => {
-                    player.pause();
-                    player.currentTime = 0;
-                }).catch((error) => {
-                    console.warn('Mobile audio prime was blocked:', error);
-                });
-            }
-        } catch (error) {
-            console.warn('Could not prime mobile audio:', error);
-        }
-    });
-
-    // A tentativa precisa acontecer dentro do gesto do usuário; mesmo se um navegador
-    // rejeitar um dos players, novas tentativas continuarão sendo feitas pelo play() real.
-    wordsMobileAudioPrimed = true;
-}
-
 function playSound(type) {
-    const path = SOUND_EFFECTS[type];
-    if (!path) return;
-
-    const isWordsGame = currentScreen === SCREENS.WORDS_GAME;
-
-    // O mute global pertence ao jogo NUMBERS. WORDS possui o próprio slider de SFX.
-    if (!isWordsGame && isAudioMuted) return;
-
-    const playbackVolume = isWordsGame ? wordsSfxVolume / 100 : 1;
-    if (playbackVolume <= 0) return;
-
-    if (prefersMobileAudioEngine()) {
-        playWithMobileAudioEngine(path, playbackVolume, 'sfx').then((played) => {
-            if (played) return;
-
-            // Fallback para HTMLAudio caso Web Audio não esteja disponível.
-            try {
-                const fallback = new Audio(path);
-                fallback.volume = playbackVolume;
-                fallback.play().catch(e => console.log('Mobile SFX fallback error:', e));
-            } catch (error) {
-                console.warn('Mobile SFX fallback failed:', error);
-            }
-        });
-        return;
-    }
-
-    if (isWordsGame) {
-        try {
-            wordsSfxPlayer.pause();
-            if (!wordsSfxPlayer.src.endsWith(path)) wordsSfxPlayer.src = path;
-            wordsSfxPlayer.currentTime = 0;
-            wordsSfxPlayer.volume = playbackVolume;
-            wordsSfxPlayer.play().catch(e => console.log('WORDS SFX error:', e));
-        } catch (error) {
-            console.warn('WORDS SFX playback failed:', error);
-        }
-        return;
-    }
-
-    if (!sfxCache[path]) {
-        const audio = new Audio(path);
-        audio.preload = 'auto';
-        sfxCache[path] = audio;
-    }
-
-    const playInstance = sfxCache[path].cloneNode();
-    playInstance.volume = playbackVolume;
-    playInstance.play().catch(e => console.log('Sound error:', e));
+    const volume = getGlobalSfxVolume() / 100;
+    if (volume <= 0) return;
+    ProgrammaticSfxEngine.play(type, volume);
 }
+
+// API compartilhada consumida pelos módulos de TOPICS.
+window.EnglishNextLevelAudio = {
+    getVoiceVolume: getGlobalVoiceVolume,
+    setVoiceVolume: setGlobalVoiceVolume,
+    getSfxVolume: getGlobalSfxVolume,
+    setSfxVolume: setGlobalSfxVolume,
+    getVolumeIcon: getAudioVolumeIcon,
+    playSfx: playSound,
+    unlockSfx: () => ProgrammaticSfxEngine.unlock(),
+    syncSettingsUI: updateGlobalAudioSettingsUI
+};
 
 function playAudio() {
     if (!currentNumber || isAudioMuted || !gameActive) return;
 
-    // NUMBERS não depende mais de audio/*.mp3. A string já existente em
-    // currentNumber.word é pronunciada diretamente em American English.
+    const voiceVolume = getGlobalVoiceVolume();
+    if (voiceVolume <= 0) return;
+
+    // NUMBERS usa o mesmo volume global de voz usado por WORDS e TOPICS.
     EnglishSpeechEngine.speak(currentNumber.word, {
         lang: 'en-US',
         rate: 0.9,
-        volume: 1
+        volume: voiceVolume / 100
     });
 }
 
@@ -1977,7 +1903,7 @@ function startGame() {
     // START é uma interação explícita do usuário e é o melhor ponto para
     // preparar a saída de voz em navegadores móveis.
     // WORDS TTS is activated directly by the user's tap on the pronunciation button.
-    if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
+    ProgrammaticSfxEngine.unlock();
 
     if (!DOM.game) {
         console.error("DOM.game não encontrado!");
@@ -1995,8 +1921,15 @@ function startGame() {
 
 
 function toggleAudio() {
-    isAudioMuted = !isAudioMuted;
-    if (DOM.speakerToggle) DOM.speakerToggle.textContent = isAudioMuted ? '🔇' : '🔊';
+    // Atalho rápido apenas para a voz do NUMBERS.
+    // Se o slider global estiver em 0, tocar no speaker restaura a voz em 100%.
+    if (getGlobalVoiceVolume() === 0) {
+        setGlobalVoiceVolume(100);
+        isAudioMuted = false;
+    } else {
+        isAudioMuted = !isAudioMuted;
+    }
+    syncNumbersSpeakerIcon();
 }
 
 
@@ -2182,8 +2115,6 @@ function initGame() {
     }
     
     loadMenuImages();
-    audioPlayer = new Audio();
-
 
     if (DOM.menuButton) {
         DOM.menuButton.removeEventListener('click', showMenu);
@@ -2298,8 +2229,7 @@ function beginVocabularyGame() {
 
     // START é uma ativação explícita do usuário: libera os SFX legados e,
     // principalmente, prepara o mesmo sintetizador de voz usado pelo NUMBERS.
-    if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
-    primeWordsMobileAudio();
+    ProgrammaticSfxEngine.unlock();
     EnglishSpeechEngine.prime('en-US');
 
     vocabGameStarted = true;
