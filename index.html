@@ -1152,13 +1152,13 @@ if (!window.navigation) {
       <span class="topic-choice-icon">🧩</span>
       <span class="topic-choice-title">MATCH PAIRS</span>
       <span class="topic-choice-description">Find the matching English and Portuguese cards</span>
-      <span class="topic-choice-badge">Next step</span>
+      <span class="topic-choice-badge">PLAY</span>
     </button>
     <button class="topic-choice-card topic-game-choice" id="topic-speak-btn" type="button" data-topic-game="speak">
       <span class="topic-choice-icon">🎙️</span>
       <span class="topic-choice-title">SPEAK</span>
       <span class="topic-choice-description">See the word in Portuguese and say it in English</span>
-      <span class="topic-choice-badge">Next step</span>
+      <span class="topic-choice-badge">PLAY</span>
     </button>
   </div>
 
@@ -1228,6 +1228,110 @@ if (!window.navigation) {
       <h2 id="topic-match-start-title">Ready?</h2>
       <p>Find every English word and its matching Portuguese card.</p>
       <button id="topic-match-start-btn" class="topic-match-start-btn" type="button">START</button>
+    </div>
+  </div>
+
+  <div class="menu-footer"><p>📘 from the ebook <strong>"English Next Level"</strong> by Mylena Machado</p></div>
+</div>
+
+<!-- TOPICS: SPEAK -->
+<div class="game-container topics-shell topic-speak-screen" id="topic-speak-container" style="display: none; max-width: 760px;">
+  <div class="header">
+    <div class="title-section">
+      <h1>ENGLISH <span class="highlight">NEXT LEVEL</span></h1>
+      <p class="subtitle">speak</p>
+    </div>
+    <div class="header-buttons">
+      <button id="back-from-topic-speak" class="menu-btn" type="button" aria-label="Back">◀</button>
+    </div>
+  </div>
+
+  <div class="topic-speak-heading">
+    <div>
+      <p class="topic-selection-kicker" id="topic-speak-level">COMMON · 10 WORDS</p>
+      <h2 id="topic-speak-title">Kitchen Objects</h2>
+      <p class="topic-speak-instruction">Read the Portuguese word and say it in English.</p>
+    </div>
+    <div class="topic-speak-progress" aria-live="polite">
+      <span>Word</span>
+      <strong><span id="topic-speak-current">1</span>/<span id="topic-speak-total">10</span></strong>
+    </div>
+  </div>
+
+  <div id="topic-speak-play-area" class="topic-speak-play-area">
+    <div class="topic-speak-prompt-card" aria-labelledby="topic-speak-portuguese">
+      <span class="topic-speak-prompt-label">PORTUGUÊS</span>
+      <strong id="topic-speak-portuguese">geladeira</strong>
+    </div>
+
+    <p id="topic-speak-status" class="topic-speak-status" role="status" aria-live="polite">Tap the microphone and say the word in English.</p>
+
+    <button id="topic-speak-mic" class="topic-speak-mic" type="button" aria-label="Start speaking">
+      <span class="topic-speak-mic-icon" aria-hidden="true">🎙️</span>
+      <span id="topic-speak-mic-label">SPEAK</span>
+    </button>
+
+    <div id="topic-speak-heard" class="topic-speak-heard" aria-live="polite" hidden>
+      <span>I heard</span>
+      <strong id="topic-speak-transcript"></strong>
+    </div>
+
+    <div id="topic-speak-result" class="topic-speak-result" aria-live="polite" hidden>
+      <span id="topic-speak-result-icon" class="topic-speak-result-icon">✓</span>
+      <div>
+        <strong id="topic-speak-result-title">Correct!</strong>
+        <div class="topic-speak-answer-line">
+          <span id="topic-speak-answer">refrigerator</span>
+          <button id="topic-speak-audio" class="topic-review-audio" type="button" aria-label="Listen to the correct pronunciation">🔊</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="topic-speak-unsupported" class="topic-speak-unsupported" hidden>
+      <strong id="topic-speak-fallback-title">Voice recognition is not available in this browser.</strong>
+      <p id="topic-speak-fallback-text">You can still study the word and listen to the American English pronunciation.</p>
+      <button id="topic-speak-reveal" class="topic-review-btn topic-review-btn-secondary" type="button">SHOW ANSWER</button>
+    </div>
+
+    <div class="topic-speak-actions">
+      <button id="topic-speak-next" class="topic-review-btn topic-review-btn-primary" type="button" hidden>NEXT</button>
+    </div>
+  </div>
+
+  <section id="topic-speak-review" class="topic-match-review topic-speak-review" aria-labelledby="topic-speak-review-title" aria-hidden="true">
+    <div class="topic-review-success" role="status" aria-live="polite">
+      <div class="topic-review-success-icon">✓</div>
+      <div>
+        <strong>Round complete!</strong>
+        <p>Review the words and listen to the American English pronunciation.</p>
+      </div>
+    </div>
+
+    <div class="topic-review-heading">
+      <div>
+        <p class="topic-selection-kicker">REVIEW</p>
+        <h3 id="topic-speak-review-title">Words from this round</h3>
+      </div>
+      <span class="topic-review-variant">🇺🇸 American English</span>
+    </div>
+
+    <div class="topic-review-column-labels" aria-hidden="true">
+      <span>English</span>
+      <span>Português</span>
+    </div>
+    <div id="topic-speak-review-list" class="topic-review-list"></div>
+
+    <div class="topic-review-actions">
+      <button id="topic-speak-play-again" class="topic-review-btn topic-review-btn-primary" type="button">PLAY AGAIN</button>
+      <button id="topic-speak-back-topic" class="topic-review-btn topic-review-btn-secondary" type="button">BACK TO TOPIC</button>
+    </div>
+  </section>
+
+  <div id="topic-speak-start-overlay" class="topic-match-start-overlay" aria-hidden="true">
+    <div class="topic-match-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-speak-start-title">
+      <h2 id="topic-speak-start-title">Ready?</h2>
+      <p>Read each Portuguese word, tap the microphone and say it in American English.</p>
+      <button id="topic-speak-start-btn" class="topic-match-start-btn" type="button">START</button>
     </div>
   </div>
 
@@ -1532,6 +1636,7 @@ if (!window.navigation) {
 <script src="js/game.js"></script>
 <script src="js/topics/topics-data.js"></script>
 <script src="js/topics/match-pairs.js"></script>
+<script src="js/topics/speech-game.js"></script>
 <script src="js/topics/topics-menu.js"></script>
 <script>
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
