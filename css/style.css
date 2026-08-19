@@ -1789,3 +1789,36 @@ body.dragging {
         font-size: 0.8rem;
     }
 }
+/* ============================================ */
+/* VOCABULARY MATCH — MANTÉM O CARD DO MESMO TAMANHO AO BLOQUEAR */
+/* O botão de áudio fica sobreposto e não altera as dimensões do card. */
+/* ============================================ */
+.vocab-item.locked {
+    position: relative;
+}
+
+.vocab-item.locked .vocab-audio-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    margin: 0;
+    z-index: 2;
+}
+
+.english-item.locked .vocab-audio-btn {
+    right: 8px;
+    margin-left: 0;
+}
+
+.portuguese-item.locked .vocab-audio-btn {
+    left: 8px;
+    margin-right: 0;
+}
+
+/* Mantém o texto centralizado no card inteiro, mesmo com o botão visível. */
+.vocab-item.locked .vocab-text {
+    order: initial;
+    width: 100%;
+    flex: 1 1 auto;
+    text-align: center;
+}
