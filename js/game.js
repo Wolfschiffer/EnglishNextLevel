@@ -979,19 +979,69 @@ function showWrongPopup() {
 
 const sfxCache = {};
 
-function playSound(type) {
-    if (isAudioMuted) return;
+// Players persistentes para WORDS. Em mobile, reutilizar o mesmo HTMLAudioElement
+// é mais confiável do que criar clones novos para cada reprodução.
+const wordsSfxPlayer = new Audio();
+const wordsVoicePlayer = new Audio();
+wordsSfxPlayer.preload = 'auto';
+wordsVoicePlayer.preload = 'auto';
 
+const MOBILE_AUDIO_UNLOCK_SRC = 'data:audio/wav;base64,UklGRsQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YaAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+let wordsMobileAudioPrimed = false;
+
+function primeWordsMobileAudio() {
+    if (wordsMobileAudioPrimed) return;
+
+    const players = [wordsSfxPlayer, wordsVoicePlayer];
+    players.forEach((player) => {
+        try {
+            player.pause();
+            player.src = MOBILE_AUDIO_UNLOCK_SRC;
+            player.volume = 1;
+            player.currentTime = 0;
+            const playPromise = player.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    player.pause();
+                    player.currentTime = 0;
+                }).catch((error) => {
+                    console.warn('Mobile audio prime was blocked:', error);
+                });
+            }
+        } catch (error) {
+            console.warn('Could not prime mobile audio:', error);
+        }
+    });
+
+    // A tentativa precisa acontecer dentro do gesto do usuário; mesmo se um navegador
+    // rejeitar um dos players, novas tentativas continuarão sendo feitas pelo play() real.
+    wordsMobileAudioPrimed = true;
+}
+
+function playSound(type) {
     const path = SOUND_EFFECTS[type];
     if (!path) return;
 
-    // Este caminho controla apenas SFX das partidas de vocabulário.
-    // Jogos de números mantêm o volume original; a pronúncia usa o slider Voice volume.
-    const playbackVolume = currentScreen === SCREENS.WORDS_GAME
-        ? wordsSfxVolume / 100
-        : 1;
+    const isWordsGame = currentScreen === SCREENS.WORDS_GAME;
 
+    // O mute global pertence ao jogo NUMBERS. WORDS possui o próprio slider de SFX.
+    if (!isWordsGame && isAudioMuted) return;
+
+    const playbackVolume = isWordsGame ? wordsSfxVolume / 100 : 1;
     if (playbackVolume <= 0) return;
+
+    if (isWordsGame) {
+        try {
+            wordsSfxPlayer.pause();
+            if (!wordsSfxPlayer.src.endsWith(path)) wordsSfxPlayer.src = path;
+            wordsSfxPlayer.currentTime = 0;
+            wordsSfxPlayer.volume = playbackVolume;
+            wordsSfxPlayer.play().catch(e => console.log('WORDS SFX error:', e));
+        } catch (error) {
+            console.warn('WORDS SFX playback failed:', error);
+        }
+        return;
+    }
 
     if (!sfxCache[path]) {
         const audio = new Audio(path);
@@ -1765,29 +1815,33 @@ function ensureAudioInCache(audioPath) {
 }
 
 function playVerbAudio(text, context) {
-    if (isAudioMuted) return;
-    
     const audioPath = resolveAudioPath(text, context);
     if (!audioPath) return;
-    
-    const cachedAudio = ensureAudioInCache(audioPath);
-    if (!cachedAudio) return;
-    
-    if (currentPlayingAudio) {
-        currentPlayingAudio.pause();
-        currentPlayingAudio.currentTime = 0;
-    }
-    
+
+    // Mantém o preload/cache existente, mas a reprodução do WORDS usa um único
+    // HTMLAudioElement persistente para melhorar compatibilidade em mobile/iOS.
+    ensureAudioInCache(audioPath);
+
     const voiceVolume = getWordsVoiceVolume();
     if (voiceVolume <= 0) return;
 
-    const playInstance = cachedAudio.cloneNode();
-    playInstance.volume = voiceVolume / 100;
-    playInstance.play().catch(err => {
-        console.warn(`🔊 Erro ao tocar: ${audioPath}`, err);
-    });
-    
-    currentPlayingAudio = playInstance;
+    if (currentPlayingAudio && currentPlayingAudio !== wordsVoicePlayer) {
+        currentPlayingAudio.pause();
+        currentPlayingAudio.currentTime = 0;
+    }
+
+    try {
+        wordsVoicePlayer.pause();
+        if (!wordsVoicePlayer.src.endsWith(audioPath)) wordsVoicePlayer.src = audioPath;
+        wordsVoicePlayer.currentTime = 0;
+        wordsVoicePlayer.volume = voiceVolume / 100;
+        wordsVoicePlayer.play().catch(err => {
+            console.warn(`🔊 Erro ao tocar: ${audioPath}`, err);
+        });
+        currentPlayingAudio = wordsVoicePlayer;
+    } catch (error) {
+        console.warn(`🔊 Falha de áudio em ${audioPath}:`, error);
+    }
 }
 
 function preloadCurrentGameAudios() {
@@ -2022,6 +2076,11 @@ function hideVocabularyStartModal() {
 
 function beginVocabularyGame() {
     if (vocabGameStarted) return;
+
+    // O clique em START é uma ativação explícita do usuário. Usamos esse momento
+    // para liberar os players persistentes em navegadores móveis que restringem áudio.
+    primeWordsMobileAudio();
+
     vocabGameStarted = true;
     hideVocabularyStartModal();
     startVocabularyTimer();
