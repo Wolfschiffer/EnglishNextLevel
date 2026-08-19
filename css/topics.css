@@ -1614,3 +1614,31 @@
   }
 }
 
+
+
+/* ============================================
+   SPEAK — HEADER ACTIONS MOBILE ALIGNMENT
+   Settings and Back share the same flex row and never participate in
+   absolute positioning, so the gear cannot jump to the top-left on mobile.
+   ============================================ */
+.topic-speak-screen .topic-speak-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+
+.topic-speak-screen .topic-speak-header-actions .topic-speak-settings-btn,
+.topic-speak-screen .topic-speak-header-actions #back-from-topic-speak {
+  position: static !important;
+  inset: auto !important;
+  margin: 0 !important;
+  flex: 0 0 auto;
+}
+
+@media (max-width: 560px) {
+  .topic-speak-screen .topic-speak-header-actions {
+    gap: 7px;
+  }
+}
