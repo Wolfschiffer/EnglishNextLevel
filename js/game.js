@@ -32,11 +32,13 @@ let lastAnimationFrame = 0;
 const EAGLE_ANIMATION_DELAY = MOBILE_CONFIG.eagleAnimationDelay;
 
 // ============================================
-// SISTEMA DE NAVEGAÇÃO EM PILHA
+// SISTEMA DE NAVEGAÇÃO + BOTÃO VOLTAR DO NAVEGADOR/CELULAR
 // ============================================
 
-let navigationStack = []; // Pilha de telas visitadas
+let navigationStack = []; // Telas anteriores dentro do jogo
 let currentScreen = null;
+
+const APP_HISTORY_MARKER = 'english-next-level-navigation';
 
 const SCREENS = {
     LOGIN: 'login',
@@ -54,10 +56,35 @@ const SCREENS = {
     TOPIC_SPEAK: 'topicSpeak'
 };
 
+function isAppHistoryState(state) {
+    return Boolean(state && state.__app === APP_HISTORY_MARKER && state.screen);
+}
+
+function buildAppHistoryState(screen) {
+    return {
+        __app: APP_HISTORY_MARKER,
+        screen,
+        stack: [...navigationStack]
+    };
+}
+
+function replaceCurrentBrowserState(screen = currentScreen) {
+    if (!screen || !window.history?.replaceState) return;
+    window.history.replaceState(buildAppHistoryState(screen), '', window.location.href);
+}
+
+function pushBrowserState(screen) {
+    if (!screen || !window.history?.pushState) return;
+
+    // Garante que a entrada a partir da qual estamos navegando também pertence ao app.
+    if (!isAppHistoryState(window.history.state)) {
+        replaceCurrentBrowserState(currentScreen || screen);
+    }
+
+    window.history.pushState(buildAppHistoryState(screen), '', window.location.href);
+}
 
 // Função para mostrar a tela
-// Função para mostrar a tela
-
 function showScreen(screen, options = {}) {
     // Se o jogador sair do Vocabulary Match antes de terminar, encerra o cronômetro.
     if (currentScreen === SCREENS.WORDS_GAME && screen !== SCREENS.WORDS_GAME) {
@@ -89,14 +116,14 @@ function showScreen(screen, options = {}) {
     const vocab = document.getElementById('vocab-game-container');
     const wordsMenu = document.getElementById('words-menu-container');
     const simpleVerbsSubmenu = document.getElementById('simple-verbs-submenu');
-    const simpleVerbsPastSubmenu = document.getElementById('simple-verbs-past-submenu'); // ADICIONE ESTA LINHA
+    const simpleVerbsPastSubmenu = document.getElementById('simple-verbs-past-submenu');
     const topicsMenu = document.getElementById('topics-menu-container');
     const topicLevel = document.getElementById('topic-level-container');
     const topicGameMenu = document.getElementById('topic-game-menu-container');
     const topicMatch = document.getElementById('topic-match-container');
     const topicSpeak = document.getElementById('topic-speak-container');
     const simpleVerbsBtn = document.getElementById('simple-verbs-btn');
-    const simpleVerbsPastBtn = document.getElementById('simple-verbs-past-btn'); // ADICIONE ESTA LINHA
+    const simpleVerbsPastBtn = document.getElementById('simple-verbs-past-btn');
     
     // Esconde todas
     if (auth) auth.style.display = 'none';
@@ -106,7 +133,7 @@ function showScreen(screen, options = {}) {
     if (vocab) vocab.style.display = 'none';
     if (wordsMenu) wordsMenu.style.display = 'none';
     if (simpleVerbsSubmenu) simpleVerbsSubmenu.style.display = 'none';
-    if (simpleVerbsPastSubmenu) simpleVerbsPastSubmenu.style.display = 'none'; // ADICIONE ESTA LINHA
+    if (simpleVerbsPastSubmenu) simpleVerbsPastSubmenu.style.display = 'none';
     if (topicsMenu) topicsMenu.style.display = 'none';
     if (topicLevel) topicLevel.style.display = 'none';
     if (topicGameMenu) topicGameMenu.style.display = 'none';
@@ -200,44 +227,39 @@ function showScreen(screen, options = {}) {
     currentScreen = screen;
 }
 
-// Navegar para uma tela (adiciona ao histórico)
+// Navegar para uma tela: atualiza a pilha interna e o histórico real do navegador.
+// Isso faz o botão/gesto VOLTAR do Android/iPhone percorrer as telas do jogo.
 function navigateTo(screen, options = {}) {
     console.log(`📍 Navegando para: ${screen}`);
+
+    // Firebase/Guest pode exibir Categories diretamente sem passar pelo navegador interno.
+    // Normaliza esse caso antes de criar a próxima entrada do histórico.
+    if (
+        currentScreen === SCREENS.LOGIN &&
+        (window.currentUser || window.isGuest) &&
+        screen !== SCREENS.LOGIN
+    ) {
+        navigationStack = [];
+        currentScreen = SCREENS.CATEGORIES;
+        ScreenManager.setScreen(SCREENS.CATEGORIES);
+        replaceCurrentBrowserState(SCREENS.CATEGORIES);
+    }
     
-    // NÃO adiciona se já está na mesma tela
     if (currentScreen === screen) {
         console.log(`⚠️ Já está na tela ${screen}, ignorando`);
         return;
     }
     
-    // Adiciona a tela atual ao histórico (se não for a primeira)
     if (currentScreen && currentScreen !== screen) {
         navigationStack.push(currentScreen);
         console.log(`➕ Adicionado ao histórico: ${currentScreen}`);
     }
     
     showScreen(screen, options);
+    pushBrowserState(currentScreen);
 }
 
-
-// Voltar para a tela anterior
-// Voltar para a tela anterior
-function goBack() {
-    console.log("◀ goBack chamado");
-    console.log("📚 Pilha atual:", navigationStack);
-    
-    if (navigationStack.length === 0) {
-        console.log("⚠️ Pilha vazia, voltando para categorias");
-        showScreen(SCREENS.CATEGORIES);
-        currentScreen = SCREENS.CATEGORIES;
-        return;
-    }
-    
-    const previousScreen = navigationStack.pop();
-    console.log(`◀ Voltando para: ${previousScreen}`);
-    
-    // LIMPA o estado atual antes de voltar
-    // Esconde submenus específicos
+function cleanBeforeBack() {
     const simpleSubmenu = document.getElementById('simple-verbs-submenu');
     const pastSubmenu = document.getElementById('simple-verbs-past-submenu');
     const vocabContainer = document.getElementById('vocab-game-container');
@@ -245,10 +267,63 @@ function goBack() {
     if (simpleSubmenu) simpleSubmenu.style.display = 'none';
     if (pastSubmenu) pastSubmenu.style.display = 'none';
     if (vocabContainer) vocabContainer.style.display = 'none';
-    
-    showScreen(previousScreen);
-    currentScreen = previousScreen;
 }
+
+// Voltar uma ou mais telas.
+// Botões internos usam a MESMA pilha do botão físico/gesto do aparelho.
+function goBack(steps = 1) {
+    const requestedSteps = Math.max(1, Number.parseInt(steps, 10) || 1);
+    console.log(`◀ goBack chamado (${requestedSteps})`);
+    console.log("📚 Pilha atual:", navigationStack);
+
+    if (navigationStack.length === 0) {
+        // Na raiz do jogo, deixa o navegador voltar normalmente para a página anterior.
+        if (currentScreen === SCREENS.CATEGORIES || currentScreen === SCREENS.LOGIN) {
+            window.history.back();
+            return;
+        }
+
+        // Segurança para algum estado antigo/sem histórico.
+        showScreen(SCREENS.CATEGORIES);
+        navigationStack = [];
+        replaceCurrentBrowserState(SCREENS.CATEGORIES);
+        return;
+    }
+
+    const actualSteps = Math.min(requestedSteps, navigationStack.length);
+
+    if (isAppHistoryState(window.history.state)) {
+        // O popstate fará a troca visual quando o histórico terminar de voltar.
+        window.history.go(-actualSteps);
+        return;
+    }
+
+    // Fallback para navegadores muito antigos ou histórico não inicializado.
+    cleanBeforeBack();
+    let previousScreen = currentScreen;
+    for (let i = 0; i < actualSteps; i += 1) {
+        previousScreen = navigationStack.pop() || SCREENS.CATEGORIES;
+    }
+    showScreen(previousScreen);
+    replaceCurrentBrowserState(previousScreen);
+}
+
+// Recebe tanto o botão físico/gesto de voltar quanto history.back()/history.go()
+// disparados pelos botões do próprio jogo.
+window.addEventListener('popstate', (event) => {
+    if (!isAppHistoryState(event.state)) {
+        return;
+    }
+
+    console.log('📱 Voltar do navegador/celular:', event.state.screen);
+    cleanBeforeBack();
+
+    navigationStack = Array.isArray(event.state.stack)
+        ? [...event.state.stack]
+        : [];
+
+    showScreen(event.state.screen);
+});
 
 function startNumberGame(gameType) {
     loadEagleSprites();
@@ -260,24 +335,22 @@ function startNumberGame(gameType) {
 
 // Inicializar
 function initNavigation() {
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(() => {
-                if (window.currentUser || window.isGuest) {
-                    showScreen(SCREENS.CATEGORIES);
-                } else {
-                    showScreen(SCREENS.LOGIN);
-                }
-            }, 100);
-        });
-    } else {
+    const initialize = () => {
         setTimeout(() => {
-            if (window.currentUser || window.isGuest) {
-                showScreen(SCREENS.CATEGORIES);
-            } else {
-                showScreen(SCREENS.LOGIN);
-            }
+            const initialScreen = (window.currentUser || window.isGuest)
+                ? SCREENS.CATEGORIES
+                : SCREENS.LOGIN;
+
+            navigationStack = [];
+            showScreen(initialScreen);
+            replaceCurrentBrowserState(initialScreen);
         }, 100);
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize, { once: true });
+    } else {
+        initialize();
     }
 }
 
