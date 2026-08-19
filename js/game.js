@@ -485,7 +485,10 @@ function setWordsVoiceVolume(value) {
     // SpeechSynthesisUtterance não permite alterar o volume de uma fala que já
     // começou. Ao mutar, interrompemos imediatamente; a próxima reprodução usa
     // o novo valor do slider.
-    if (wordsVoiceVolume === 0) EnglishSpeechEngine?.stop?.();
+    if (wordsVoiceVolume === 0) {
+        EnglishSpeechEngine?.stop?.();
+        stopWordsPronunciation();
+    }
 }
 
 function openWordsSettings() {
@@ -1973,7 +1976,7 @@ function resetGame() {
 function startGame() {
     // START é uma interação explícita do usuário e é o melhor ponto para
     // preparar a saída de voz em navegadores móveis.
-    EnglishSpeechEngine.prime('en-US');
+    // WORDS TTS is activated directly by the user's tap on the pronunciation button.
     if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
 
     if (!DOM.game) {
@@ -2001,16 +2004,18 @@ function toggleAudio() {
 // ÁUDIO DO JOGO VERBS
 // ============================================
 
-// A pronúncia do WORDS agora usa o mesmo motor TTS do NUMBERS/TOPICS.
-// Não há dependência de audio/*.mp3 para Simple Verbs nem Past Tense.
+// WORDS usa a mesma abordagem TTS comprovadamente funcional em TOPICS/SPEAK:
+// SpeechSynthesisUtterance criado diretamente no toque do botão de áudio.
+// O motor compartilhado EnglishSpeechEngine continua sendo usado pelo NUMBERS.
 const WORDS_TTS_OVERRIDES = {
     past: {
-        // O texto escrito continua "read", mas a grafia fonética "red" força
-        // a pronúncia correta do passado em mecanismos TTS sem contexto.
+        // Mantém "read" escrito na tela, mas pronuncia o passado como "red".
         'read': 'red',
         'was / were': 'was, were'
     }
 };
+
+let activeWordsUtterance = null;
 
 function getVerbSpeechText(text, context) {
     const cleanText = String(text || '').trim();
@@ -2018,38 +2023,75 @@ function getVerbSpeechText(text, context) {
     return WORDS_TTS_OVERRIDES[context]?.[cleanText] || cleanText;
 }
 
+function getWordsAmericanVoice(locale = 'en-US') {
+    if (!('speechSynthesis' in window)) return null;
+    const voices = window.speechSynthesis.getVoices?.() || [];
+    const target = String(locale || 'en-US').toLowerCase();
+
+    return voices.find((voice) => voice.lang?.toLowerCase() === target) ||
+        voices.find((voice) => voice.lang?.toLowerCase().startsWith('en-us')) ||
+        voices.find((voice) => voice.lang?.toLowerCase().startsWith('en')) ||
+        null;
+}
+
+function stopWordsPronunciation() {
+    if ('speechSynthesis' in window) {
+        try {
+            window.speechSynthesis.cancel();
+        } catch (error) {
+            console.warn('WORDS TTS: could not stop speech.', error);
+        }
+    }
+    activeWordsUtterance = null;
+}
+
 function playVerbAudio(text, context) {
-    const voiceVolume = getWordsVoiceVolume();
-    if (voiceVolume <= 0) {
-        EnglishSpeechEngine.stop();
+    const speechText = getVerbSpeechText(text, context);
+    if (!speechText || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
         return;
     }
 
-    const speechText = getVerbSpeechText(text, context);
-    if (!speechText) return;
+    const voiceVolume = getWordsVoiceVolume();
+    stopWordsPronunciation();
+    if (voiceVolume <= 0) return;
 
-    EnglishSpeechEngine.speak(speechText, {
-        lang: 'en-US',
-        rate: 0.9,
-        volume: voiceVolume / 100
-    });
+    try {
+        // Deliberadamente espelha TOPICS/SPEAK, que já foi validado no mobile.
+        const utterance = new SpeechSynthesisUtterance(speechText);
+        const voice = getWordsAmericanVoice('en-US');
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        utterance.volume = voiceVolume / 100;
+        if (voice) utterance.voice = voice;
+
+        activeWordsUtterance = utterance;
+        const cleanup = () => {
+            if (activeWordsUtterance === utterance) activeWordsUtterance = null;
+        };
+        utterance.onend = cleanup;
+        utterance.onerror = cleanup;
+
+        window.speechSynthesis.speak(utterance);
+    } catch (error) {
+        activeWordsUtterance = null;
+        console.warn('WORDS TTS: pronunciation failed.', error);
+    }
 }
 
 function preloadCurrentGameAudios() {
-    // Não existem mais arquivos de voz para pré-carregar. Consultar a lista de
-    // vozes aqui ajuda alguns navegadores a disponibilizá-las antes do primeiro
-    // clique no botão de áudio, mas a ativação real acontece no START.
-    EnglishSpeechEngine.getAmericanVoice('en-US');
+    // WORDS não usa mais arquivos MP3 de pronúncia. Apenas força a leitura da
+    // lista de vozes, sem iniciar uma fala silenciosa que alguns mobiles tratam mal.
+    getWordsAmericanVoice('en-US');
 }
-
 
 function createAudioButton(text, context, position = 'left') {
     const btn = document.createElement('button');
+    btn.type = 'button';
     btn.className = `vocab-audio-btn ${position}`;
     btn.setAttribute('aria-label', `Ouvir ${text}`);
     btn.setAttribute('draggable', 'false');
-    
-    // SVG icon profissional (alto-falante)
+    btn.style.touchAction = 'manipulation';
+
     btn.innerHTML = `
         <svg viewBox="0 0 24 24" width="16" height="16">
             <path d="M3 9v6h4l5 5V4L7 9H3z" stroke="currentColor" fill="none" stroke-width="2"/>
@@ -2057,18 +2099,19 @@ function createAudioButton(text, context, position = 'left') {
             <path d="M19 5a9 9 0 0 1 0 14" stroke="currentColor" fill="none" stroke-width="2"/>
         </svg>
     `;
-    
+
     btn.addEventListener('dragstart', (e) => {
         e.preventDefault();
         e.stopPropagation();
         return false;
     });
-    
+
     btn.addEventListener('click', (e) => {
+        e.preventDefault();
         e.stopPropagation();
         playVerbAudio(text, context);
     });
-    
+
     return btn;
 }
 
