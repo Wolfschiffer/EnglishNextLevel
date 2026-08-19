@@ -1474,6 +1474,83 @@
   transform: translateX(20px);
 }
 
+.topic-speak-volume-control {
+  margin-top: 14px;
+  padding: 15px 16px;
+  border: 2px solid #d1d9e6;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.topic-speak-volume-row {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+.topic-speak-volume-icon {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.topic-speak-volume-slider-wrap {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.topic-speak-volume-slider {
+  --topic-speak-volume-percent: 100%;
+  width: 100%;
+  height: 6px;
+  margin: 0;
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: linear-gradient(to right, #c9a13b 0 var(--topic-speak-volume-percent), #dbe3ee var(--topic-speak-volume-percent) 100%);
+  cursor: pointer;
+  outline: none;
+}
+
+.topic-speak-volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  border: 3px solid #c9a13b;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 7px rgba(30, 60, 92, 0.18);
+}
+
+.topic-speak-volume-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 3px solid #c9a13b;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 2px 7px rgba(30, 60, 92, 0.18);
+}
+
+.topic-speak-volume-slider:focus-visible {
+  box-shadow: 0 0 0 3px rgba(201, 161, 59, 0.2);
+}
+
+.topic-speak-volume-value {
+  min-width: 48px;
+  color: #1e3c5c;
+  font-size: 0.88rem;
+  font-weight: 800;
+  text-align: right;
+}
+
 @media (max-width: 560px) {
   .topic-speak-settings-btn {
     width: 35px;
@@ -1505,6 +1582,26 @@
 
   .topic-speak-setting-copy small {
     font-size: 0.74rem;
+  }
+
+  .topic-speak-volume-control {
+    padding: 14px;
+  }
+
+  .topic-speak-volume-row {
+    grid-template-columns: 32px minmax(0, 1fr) 44px;
+    gap: 9px;
+  }
+
+  .topic-speak-volume-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 1.15rem;
+  }
+
+  .topic-speak-volume-value {
+    min-width: 44px;
+    font-size: 0.82rem;
   }
 }
 

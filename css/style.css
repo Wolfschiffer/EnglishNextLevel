@@ -1887,3 +1887,283 @@ body.dragging {
         padding-right: 23px !important;
     }
 }
+
+
+/* ============================================
+   WORDS — SETTINGS / SFX VOLUME
+   ============================================ */
+.words-settings-btn {
+    width: 40px;
+    height: 40px;
+    flex: 0 0 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid #d6dfec;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #1e3c5c;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(30, 60, 92, 0.08);
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.words-settings-btn:hover {
+    border-color: #c9a13b;
+    box-shadow: 0 5px 14px rgba(201, 161, 59, 0.18);
+    transform: translateY(-1px);
+}
+
+.words-settings-btn:active {
+    transform: translateY(0);
+}
+
+.words-settings-btn-compact {
+    width: 34px;
+    height: 34px;
+    flex-basis: 34px;
+    font-size: 0.9rem;
+}
+
+.vocab-header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.words-settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 5600;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(30, 60, 92, 0.22);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+}
+
+.words-settings-overlay.visible {
+    display: flex;
+}
+
+.words-settings-modal {
+    width: min(420px, calc(100vw - 40px));
+    background: rgba(255, 255, 255, 0.99);
+    border: 2px solid #c9a13b;
+    border-radius: 22px;
+    padding: 22px;
+    box-shadow: 0 18px 52px rgba(30, 60, 92, 0.26);
+}
+
+.words-settings-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid #e5eaf1;
+}
+
+.words-settings-kicker {
+    margin: 0 0 2px;
+    color: #c99a2e;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+}
+
+.words-settings-header h2 {
+    margin: 0;
+    color: #1e3c5c;
+    font-size: 1.45rem;
+}
+
+.words-settings-close {
+    width: 36px;
+    height: 36px;
+    flex: 0 0 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #d6dfec;
+    border-radius: 50%;
+    background: #fff;
+    color: #1e3c5c;
+    font: inherit;
+    font-size: 1.45rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.words-settings-control {
+    padding-top: 18px;
+}
+
+.words-settings-control-separated {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid #e5eaf1;
+}
+
+.words-settings-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.words-settings-copy strong {
+    color: #1e3c5c;
+    font-size: 0.98rem;
+}
+
+.words-settings-copy small {
+    color: #7f8c8d;
+    font-size: 0.8rem;
+    line-height: 1.4;
+}
+
+.words-volume-row {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) 48px;
+    align-items: center;
+    gap: 12px;
+    margin-top: 18px;
+}
+
+.words-volume-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 38px;
+    height: 38px;
+    font-size: 1.35rem;
+    line-height: 1;
+}
+
+.words-volume-slider-wrap {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+}
+
+.words-volume-slider {
+    --words-volume-percent: 100%;
+    width: 100%;
+    height: 6px;
+    margin: 0;
+    border-radius: 999px;
+    appearance: none;
+    -webkit-appearance: none;
+    background: linear-gradient(to right, #c9a13b 0 var(--words-volume-percent), #dbe3ee var(--words-volume-percent) 100%);
+    cursor: pointer;
+    outline: none;
+}
+
+.words-volume-slider::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 22px;
+    height: 22px;
+    border: 3px solid #c9a13b;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 7px rgba(30, 60, 92, 0.18);
+}
+
+.words-volume-slider::-moz-range-thumb {
+    width: 18px;
+    height: 18px;
+    border: 3px solid #c9a13b;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 2px 7px rgba(30, 60, 92, 0.18);
+}
+
+.words-volume-slider:focus-visible {
+    box-shadow: 0 0 0 3px rgba(201, 161, 59, 0.2);
+}
+
+.words-volume-value {
+    min-width: 48px;
+    color: #1e3c5c;
+    font-size: 0.88rem;
+    font-weight: 800;
+    text-align: right;
+}
+
+body.words-settings-open {
+    overflow: hidden;
+}
+
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+@media (max-width: 700px) {
+    .words-settings-btn {
+        width: 35px;
+        height: 35px;
+        flex-basis: 35px;
+        font-size: 0.9rem;
+    }
+
+    .words-settings-btn-compact {
+        width: 30px;
+        height: 30px;
+        flex-basis: 30px;
+        font-size: 0.78rem;
+    }
+
+    .vocab-header-right {
+        gap: 5px;
+    }
+
+    .words-settings-modal {
+        width: min(360px, calc(100vw - 28px));
+        padding: 19px 18px;
+        border-radius: 18px;
+    }
+
+    .words-volume-row {
+        grid-template-columns: 32px minmax(0, 1fr) 44px;
+        gap: 9px;
+    }
+
+    .words-volume-icon {
+        width: 32px;
+        height: 32px;
+        font-size: 1.2rem;
+    }
+}
+
+
+/* ============================================
+   WORDS — SEM ÁUDIO NAS TRADUÇÕES EM PORTUGUÊS
+   No Simple Verbs, a coluna portuguesa fica somente com texto. O Past Tense
+   continua com áudio nos dois lados porque ambas as colunas estão em inglês.
+   ============================================ */
+@media (max-width: 768px) {
+    .portuguese-item.locked.no-audio .vocab-text {
+        padding-left: 8px !important;
+        padding-right: 8px !important;
+    }
+}
+
+@media (max-width: 400px) {
+    .portuguese-item.locked.no-audio .vocab-text {
+        padding-left: 6px !important;
+        padding-right: 6px !important;
+    }
+}
