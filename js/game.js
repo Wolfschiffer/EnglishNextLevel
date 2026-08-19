@@ -1691,6 +1691,8 @@ const portugueseList = document.getElementById('portuguese-words-list');
 const vocabMatchesSpan = document.getElementById('vocab-matches');
 const vocabTotalSpan = document.getElementById('vocab-total');
 const vocabMessage = document.getElementById('vocab-message');
+const vocabLeftHeading = document.getElementById('vocab-left-heading');
+const vocabRightHeading = document.getElementById('vocab-right-heading');
 
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
@@ -1725,6 +1727,15 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     
     // Armazena o tipo do jogo para uso na renderização dos áudios
     currentVerbGameType = gameType;
+
+    // Os dois modos compartilham o mesmo layout; os títulos mudam conforme o jogo.
+    if (gameType === 'past') {
+        if (vocabLeftHeading) vocabLeftHeading.textContent = 'SIMPLE PRESENT';
+        if (vocabRightHeading) vocabRightHeading.textContent = 'SIMPLE PAST';
+    } else {
+        if (vocabLeftHeading) vocabLeftHeading.textContent = 'ENGLISH';
+        if (vocabRightHeading) vocabRightHeading.textContent = 'PORTUGUÊS';
+    }
     
     renderVocabularyLists();
     if (vocabMessage) vocabMessage.innerHTML = '';
