@@ -20,6 +20,7 @@
     activeUtterance: null,
     showPreAnswerAudio: false,
     voiceVolume: 100,
+    sfxVolume: 100,
     speechOutputPrimed: false,
     pendingPronunciation: null
   };
@@ -30,7 +31,6 @@
 
 
   const SETTINGS_STORAGE_KEY = 'englishNextLevel.topicSpeak.showPreAnswerAudio';
-  const VOICE_VOLUME_STORAGE_KEY = 'englishNextLevel.voiceVolume';
 
   function clampVolume(value) {
     const numeric = Number(value);
@@ -39,30 +39,29 @@
   }
 
   function loadVoiceVolume() {
-    try {
-      const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
-      state.voiceVolume = saved === null ? 100 : clampVolume(saved);
-    } catch (error) {
-      state.voiceVolume = 100;
-    }
+    state.voiceVolume = window.EnglishNextLevelAudio?.getVoiceVolume?.() ?? 100;
   }
 
-  function saveVoiceVolume() {
-    try {
-      window.sessionStorage.setItem(VOICE_VOLUME_STORAGE_KEY, String(state.voiceVolume));
-    } catch (error) {
-      // Keeps the current value in memory when storage is unavailable.
-    }
+  function loadSfxVolume() {
+    state.sfxVolume = window.EnglishNextLevelAudio?.getSfxVolume?.() ?? 100;
   }
 
   function getVoiceVolume() {
-    try {
-      const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
-      if (saved !== null) state.voiceVolume = clampVolume(saved);
-    } catch (error) {
-      // Uses the in-memory value.
-    }
+    state.voiceVolume = window.EnglishNextLevelAudio?.getVoiceVolume?.() ?? state.voiceVolume;
     return state.voiceVolume;
+  }
+
+  function getSfxVolume() {
+    state.sfxVolume = window.EnglishNextLevelAudio?.getSfxVolume?.() ?? state.sfxVolume;
+    return state.sfxVolume;
+  }
+
+  function playSfx(type) {
+    window.EnglishNextLevelAudio?.playSfx?.(type);
+  }
+
+  function unlockSfx() {
+    window.EnglishNextLevelAudio?.unlockSfx?.();
   }
 
   function getVolumeIcon(volume) {
@@ -80,6 +79,7 @@
       state.showPreAnswerAudio = false;
     }
     loadVoiceVolume();
+    loadSfxVolume();
   }
 
   function saveSettings() {
@@ -91,6 +91,7 @@
   }
 
   function syncVoiceVolumeUI() {
+    state.voiceVolume = getVoiceVolume();
     const slider = $('topic-speak-voice-volume');
     const value = $('topic-speak-voice-volume-value');
     const icon = $('topic-speak-voice-volume-icon');
@@ -104,17 +105,40 @@
     if (icon) icon.textContent = getVolumeIcon(state.voiceVolume);
   }
 
+  function syncSfxVolumeUI() {
+    const slider = $('topic-speak-sfx-volume');
+    const value = $('topic-speak-sfx-volume-value');
+    const icon = $('topic-speak-sfx-volume-icon');
+
+    state.sfxVolume = getSfxVolume();
+
+    if (slider) {
+      slider.value = String(state.sfxVolume);
+      slider.setAttribute('aria-valuenow', String(state.sfxVolume));
+      slider.style.setProperty('--topic-speak-volume-percent', `${state.sfxVolume}%`);
+    }
+    if (value) value.textContent = `${state.sfxVolume}%`;
+    if (icon) icon.textContent = getVolumeIcon(state.sfxVolume);
+  }
+
   function setVoiceVolume(value) {
     state.voiceVolume = clampVolume(value);
-    saveVoiceVolume();
+    window.EnglishNextLevelAudio?.setVoiceVolume?.(state.voiceVolume);
     stopSpeech();
     syncVoiceVolumeUI();
+  }
+
+  function setSfxVolume(value) {
+    state.sfxVolume = clampVolume(value);
+    window.EnglishNextLevelAudio?.setSfxVolume?.(state.sfxVolume);
+    syncSfxVolumeUI();
   }
 
   function syncSettingsUI() {
     const toggle = $('topic-speak-preaudio-toggle');
     if (toggle) toggle.checked = state.showPreAnswerAudio;
     syncVoiceVolumeUI();
+    syncSfxVolumeUI();
     updatePreviewAudioVisibility();
   }
 
@@ -143,6 +167,7 @@
     const overlay = $('topic-speak-settings-overlay');
     if (!overlay) return;
     loadVoiceVolume();
+    loadSfxVolume();
     syncSettingsUI();
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden', 'false');
@@ -420,6 +445,7 @@
 
   function showCorrectResult(word, transcript) {
     state.currentWordResolved = true;
+    playSfx('correct');
     updatePreviewAudioVisibility();
     showTranscript(transcript);
     setStatus('Correct!', 'correct');
@@ -450,11 +476,13 @@
     if (state.listening) {
       state.pendingPronunciation = { word, button: audio };
     } else {
-      playPronunciation(word, audio);
+      // Deixa o feedback de acerto terminar antes da pronúncia para não mascarar a palavra.
+      window.setTimeout(() => playPronunciation(word, audio), 240);
     }
   }
 
   function showWrongResult(transcript) {
+    playSfx('wrong');
     showTranscript(transcript);
     hideResult();
     setStatus('Not quite. Try again.', 'wrong');
@@ -565,7 +593,7 @@
         const pending = state.pendingPronunciation;
         state.pendingPronunciation = null;
         // Pequeno respiro para o sistema devolver a rota de áudio após encerrar o microfone.
-        window.setTimeout(() => playPronunciation(pending.word, pending.button), 120);
+        window.setTimeout(() => playPronunciation(pending.word, pending.button), 240);
       }
 
       if (!state.currentWordResolved) {
@@ -668,6 +696,7 @@
     stopRecognition();
     stopSpeech();
     state.started = false;
+    playSfx('win');
     updatePreviewAudioVisibility();
 
     renderReview();
@@ -700,8 +729,8 @@
   }
 
   function startRound() {
-    // START é um gesto explícito do usuário e serve para liberar a saída de voz
-    // em navegadores móveis que aplicam políticas mais rígidas de reprodução.
+    // START libera tanto a voz quanto os SFX no gesto explícito do usuário.
+    unlockSfx();
     primeSpeechOutput();
 
     state.started = true;
@@ -804,6 +833,16 @@
   });
   $('topic-speak-voice-volume')?.addEventListener('input', (event) => {
     setVoiceVolume(event.target.value);
+  });
+  $('topic-speak-sfx-volume')?.addEventListener('input', (event) => {
+    setSfxVolume(event.target.value);
+  });
+
+  window.addEventListener('english-next-level-audio-volume-change', () => {
+    loadVoiceVolume();
+    loadSfxVolume();
+    syncVoiceVolumeUI();
+    syncSfxVolumeUI();
   });
 
   document.addEventListener('keydown', (event) => {

@@ -21,6 +21,18 @@
     return document.getElementById(id);
   }
 
+  function getVoiceVolume() {
+    return window.EnglishNextLevelAudio?.getVoiceVolume?.() ?? 100;
+  }
+
+  function playSfx(type) {
+    window.EnglishNextLevelAudio?.playSfx?.(type);
+  }
+
+  function unlockSfx() {
+    window.EnglishNextLevelAudio?.unlockSfx?.();
+  }
+
   function clearPendingTimeouts() {
     state.pendingTimeouts.forEach((timeoutId) => clearTimeout(timeoutId));
     state.pendingTimeouts = [];
@@ -160,8 +172,12 @@
     const utterance = new SpeechSynthesisUtterance(word.english);
     const voice = getAmericanVoice(locale);
 
+    const voiceVolume = getVoiceVolume();
+    if (voiceVolume <= 0) return;
+
     utterance.lang = locale;
     utterance.rate = 0.9;
+    utterance.volume = voiceVolume / 100;
     if (voice) utterance.voice = voice;
 
     state.activeUtterance = utterance;
@@ -174,7 +190,9 @@
 
     utterance.onend = cleanup;
     utterance.onerror = cleanup;
+    window.speechSynthesis.resume?.();
     window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.resume?.();
   }
 
   function renderReview() {
@@ -254,6 +272,7 @@
   }
 
   function startRound() {
+    unlockSfx();
     state.started = true;
     state.inputLocked = false;
     hideStartOverlay();
@@ -305,6 +324,7 @@
     const first = state.firstCard;
     const second = state.secondCard;
 
+    playSfx('wrong');
     first?.classList.add('is-wrong');
     second?.classList.add('is-wrong');
 
@@ -321,6 +341,7 @@
     const first = state.firstCard;
     const second = state.secondCard;
 
+    playSfx('correct');
     first?.classList.add('is-correct');
     second?.classList.add('is-correct');
 
@@ -344,7 +365,10 @@
       if (state.matchedPairs >= totalPairs) {
         state.inputLocked = true;
         state.started = false;
-        schedule(showReview, 220);
+        schedule(() => {
+          playSfx('win');
+          showReview();
+        }, 220);
       } else {
         state.inputLocked = false;
       }
