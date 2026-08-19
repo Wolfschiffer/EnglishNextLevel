@@ -980,12 +980,120 @@ function showWrongPopup() {
 const sfxCache = {};
 
 // ============================================
-// MOTOR DE ÁUDIO MOBILE
+// MOTOR COMPARTILHADO DE VOZ (AMERICAN ENGLISH)
 // ============================================
-// NUMBERS e WORDS usam arquivos MP3. Em alguns navegadores móveis o
-// HTMLAudioElement pode permanecer silencioso mesmo quando play() resolve.
-// Para aparelhos touch/coarse-pointer, os mesmos arquivos são reproduzidos
-// pela Web Audio API. No desktop, o fluxo existente de HTMLAudio é preservado.
+// A pronúncia falada deve usar um único caminho baseado na Web Speech API.
+// NUMBERS já usa este motor. WORDS será migrado em uma etapa separada para
+// manter o teste isolado, e TOPICS permanece congelado durante a estabilização.
+const EnglishSpeechEngine = (() => {
+    const DEFAULT_LANG = 'en-US';
+    const DEFAULT_RATE = 0.9;
+    let activeUtterance = null;
+    let primed = false;
+
+    function supported() {
+        return 'speechSynthesis' in window && typeof window.SpeechSynthesisUtterance === 'function';
+    }
+
+    function getAmericanVoice(lang = DEFAULT_LANG) {
+        if (!supported()) return null;
+        const voices = window.speechSynthesis.getVoices?.() || [];
+        const target = String(lang || DEFAULT_LANG).toLowerCase();
+
+        return voices.find((voice) => voice.lang?.toLowerCase() === target) ||
+            voices.find((voice) => voice.lang?.toLowerCase().startsWith('en-us')) ||
+            voices.find((voice) => voice.lang?.toLowerCase().startsWith('en')) ||
+            null;
+    }
+
+    function stop() {
+        if (!supported()) return;
+        try {
+            window.speechSynthesis.cancel();
+        } catch (error) {
+            console.warn('Speech engine: could not stop the current utterance.', error);
+        }
+        activeUtterance = null;
+    }
+
+    function prime(lang = DEFAULT_LANG) {
+        if (primed || !supported()) return supported();
+
+        try {
+            const utterance = new SpeechSynthesisUtterance(' ');
+            utterance.lang = lang;
+            utterance.volume = 0;
+            utterance.rate = 1;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utterance);
+            window.speechSynthesis.resume?.();
+            primed = true;
+            return true;
+        } catch (error) {
+            console.warn('Speech engine: could not prime speech output.', error);
+            return false;
+        }
+    }
+
+    function speak(text, options = {}) {
+        const cleanText = String(text || '').trim();
+        if (!cleanText || !supported()) return false;
+
+        const lang = options.lang || DEFAULT_LANG;
+        const rate = Number.isFinite(Number(options.rate)) ? Number(options.rate) : DEFAULT_RATE;
+        const volume = Math.max(0, Math.min(1, Number.isFinite(Number(options.volume)) ? Number(options.volume) : 1));
+        if (volume <= 0) {
+            stop();
+            return true;
+        }
+
+        stop();
+
+        try {
+            const utterance = new SpeechSynthesisUtterance(cleanText);
+            const voice = getAmericanVoice(lang);
+            utterance.lang = lang;
+            utterance.rate = Math.max(0.5, Math.min(1.5, rate));
+            utterance.volume = volume;
+            if (voice) utterance.voice = voice;
+
+            activeUtterance = utterance;
+            const cleanup = () => {
+                if (activeUtterance === utterance) activeUtterance = null;
+                options.onEnd?.();
+            };
+            utterance.onend = cleanup;
+            utterance.onerror = (event) => {
+                if (activeUtterance === utterance) activeUtterance = null;
+                console.warn('Speech engine: utterance failed.', event?.error || event);
+                options.onError?.(event);
+            };
+
+            // Alguns navegadores móveis deixam o sintetizador em pausa após
+            // troca de aba, microfone ou suspensão do sistema.
+            window.speechSynthesis.resume?.();
+            window.speechSynthesis.speak(utterance);
+            window.speechSynthesis.resume?.();
+            return true;
+        } catch (error) {
+            activeUtterance = null;
+            console.warn('Speech engine: playback failed.', error);
+            options.onError?.(error);
+            return false;
+        }
+    }
+
+    return { supported, getAmericanVoice, prime, speak, stop };
+})();
+
+// Exposto para que WORDS/TOPICS possam adotar o mesmo motor nas próximas etapas.
+window.EnglishNextLevelSpeech = EnglishSpeechEngine;
+
+// ============================================
+// MOTOR DE ÁUDIO MOBILE PARA ARQUIVOS (SFX/WORDS LEGADO)
+// ============================================
+// Os SFX ainda usam arquivos. WORDS continua temporariamente no fluxo antigo
+// até sua migração de voz, para não misturar duas etapas de diagnóstico.
 let mobileAudioContext = null;
 const mobileAudioBufferCache = new Map();
 const mobileAudioActiveSources = { voice: null, sfx: null };
@@ -1234,55 +1342,17 @@ function playSound(type) {
     playInstance.play().catch(e => console.log('Sound error:', e));
 }
 
-const numbersAudioCache = new Map();
-
-function getCachedNumberAudio(path) {
-    if (!numbersAudioCache.has(path)) {
-        const audio = new Audio(path);
-        audio.preload = 'auto';
-        numbersAudioCache.set(path, audio);
-    }
-    return numbersAudioCache.get(path);
-}
-
 function playAudio() {
     if (!currentNumber || isAudioMuted || !gameActive) return;
 
-    let nomeArquivo = currentNumber.word.toLowerCase();
-    nomeArquivo = nomeArquivo.replace(/ /g, '_').replace(/-/g, '_');
-
-    const mainPath = `audio/${nomeArquivo}.mp3`;
-    const fallbackPath = `audio/${currentNumber.word.toLowerCase()}.mp3`;
-
-    if (prefersMobileAudioEngine()) {
-        playWithMobileAudioEngine(mainPath, 1, 'voice').then(async (played) => {
-            if (played) return;
-            const fallbackPlayed = await playWithMobileAudioEngine(fallbackPath, 1, 'voice');
-            if (!fallbackPlayed) speakMobileFallback(currentNumber.word, 1);
-        });
-        return;
-    }
-
-    const cached = getCachedNumberAudio(mainPath);
-
-    if (audioPlayer) {
-        audioPlayer.pause();
-        audioPlayer.currentTime = 0;
-    }
-
-    const playInstance = cached.cloneNode();
-    playInstance.play().catch(err => {
-        console.log(`❌ Erro: ${nomeArquivo}.mp3 -`, err.message);
-
-        const fallbackCached = getCachedNumberAudio(fallbackPath);
-        const fallbackInstance = fallbackCached.cloneNode();
-
-        fallbackInstance.play().catch(() => console.log('❌ Fallback também falhou'));
+    // NUMBERS não depende mais de audio/*.mp3. A string já existente em
+    // currentNumber.word é pronunciada diretamente em American English.
+    EnglishSpeechEngine.speak(currentNumber.word, {
+        lang: 'en-US',
+        rate: 0.9,
+        volume: 1
     });
-
-    audioPlayer = playInstance;
 }
-
 
 // ============================================
 // 9. FUNÇÕES DO LEADERBOARD
@@ -1899,6 +1969,9 @@ function resetGame() {
 }
 
 function startGame() {
+    // START é uma interação explícita do usuário e é o melhor ponto para
+    // preparar a saída de voz em navegadores móveis.
+    EnglishSpeechEngine.prime('en-US');
     if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
 
     if (!DOM.game) {
@@ -2169,6 +2242,7 @@ function initGame() {
             console.log("🏠 Botão voltar clicado no jogo");
             
             gameActive = false;
+            EnglishSpeechEngine.stop();
             stopTimer();
             removeWinScreen();
             removeRestartButton();
