@@ -1241,7 +1241,8 @@ if (!window.navigation) {
       <h1>ENGLISH <span class="highlight">NEXT LEVEL</span></h1>
       <p class="subtitle">speak</p>
     </div>
-    <div class="header-buttons">
+    <div class="header-buttons topic-speak-header-actions">
+      <button id="topic-speak-settings-btn" class="topic-speak-settings-btn" type="button" aria-label="Open Speak settings" aria-haspopup="dialog" aria-controls="topic-speak-settings-overlay">⚙️</button>
       <button id="back-from-topic-speak" class="menu-btn" type="button" aria-label="Back">◀</button>
     </div>
   </div>
@@ -1260,6 +1261,7 @@ if (!window.navigation) {
 
   <div id="topic-speak-play-area" class="topic-speak-play-area">
     <div class="topic-speak-prompt-card" aria-labelledby="topic-speak-portuguese">
+      <button id="topic-speak-preview-audio" class="topic-speak-preview-audio" type="button" aria-label="Listen to the English pronunciation" title="Listen in American English" hidden>🔊</button>
       <span class="topic-speak-prompt-label">PORTUGUÊS</span>
       <strong id="topic-speak-portuguese">geladeira</strong>
     </div>
@@ -1326,6 +1328,29 @@ if (!window.navigation) {
       <button id="topic-speak-back-topic" class="topic-review-btn topic-review-btn-secondary" type="button">BACK TO TOPIC</button>
     </div>
   </section>
+
+  <div id="topic-speak-settings-overlay" class="topic-speak-settings-overlay" aria-hidden="true">
+    <div class="topic-speak-settings-modal" role="dialog" aria-modal="true" aria-labelledby="topic-speak-settings-title">
+      <div class="topic-speak-settings-header">
+        <div>
+          <p class="topic-selection-kicker">SPEAK</p>
+          <h2 id="topic-speak-settings-title">Settings</h2>
+        </div>
+        <button id="topic-speak-settings-close" class="topic-speak-settings-close" type="button" aria-label="Close settings">×</button>
+      </div>
+
+      <label class="topic-speak-setting-row" for="topic-speak-preaudio-toggle">
+        <span class="topic-speak-setting-copy">
+          <strong>Show pronunciation before answering</strong>
+          <small>Displays a 🔊 button so you can hear the word in American English before speaking.</small>
+        </span>
+        <span class="topic-speak-switch">
+          <input id="topic-speak-preaudio-toggle" type="checkbox">
+          <span class="topic-speak-switch-track" aria-hidden="true"></span>
+        </span>
+      </label>
+    </div>
+  </div>
 
   <div id="topic-speak-start-overlay" class="topic-match-start-overlay" aria-hidden="true">
     <div class="topic-match-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-speak-start-title">
