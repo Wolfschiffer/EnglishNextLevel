@@ -565,12 +565,219 @@ function initWordsSettings() {
     document.getElementById('words-voice-volume')?.addEventListener('input', (event) => {
         setGlobalVoiceVolume(event.target.value);
     });
+    AudioDiagnostics.init();
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape' && document.getElementById('words-settings-overlay')?.classList.contains('visible')) {
             closeWordsSettings();
         }
     });
 }
+
+
+// ============================================
+// TEMP — DIAGNÓSTICO DE ÁUDIO MOBILE
+// ============================================
+const AudioDiagnostics = (() => {
+    const state = {
+        tts: 'Not tested',
+        html: 'Not tested',
+        webaudio: 'Not tested',
+        htmlDetails: '',
+        webaudioDetails: '',
+        ttsDetails: ''
+    };
+
+    function setStatus(kind, text, className = '') {
+        state[kind] = text;
+        const el = document.getElementById(`audio-test-${kind}-status`);
+        if (!el) return;
+        el.textContent = text;
+        el.classList.remove('is-ok', 'is-error', 'is-running');
+        if (className) el.classList.add(className);
+        refreshInfo();
+    }
+
+    function safeActivationInfo() {
+        try {
+            const ua = navigator.userActivation;
+            if (!ua) return 'unsupported';
+            return `active=${Boolean(ua.isActive)}, ever=${Boolean(ua.hasBeenActive)}`;
+        } catch (_) {
+            return 'unavailable';
+        }
+    }
+
+    function buildInfo() {
+        let sfxState = 'unknown';
+        try { sfxState = ProgrammaticSfxEngine.getState(); } catch (_) {}
+        return [
+            `Page: ${location.protocol}//${location.host}`,
+            `Online: ${navigator.onLine}`,
+            `User activation: ${safeActivationInfo()}`,
+            `speechSynthesis: ${'speechSynthesis' in window}`,
+            `Audio: ${typeof window.Audio === 'function'}`,
+            `AudioContext: ${Boolean(window.AudioContext || window.webkitAudioContext)}`,
+            `Current SFX context: ${sfxState}`,
+            `TTS: ${state.tts}${state.ttsDetails ? ` — ${state.ttsDetails}` : ''}`,
+            `MP3: ${state.html}${state.htmlDetails ? ` — ${state.htmlDetails}` : ''}`,
+            `Web Audio: ${state.webaudio}${state.webaudioDetails ? ` — ${state.webaudioDetails}` : ''}`,
+            `UA: ${navigator.userAgent}`
+        ].join('\n');
+    }
+
+    function refreshInfo() {
+        const info = document.getElementById('audio-diagnostics-info');
+        if (info) info.textContent = buildInfo();
+    }
+
+    function testTts() {
+        setStatus('tts', 'Starting…', 'is-running');
+        state.ttsDetails = '';
+
+        if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
+            state.ttsDetails = 'API unavailable';
+            setStatus('tts', 'Unavailable', 'is-error');
+            return;
+        }
+
+        try {
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance('audio test');
+            utterance.lang = 'en-US';
+            utterance.volume = Math.max(0.15, getGlobalVoiceVolume() / 100);
+            const voices = window.speechSynthesis.getVoices?.() || [];
+            const voice = voices.find(v => /^en-US$/i.test(v.lang)) || voices.find(v => /^en[-_]/i.test(v.lang));
+            if (voice) utterance.voice = voice;
+            utterance.onstart = () => {
+                state.ttsDetails = `started${voice ? `; voice=${voice.name}` : ''}`;
+                setStatus('tts', 'Started', 'is-ok');
+            };
+            utterance.onend = () => {
+                state.ttsDetails = `ended${voice ? `; voice=${voice.name}` : ''}`;
+                setStatus('tts', 'Finished', 'is-ok');
+            };
+            utterance.onerror = (event) => {
+                state.ttsDetails = `error=${event.error || 'unknown'}`;
+                setStatus('tts', 'Error', 'is-error');
+            };
+            window.speechSynthesis.speak(utterance);
+        } catch (error) {
+            state.ttsDetails = `${error.name || 'Error'}: ${error.message || error}`;
+            setStatus('tts', 'Exception', 'is-error');
+        }
+    }
+
+    function testHtmlAudio() {
+        setStatus('html', 'Loading…', 'is-running');
+        state.htmlDetails = '';
+        try {
+            const audio = new Audio('sfx/CorrectAnswer.mp3?diag=1');
+            audio.preload = 'auto';
+            audio.volume = Math.max(0.2, getGlobalSfxVolume() / 100);
+
+            const snapshot = (label) => `${label}; ready=${audio.readyState}; network=${audio.networkState}; paused=${audio.paused}; muted=${audio.muted}; volume=${audio.volume}`;
+            audio.addEventListener('playing', () => {
+                state.htmlDetails = snapshot('playing event');
+                setStatus('html', 'Playing', 'is-ok');
+            }, { once: true });
+            audio.addEventListener('ended', () => {
+                state.htmlDetails = snapshot('ended event');
+                setStatus('html', 'Finished', 'is-ok');
+            }, { once: true });
+            audio.addEventListener('error', () => {
+                const mediaError = audio.error;
+                state.htmlDetails = `${snapshot('media error')}; code=${mediaError?.code || 'none'}; message=${mediaError?.message || 'none'}`;
+                setStatus('html', 'Media error', 'is-error');
+            }, { once: true });
+
+            const playPromise = audio.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+                playPromise.then(() => {
+                    state.htmlDetails = snapshot('play() resolved');
+                    setStatus('html', 'play() OK', 'is-ok');
+                }).catch((error) => {
+                    state.htmlDetails = `${snapshot('play() rejected')}; ${error.name || 'Error'}: ${error.message || error}`;
+                    setStatus('html', 'Rejected', 'is-error');
+                });
+            } else {
+                state.htmlDetails = snapshot('play() returned no Promise');
+                setStatus('html', 'Called', 'is-running');
+            }
+        } catch (error) {
+            state.htmlDetails = `${error.name || 'Error'}: ${error.message || error}`;
+            setStatus('html', 'Exception', 'is-error');
+        }
+    }
+
+    async function testWebAudio() {
+        setStatus('webaudio', 'Starting…', 'is-running');
+        state.webaudioDetails = '';
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) {
+            state.webaudioDetails = 'AudioContext unavailable';
+            setStatus('webaudio', 'Unavailable', 'is-error');
+            return;
+        }
+
+        let ctx;
+        try {
+            ctx = new Ctor();
+            const before = ctx.state;
+            if (ctx.state !== 'running') await ctx.resume();
+            const after = ctx.state;
+
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            const now = ctx.currentTime;
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, now);
+            gain.gain.setValueAtTime(0.0001, now);
+            gain.gain.exponentialRampToValueAtTime(0.35, now + 0.015);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.37);
+
+            state.webaudioDetails = `context ${before} → ${after}; oscillator started; sampleRate=${ctx.sampleRate}`;
+            setStatus('webaudio', after === 'running' ? 'Started' : after, after === 'running' ? 'is-ok' : 'is-error');
+            setTimeout(async () => {
+                try { await ctx.close(); } catch (_) {}
+                refreshInfo();
+            }, 700);
+        } catch (error) {
+            state.webaudioDetails = `${error.name || 'Error'}: ${error.message || error}; state=${ctx?.state || 'not-created'}`;
+            setStatus('webaudio', 'Exception', 'is-error');
+            try { await ctx?.close?.(); } catch (_) {}
+        }
+    }
+
+    async function copy() {
+        const text = buildInfo();
+        try {
+            await navigator.clipboard.writeText(text);
+            const btn = document.getElementById('audio-copy-diagnostics');
+            if (btn) {
+                const old = btn.textContent;
+                btn.textContent = 'Copied';
+                setTimeout(() => { btn.textContent = old; }, 1200);
+            }
+        } catch (error) {
+            const info = document.getElementById('audio-diagnostics-info');
+            if (info) info.textContent = `${text}\n\nClipboard failed: ${error.name || 'Error'}: ${error.message || error}`;
+        }
+    }
+
+    function init() {
+        document.getElementById('audio-test-tts')?.addEventListener('click', testTts);
+        document.getElementById('audio-test-html')?.addEventListener('click', testHtmlAudio);
+        document.getElementById('audio-test-webaudio')?.addEventListener('click', testWebAudio);
+        document.getElementById('audio-copy-diagnostics')?.addEventListener('click', copy);
+        refreshInfo();
+    }
+
+    return { init, refreshInfo };
+})();
 
 // Aliases temporários para código legado que ainda use os nomes antigos.
 function getWordsVoiceVolume() { return getGlobalVoiceVolume(); }
