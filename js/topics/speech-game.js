@@ -18,7 +18,8 @@
     currentWordResolved: false,
     recognitionBlocked: false,
     activeUtterance: null,
-    showPreAnswerAudio: false
+    showPreAnswerAudio: false,
+    voiceVolume: 100
   };
 
   function $(id) {
@@ -27,6 +28,48 @@
 
 
   const SETTINGS_STORAGE_KEY = 'englishNextLevel.topicSpeak.showPreAnswerAudio';
+  const VOICE_VOLUME_STORAGE_KEY = 'englishNextLevel.voiceVolume';
+
+  function clampVolume(value) {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return 100;
+    return Math.max(0, Math.min(100, Math.round(numeric)));
+  }
+
+  function loadVoiceVolume() {
+    try {
+      const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
+      state.voiceVolume = saved === null ? 100 : clampVolume(saved);
+    } catch (error) {
+      state.voiceVolume = 100;
+    }
+  }
+
+  function saveVoiceVolume() {
+    try {
+      window.sessionStorage.setItem(VOICE_VOLUME_STORAGE_KEY, String(state.voiceVolume));
+    } catch (error) {
+      // Keeps the current value in memory when storage is unavailable.
+    }
+  }
+
+  function getVoiceVolume() {
+    try {
+      const saved = window.sessionStorage.getItem(VOICE_VOLUME_STORAGE_KEY);
+      if (saved !== null) state.voiceVolume = clampVolume(saved);
+    } catch (error) {
+      // Uses the in-memory value.
+    }
+    return state.voiceVolume;
+  }
+
+  function getVolumeIcon(volume) {
+    const level = clampVolume(volume);
+    if (level === 0) return '🔇';
+    if (level <= 33) return '🔈';
+    if (level <= 66) return '🔉';
+    return '🔊';
+  }
 
   function loadSettings() {
     try {
@@ -34,6 +77,7 @@
     } catch (error) {
       state.showPreAnswerAudio = false;
     }
+    loadVoiceVolume();
   }
 
   function saveSettings() {
@@ -44,9 +88,31 @@
     }
   }
 
+  function syncVoiceVolumeUI() {
+    const slider = $('topic-speak-voice-volume');
+    const value = $('topic-speak-voice-volume-value');
+    const icon = $('topic-speak-voice-volume-icon');
+
+    if (slider) {
+      slider.value = String(state.voiceVolume);
+      slider.setAttribute('aria-valuenow', String(state.voiceVolume));
+      slider.style.setProperty('--topic-speak-volume-percent', `${state.voiceVolume}%`);
+    }
+    if (value) value.textContent = `${state.voiceVolume}%`;
+    if (icon) icon.textContent = getVolumeIcon(state.voiceVolume);
+  }
+
+  function setVoiceVolume(value) {
+    state.voiceVolume = clampVolume(value);
+    saveVoiceVolume();
+    stopSpeech();
+    syncVoiceVolumeUI();
+  }
+
   function syncSettingsUI() {
     const toggle = $('topic-speak-preaudio-toggle');
     if (toggle) toggle.checked = state.showPreAnswerAudio;
+    syncVoiceVolumeUI();
     updatePreviewAudioVisibility();
   }
 
@@ -74,6 +140,7 @@
     stopSpeech();
     const overlay = $('topic-speak-settings-overlay');
     if (!overlay) return;
+    loadVoiceVolume();
     syncSettingsUI();
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden', 'false');
@@ -198,12 +265,16 @@
 
     stopSpeech();
 
+    const voiceVolume = getVoiceVolume();
+    if (voiceVolume <= 0) return;
+
     const locale = state.topic?.englishVariant || 'en-US';
     const utterance = new SpeechSynthesisUtterance(word.english);
     const voice = getAmericanVoice(locale);
 
     utterance.lang = locale;
     utterance.rate = 0.9;
+    utterance.volume = voiceVolume / 100;
     if (voice) utterance.voice = voice;
 
     state.activeUtterance = utterance;
@@ -685,6 +756,9 @@
     state.showPreAnswerAudio = Boolean(event.target.checked);
     saveSettings();
     updatePreviewAudioVisibility();
+  });
+  $('topic-speak-voice-volume')?.addEventListener('input', (event) => {
+    setVoiceVolume(event.target.value);
   });
 
   document.addEventListener('keydown', (event) => {
