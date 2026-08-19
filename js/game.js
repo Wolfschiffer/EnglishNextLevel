@@ -979,6 +979,170 @@ function showWrongPopup() {
 
 const sfxCache = {};
 
+// ============================================
+// MOTOR DE ÁUDIO MOBILE
+// ============================================
+// NUMBERS e WORDS usam arquivos MP3. Em alguns navegadores móveis o
+// HTMLAudioElement pode permanecer silencioso mesmo quando play() resolve.
+// Para aparelhos touch/coarse-pointer, os mesmos arquivos são reproduzidos
+// pela Web Audio API. No desktop, o fluxo existente de HTMLAudio é preservado.
+let mobileAudioContext = null;
+const mobileAudioBufferCache = new Map();
+const mobileAudioActiveSources = { voice: null, sfx: null };
+
+function prefersMobileAudioEngine() {
+    try {
+        const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches === true;
+        const touchCapable = (navigator.maxTouchPoints || 0) > 0 || 'ontouchstart' in window;
+        return coarsePointer || touchCapable;
+    } catch (error) {
+        return false;
+    }
+}
+
+function getMobileAudioContext() {
+    if (!prefersMobileAudioEngine()) return null;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) return null;
+
+    if (!mobileAudioContext) {
+        try {
+            mobileAudioContext = new AudioContextClass();
+        } catch (error) {
+            console.warn('Mobile Web Audio context could not be created:', error);
+            return null;
+        }
+    }
+    return mobileAudioContext;
+}
+
+async function unlockMobileAudioEngine() {
+    const context = getMobileAudioContext();
+    if (!context) return false;
+
+    try {
+        if (context.state === 'suspended') {
+            await context.resume();
+        }
+
+        // Um buffer silencioso iniciado durante o gesto do usuário ajuda a
+        // liberar a saída em navegadores móveis mais restritivos.
+        if (context.state === 'running') {
+            const buffer = context.createBuffer(1, 1, context.sampleRate || 44100);
+            const source = context.createBufferSource();
+            source.buffer = buffer;
+            source.connect(context.destination);
+            source.start(0);
+        }
+
+        return context.state === 'running';
+    } catch (error) {
+        console.warn('Mobile Web Audio unlock failed:', error);
+        return false;
+    }
+}
+
+function getMobileAudioBuffer(path) {
+    const context = getMobileAudioContext();
+    if (!context) return Promise.resolve(null);
+
+    if (mobileAudioBufferCache.has(path)) {
+        return mobileAudioBufferCache.get(path);
+    }
+
+    const promise = fetch(path, { cache: 'force-cache' })
+        .then((response) => {
+            if (!response.ok) throw new Error(`HTTP ${response.status} for ${path}`);
+            return response.arrayBuffer();
+        })
+        .then((arrayBuffer) => context.decodeAudioData(arrayBuffer.slice(0)))
+        .catch((error) => {
+            mobileAudioBufferCache.delete(path);
+            console.warn(`Mobile audio decode failed for ${path}:`, error);
+            return null;
+        });
+
+    mobileAudioBufferCache.set(path, promise);
+    return promise;
+}
+
+async function playWithMobileAudioEngine(path, volume = 1, channel = 'sfx') {
+    const context = getMobileAudioContext();
+    if (!context) return false;
+
+    try {
+        if (context.state === 'suspended') {
+            await context.resume();
+        }
+        if (context.state !== 'running') return false;
+
+        const buffer = await getMobileAudioBuffer(path);
+        if (!buffer) return false;
+
+        // O contexto pode ser suspenso enquanto o arquivo é carregado.
+        if (context.state === 'suspended') {
+            try { await context.resume(); } catch (_) {}
+        }
+        if (context.state !== 'running') return false;
+
+        const previous = mobileAudioActiveSources[channel];
+        if (previous) {
+            try { previous.stop(); } catch (_) {}
+        }
+
+        const source = context.createBufferSource();
+        const gain = context.createGain();
+        source.buffer = buffer;
+        gain.gain.value = Math.max(0, Math.min(1, Number(volume) || 0));
+        source.connect(gain);
+        gain.connect(context.destination);
+        source.onended = () => {
+            if (mobileAudioActiveSources[channel] === source) {
+                mobileAudioActiveSources[channel] = null;
+            }
+        };
+        mobileAudioActiveSources[channel] = source;
+        source.start(0);
+        return true;
+    } catch (error) {
+        console.warn(`Mobile Web Audio playback failed for ${path}:`, error);
+        return false;
+    }
+}
+
+function speakMobileFallback(text, volume = 1) {
+    if (!text || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
+        return false;
+    }
+
+    try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.9;
+        utterance.volume = Math.max(0, Math.min(1, Number(volume) || 0));
+
+        const voices = window.speechSynthesis.getVoices?.() || [];
+        const voice = voices.find(v => v.lang?.toLowerCase() === 'en-us') ||
+            voices.find(v => v.lang?.toLowerCase().startsWith('en-us')) ||
+            voices.find(v => v.lang?.toLowerCase().startsWith('en'));
+        if (voice) utterance.voice = voice;
+
+        window.speechSynthesis.resume?.();
+        window.speechSynthesis.speak(utterance);
+        return true;
+    } catch (error) {
+        console.warn('Mobile speech fallback failed:', error);
+        return false;
+    }
+}
+
+// Tenta liberar Web Audio na primeira interação real com a página e volta a
+// tentar nos botões START de cada jogo.
+document.addEventListener('pointerdown', () => {
+    if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
+}, { once: true, passive: true });
+
 // Players persistentes para WORDS. Em mobile, reutilizar o mesmo HTMLAudioElement
 // é mais confiável do que criar clones novos para cada reprodução.
 const wordsSfxPlayer = new Audio();
@@ -1030,6 +1194,22 @@ function playSound(type) {
     const playbackVolume = isWordsGame ? wordsSfxVolume / 100 : 1;
     if (playbackVolume <= 0) return;
 
+    if (prefersMobileAudioEngine()) {
+        playWithMobileAudioEngine(path, playbackVolume, 'sfx').then((played) => {
+            if (played) return;
+
+            // Fallback para HTMLAudio caso Web Audio não esteja disponível.
+            try {
+                const fallback = new Audio(path);
+                fallback.volume = playbackVolume;
+                fallback.play().catch(e => console.log('Mobile SFX fallback error:', e));
+            } catch (error) {
+                console.warn('Mobile SFX fallback failed:', error);
+            }
+        });
+        return;
+    }
+
     if (isWordsGame) {
         try {
             wordsSfxPlayer.pause();
@@ -1054,7 +1234,6 @@ function playSound(type) {
     playInstance.play().catch(e => console.log('Sound error:', e));
 }
 
-
 const numbersAudioCache = new Map();
 
 function getCachedNumberAudio(path) {
@@ -1073,6 +1252,17 @@ function playAudio() {
     nomeArquivo = nomeArquivo.replace(/ /g, '_').replace(/-/g, '_');
 
     const mainPath = `audio/${nomeArquivo}.mp3`;
+    const fallbackPath = `audio/${currentNumber.word.toLowerCase()}.mp3`;
+
+    if (prefersMobileAudioEngine()) {
+        playWithMobileAudioEngine(mainPath, 1, 'voice').then(async (played) => {
+            if (played) return;
+            const fallbackPlayed = await playWithMobileAudioEngine(fallbackPath, 1, 'voice');
+            if (!fallbackPlayed) speakMobileFallback(currentNumber.word, 1);
+        });
+        return;
+    }
+
     const cached = getCachedNumberAudio(mainPath);
 
     if (audioPlayer) {
@@ -1084,8 +1274,6 @@ function playAudio() {
     playInstance.play().catch(err => {
         console.log(`❌ Erro: ${nomeArquivo}.mp3 -`, err.message);
 
-        const nomeComEspaco = currentNumber.word.toLowerCase();
-        const fallbackPath = `audio/${nomeComEspaco}.mp3`;
         const fallbackCached = getCachedNumberAudio(fallbackPath);
         const fallbackInstance = fallbackCached.cloneNode();
 
@@ -1711,6 +1899,8 @@ function resetGame() {
 }
 
 function startGame() {
+    if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
+
     if (!DOM.game) {
         console.error("DOM.game não encontrado!");
         return;
@@ -1818,12 +2008,18 @@ function playVerbAudio(text, context) {
     const audioPath = resolveAudioPath(text, context);
     if (!audioPath) return;
 
-    // Mantém o preload/cache existente, mas a reprodução do WORDS usa um único
-    // HTMLAudioElement persistente para melhorar compatibilidade em mobile/iOS.
-    ensureAudioInCache(audioPath);
-
     const voiceVolume = getWordsVoiceVolume();
     if (voiceVolume <= 0) return;
+
+    if (prefersMobileAudioEngine()) {
+        playWithMobileAudioEngine(audioPath, voiceVolume / 100, 'voice').then((played) => {
+            if (!played) speakMobileFallback(text, voiceVolume / 100);
+        });
+        return;
+    }
+
+    // Desktop mantém o preload/cache e o player HTMLAudio já aprovado.
+    ensureAudioInCache(audioPath);
 
     if (currentPlayingAudio && currentPlayingAudio !== wordsVoicePlayer) {
         currentPlayingAudio.pause();
@@ -2077,8 +2273,8 @@ function hideVocabularyStartModal() {
 function beginVocabularyGame() {
     if (vocabGameStarted) return;
 
-    // O clique em START é uma ativação explícita do usuário. Usamos esse momento
-    // para liberar os players persistentes em navegadores móveis que restringem áudio.
+    // START é uma ativação explícita do usuário: libera Web Audio no mobile.
+    if (prefersMobileAudioEngine()) unlockMobileAudioEngine();
     primeWordsMobileAudio();
 
     vocabGameStarted = true;
