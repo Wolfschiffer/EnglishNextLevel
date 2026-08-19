@@ -2167,3 +2167,82 @@ body.words-settings-open {
         padding-right: 6px !important;
     }
 }
+
+
+/* ============================================
+   TEMP — AUDIO DIAGNOSTICS
+   Remove after mobile audio compatibility is resolved.
+   ============================================ */
+.audio-diagnostics-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 9px 12px;
+    align-items: center;
+    margin-top: 12px;
+}
+
+.audio-test-btn,
+.audio-copy-btn {
+    min-height: 42px;
+    border: 2px solid #c9a13b;
+    border-radius: 12px;
+    background: #ffffff;
+    color: #1e3c5c;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    padding: 8px 12px;
+}
+
+.audio-test-btn:active,
+.audio-copy-btn:active {
+    transform: translateY(1px);
+}
+
+.audio-test-status {
+    min-width: 88px;
+    color: #627284;
+    font-size: 0.76rem;
+    font-weight: 800;
+    text-align: right;
+}
+
+.audio-test-status.is-ok { color: #087a45; }
+.audio-test-status.is-error { color: #b63232; }
+.audio-test-status.is-running { color: #9b7412; }
+
+.audio-diagnostics-info {
+    margin-top: 12px;
+    padding: 10px 11px;
+    border-radius: 10px;
+    background: #f6f8fb;
+    color: #53667a;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.72rem;
+    line-height: 1.45;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.audio-copy-btn {
+    width: 100%;
+    margin-top: 10px;
+}
+
+@media (max-width: 700px) {
+    .audio-diagnostics-grid {
+        grid-template-columns: minmax(0, 1fr) 78px;
+        gap: 8px;
+    }
+
+    .audio-test-btn,
+    .audio-copy-btn {
+        min-height: 40px;
+        font-size: 0.82rem;
+    }
+
+    .audio-test-status {
+        min-width: 0;
+        font-size: 0.68rem;
+    }
+}
