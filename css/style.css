@@ -2723,3 +2723,260 @@ body.words-settings-open {
     transition: none;
   }
 }
+
+/* ============================================ */
+/* 43. HOME REDESIGN — PHASE 1 FINAL POLISH    */
+/* Final header/action language. Home remains the post-login root screen. */
+/* ============================================ */
+#category-container.category-home-active .category-home-actions {
+  align-items: center;
+  gap: 12px;
+}
+
+#category-container.category-home-active .category-home-icon-btn,
+#category-container.category-home-active .category-home-account,
+#category-container.category-home-active .category-home-logout {
+  -webkit-tap-highlight-color: transparent;
+}
+
+#category-container.category-home-active .category-home-icon-btn {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,.24);
+  border-radius: 15px;
+  background: rgba(255,255,255,.12);
+  color: #f0c65b;
+  box-shadow: 0 10px 24px rgba(14,32,61,.18), inset 0 1px 0 rgba(255,255,255,.12);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#category-container.category-home-active .category-home-action-icon {
+  width: 21px;
+  height: 21px;
+  display: block;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+#category-container.category-home-active .category-home-settings .category-home-action-icon {
+  width: 22px;
+  height: 22px;
+  stroke-width: 1.65;
+}
+
+#category-container.category-home-active .category-home-account {
+  min-height: 46px;
+  margin: 0;
+  padding: 4px 5px 4px 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid rgba(255,255,255,.20);
+  border-radius: 15px;
+  background: rgba(255,255,255,.105);
+  box-shadow: 0 10px 24px rgba(14,32,61,.16), inset 0 1px 0 rgba(255,255,255,.10);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+#category-container.category-home-active .category-home-user-icon {
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: rgba(255,255,255,.11);
+  color: #dbe8fa;
+}
+
+#category-container.category-home-active .category-home-user-icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#category-container.category-home-active .category-home-account .user-name {
+  max-width: 142px;
+  padding: 0 !important;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: rgba(248,251,255,.95);
+  font-size: .78rem;
+  line-height: 1;
+  font-weight: 650;
+}
+
+#category-container.category-home-active .category-home-account-divider {
+  width: 1px;
+  height: 22px;
+  margin-left: 2px;
+  background: rgba(255,255,255,.18);
+}
+
+#category-container.category-home-active .category-home-logout {
+  width: 34px !important;
+  height: 34px !important;
+  flex: 0 0 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: rgba(248,251,255,.82);
+  box-shadow: none;
+  display: grid;
+  place-items: center;
+}
+
+#category-container.category-home-active .category-home-logout .category-home-action-icon {
+  width: 19px;
+  height: 19px;
+}
+
+#category-container.category-home-active .category-home-icon-btn:hover,
+#category-container.category-home-active .category-home-icon-btn:focus-visible {
+  transform: translateY(-2px);
+  border-color: rgba(240,198,91,.50);
+  background: rgba(255,255,255,.18);
+  color: #f4cf72;
+  box-shadow: 0 14px 28px rgba(12,29,56,.24), inset 0 1px 0 rgba(255,255,255,.16);
+  outline: none;
+}
+
+#category-container.category-home-active .category-home-logout:hover,
+#category-container.category-home-active .category-home-logout:focus-visible {
+  transform: none;
+  background: rgba(255,255,255,.12);
+  color: #fff;
+  box-shadow: none;
+  outline: none;
+}
+
+#category-container.category-home-active .category-home-icon-btn:focus-visible,
+#category-container.category-home-active .category-home-logout:focus-visible,
+#category-container.category-home-active .category-card:focus-visible {
+  outline: 3px solid rgba(240,198,91,.48);
+  outline-offset: 3px;
+}
+
+#category-container.category-home-active .category-home-icon-btn:active,
+#category-container.category-home-active .category-home-logout:active {
+  transform: scale(.95);
+}
+
+/* A tiny highlight makes the cards feel responsive without changing their approved geometry. */
+#category-container.category-home-active .category-card::before {
+  transition: filter .2s ease, opacity .2s ease;
+}
+
+#category-container.category-home-active .category-card:hover::before,
+#category-container.category-home-active .category-card:focus-visible::before {
+  filter: saturate(1.05) brightness(1.015);
+}
+
+@media (max-width: 760px) {
+  #category-container.category-home-active .category-home-header {
+    align-items: flex-start;
+  }
+
+  #category-container.category-home-active .category-home-actions {
+    flex-direction: row;
+    align-items: center;
+    gap: 7px;
+    padding-top: 2px;
+  }
+
+  #category-container.category-home-active .category-home-icon-btn,
+  #category-container.category-home-active .category-home-account {
+    min-height: 38px;
+    border-radius: 12px;
+  }
+
+  #category-container.category-home-active .category-home-icon-btn {
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px;
+  }
+
+  #category-container.category-home-active .category-home-icon-btn .category-home-action-icon {
+    width: 19px;
+    height: 19px;
+  }
+
+  /* The name is intentionally hidden on Home mobile; account/profile gets its own space later. */
+  #category-container.category-home-active .category-home-account {
+    min-width: 38px;
+    padding: 0;
+    gap: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  #category-container.category-home-active .category-home-user-icon,
+  #category-container.category-home-active .category-home-account .user-name,
+  #category-container.category-home-active .category-home-account-divider {
+    display: none;
+  }
+
+  #category-container.category-home-active .category-home-logout {
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px;
+    border: 1px solid rgba(255,255,255,.20);
+    border-radius: 12px;
+    background: rgba(255,255,255,.10);
+    color: rgba(248,251,255,.90);
+    box-shadow: 0 8px 18px rgba(14,32,61,.15), inset 0 1px 0 rgba(255,255,255,.08);
+    backdrop-filter: blur(9px);
+    -webkit-backdrop-filter: blur(9px);
+  }
+
+  #category-container.category-home-active .category-home-logout:hover,
+  #category-container.category-home-active .category-home-logout:focus-visible {
+    background: rgba(255,255,255,.16);
+  }
+}
+
+@media (max-width: 390px) {
+  #category-container.category-home-active .category-home-actions {
+    gap: 6px;
+  }
+
+  #category-container.category-home-active .category-home-icon-btn,
+  #category-container.category-home-active .category-home-logout {
+    width: 35px !important;
+    height: 35px !important;
+    flex-basis: 35px;
+    border-radius: 11px;
+  }
+
+  #category-container.category-home-active .category-home-icon-btn .category-home-action-icon,
+  #category-container.category-home-active .category-home-logout .category-home-action-icon {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #category-container.category-home-active .category-home-icon-btn,
+  #category-container.category-home-active .category-home-logout,
+  #category-container.category-home-active .category-card::before {
+    transition: none;
+  }
+}
