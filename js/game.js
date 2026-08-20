@@ -442,14 +442,6 @@ function getAudioVolumeIcon(volume) {
     return '🔊';
 }
 
-function syncNumbersSpeakerIcon() {
-    if (!DOM?.speakerToggle) return;
-    const effectiveVolume = isAudioMuted ? 0 : getGlobalVoiceVolume();
-    DOM.speakerToggle.textContent = getAudioVolumeIcon(effectiveVolume);
-    DOM.speakerToggle.classList.toggle('muted', effectiveVolume === 0);
-    DOM.speakerToggle.setAttribute('aria-label', effectiveVolume === 0 ? 'Unmute voice' : 'Mute voice');
-}
-
 function updateGlobalAudioSettingsUI() {
     const sfxVolume = getGlobalSfxVolume();
     const voiceVolume = getGlobalVoiceVolume();
@@ -478,7 +470,6 @@ function updateGlobalAudioSettingsUI() {
     if (voiceValue) voiceValue.textContent = `${voiceVolume}%`;
     if (voiceIcon) voiceIcon.textContent = getAudioVolumeIcon(voiceVolume);
 
-    syncNumbersSpeakerIcon();
     window.dispatchEvent(new CustomEvent('english-next-level-audio-volume-change', {
         detail: { voiceVolume, sfxVolume }
     }));
@@ -802,7 +793,7 @@ let highScores = {
 };
 
 let lives = 3, streak = 0, multiplier = 1, answered = false, availableNumbers = [];
-let isAudioMuted = false, gameActive = false, gameEnded = false;
+let gameActive = false, gameEnded = false;
 let isWaiting = false;
 
 // ============================================
@@ -835,7 +826,6 @@ const DOM = {
     timer: document.getElementById('timer'),
     lives: document.getElementById('lives'),
     platforms: document.querySelectorAll('#game-platforms .platform'),
-    speakerToggle: document.getElementById('speaker-toggle'),
     menuButton: document.getElementById('menu-button'),
     gameSubtitle: document.getElementById('game-subtitle'),
     startButton: document.getElementById('start-game-btn'),
@@ -1341,7 +1331,7 @@ window.EnglishNextLevelAudio = {
 };
 
 function playAudio() {
-    if (!currentNumber || isAudioMuted || !gameActive) return;
+    if (!currentNumber || !gameActive) return;
 
     const voiceVolume = getGlobalVoiceVolume();
     if (voiceVolume <= 0) return;
@@ -1989,17 +1979,6 @@ function startGame() {
 }
 
 
-function toggleAudio() {
-    // Atalho rápido apenas para a voz do NUMBERS.
-    // Se o slider global estiver em 0, tocar no speaker restaura a voz em 100%.
-    if (getGlobalVoiceVolume() === 0) {
-        setGlobalVoiceVolume(100);
-        isAudioMuted = false;
-    } else {
-        isAudioMuted = !isAudioMuted;
-    }
-    syncNumbersSpeakerIcon();
-}
 
 
 // ============================================
@@ -2118,6 +2097,33 @@ function createAudioButton(text, context, position = 'left') {
 }
 
 
+// Pronúncia ao tocar diretamente em um card de WORDS.
+// pointerdown acontece no primeiro contato (mouse, caneta ou toque) e não
+// impede o drag-and-drop que começa logo depois.
+function addVocabularyCardPronunciation(element, text, context) {
+    if (!element || !text) return;
+
+    element.addEventListener('pointerdown', (event) => {
+        // Ignora botões secundários do mouse e evita duplicar a fala quando
+        // o usuário toca no botão de áudio explícito de um par já resolvido.
+        if (typeof event.button === 'number' && event.button !== 0) return;
+        if (event.target.closest('.vocab-audio-btn')) return;
+        playVerbAudio(text, context);
+    });
+}
+
+function getVocabularyItemTextById(items, id) {
+    const item = items.find((candidate) => Number(candidate.id) === Number(id));
+    return item?.text || '';
+}
+
+function playMatchedPastPronunciation(portugueseId) {
+    if (currentVerbGameType !== 'past') return;
+    const pastText = getVocabularyItemTextById(currentPortugueseWords, portugueseId);
+    if (pastText) playVerbAudio(pastText, 'past');
+}
+
+
 // ============================================
 // 12. SELEÇÃO DE JOGO
 // ============================================
@@ -2214,7 +2220,6 @@ function initGame() {
         });
     }
     
-    DOM.speakerToggle?.addEventListener('click', toggleAudio);
     DOM.startButton?.addEventListener('click', startGame);
     DOM.platforms.forEach(p => p.addEventListener('click', handlePlatformClick));
     
@@ -2528,6 +2533,11 @@ function handleDrop(e) {
     
    if (englishId === portugueseId) {
     lockAndMoveToTop(englishId, portugueseId);
+
+    // No Simple Past, o alvo correto é uma palavra em inglês. Ao completar
+    // o par, pronuncia automaticamente a forma no passado antes do rerender.
+    playMatchedPastPronunciation(portugueseId);
+
     showVocabMessage('✓ Correct match!', 'success');
     renderVocabularyLists();
 
@@ -2686,6 +2696,10 @@ function renderVocabularyLists() {
         textSpan.className = 'vocab-text';
         textSpan.textContent = item.text || item.english || item.word || '?';
         div.appendChild(textSpan);
+
+        // Toda palavra da coluna esquerda está em inglês. A pronúncia começa
+        // já no primeiro toque/clique, inclusive quando o gesto vira um drag.
+        addVocabularyCardPronunciation(div, item.text, 'english');
         
         // 🔥 BOTÃO DE ÁUDIO: APENAS SE LOCKED
         // ESQUERDA: texto + botão à direita
@@ -2734,6 +2748,12 @@ function renderVocabularyLists() {
         textSpan.className = 'vocab-text';
         textSpan.textContent = item.text || item.portuguese || item.translation || '?';
         div.appendChild(textSpan);
+
+        // No Simple Past a coluna direita também contém inglês, portanto o
+        // card inteiro pode ser tocado para ouvir a forma no passado.
+        if (currentVerbGameType === 'past') {
+            addVocabularyCardPronunciation(div, item.text, 'past');
+        }
         
         portugueseList.appendChild(div);
     });
@@ -2910,30 +2930,23 @@ function handleTouchEnd(e) {
     const portugueseId = parseInt(targetPortuguese.getAttribute('data-id'));
     
     if (englishId === portugueseId) {
-        // Match correto!
         lockAndMoveToTop(englishId, portugueseId);
-        playSound('correct');
+
+        // Em Simple Past, pronuncia o passado assim que o usuário solta o
+        // presente sobre a resposta correta.
+        playMatchedPastPronunciation(portugueseId);
+
         showVocabMessage('✓ Correct match!', 'success');
         renderVocabularyLists();
-        
-        if (englishId === portugueseId) {
-    lockAndMoveToTop(englishId, portugueseId);
-    showVocabMessage('✓ Correct match!', 'success');
-    renderVocabularyLists();
 
-    if (matchesCount === currentEnglishWords.length) {
-        playSound('win');
-        showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
+        if (matchesCount === currentEnglishWords.length) {
+            playSound('win');
+            showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
+        } else {
+            playSound('correct');
+        }
     } else {
-        playSound('correct');
-    }
-} else {
-    playSound('wrong');
-    showVocabMessage('✗ Wrong match! Try again!', 'error');
-}
-
-    } else {
-    playSound('wrong');
+        playSound('wrong');
         showVocabMessage('✗ Wrong match! Try again!', 'error');
     }
     
