@@ -111,6 +111,9 @@ function showScreen(screen, options = {}) {
     
     ScreenManager.setScreen(screen);
 
+    const categoryHomeRoot = document.getElementById('category-container');
+    categoryHomeRoot?.classList.remove('category-home-active');
+
     console.log(`📱 Mostrando tela: ${screen}`);
     
     const auth = document.getElementById('auth-container');
@@ -151,9 +154,12 @@ function showScreen(screen, options = {}) {
             break;
             
         case SCREENS.CATEGORIES:
-            if (category) category.style.display = 'block';
+            if (category) {
+                category.style.display = 'block';
+                category.classList.add('category-home-active');
+            }
             const catBtns = document.querySelector('.category-buttons');
-            if (catBtns) catBtns.style.display = 'flex';
+            if (catBtns) catBtns.style.display = 'grid';
             break;
             
         case SCREENS.NUMBERS_MENU:
@@ -532,6 +538,7 @@ function initWordsSettings() {
     updateGlobalAudioSettingsUI();
 
     [
+        'category-settings-btn',
         'words-menu-settings-btn',
         'words-game-settings-btn',
         'numbers-menu-settings-btn',
@@ -3445,10 +3452,22 @@ const DOMcat = {
     categoryLogoutBtn: document.getElementById('category-logout-btn')
 };
 
+[DOMcat.categoryNumbersBtn, DOMcat.categoryWordsBtn, DOMcat.categoryTopicsBtn].forEach((card) => {
+    card?.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            card.click();
+        }
+    });
+});
+
 function showCategoryScreen() {
     ScreenManager.setScreen('categories');
     currentScreen = 'categories'; 
-    if (DOMcat.categoryContainer) DOMcat.categoryContainer.style.display = 'block';
+    if (DOMcat.categoryContainer) {
+        DOMcat.categoryContainer.style.display = 'block';
+        DOMcat.categoryContainer.classList.add('category-home-active');
+    }
     if (DOM.menu) DOM.menu.style.display = 'none';
     if (DOMcat.numbersMenuContainer) DOMcat.numbersMenuContainer.style.display = 'none';
     if (DOM.game) DOM.game.style.display = 'none';
@@ -3456,13 +3475,13 @@ function showCategoryScreen() {
     document.getElementById('topic-level-container')?.style.setProperty('display', 'none');
     document.getElementById('topic-game-menu-container')?.style.setProperty('display', 'none');
     
-    // FORÇAR O ESTILO DOS BOTÕES DE CATEGORIA
+    // Exibir os modos; o layout responsivo fica sob responsabilidade do CSS.
     const catBtns = document.querySelector('.category-buttons');
     if (catBtns) {
-        catBtns.style.display = 'flex';
-        catBtns.style.flexDirection = 'column';
-        catBtns.style.gap = '25px';
-        catBtns.style.margin = '30px 0';
+        catBtns.style.display = 'grid';
+        catBtns.style.removeProperty('flex-direction');
+        catBtns.style.removeProperty('gap');
+        catBtns.style.removeProperty('margin');
     }
     
     const cards = document.querySelectorAll('.category-card');
