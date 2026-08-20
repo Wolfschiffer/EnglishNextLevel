@@ -293,6 +293,16 @@
   function handleCardClick(cardElement) {
     if (!state.started || state.inputLocked || cardIsUnavailable(cardElement)) return;
 
+    // O card em inglês também funciona como controle de pronúncia. A fala
+    // acontece no mesmo toque usado para selecionar o card, sem exigir um
+    // botão de áudio separado.
+    if (cardElement.dataset.language === 'en') {
+      const word = (state.level?.words || []).find(
+        (candidate) => String(candidate.id) === String(cardElement.dataset.pairId)
+      );
+      if (word) playPronunciation(word);
+    }
+
     if (state.firstCard === cardElement) {
       cardElement.classList.remove('is-selected');
       resetSelection();
