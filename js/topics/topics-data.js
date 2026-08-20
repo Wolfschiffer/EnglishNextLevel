@@ -34,8 +34,8 @@ window.TOPICS_DATA = Object.freeze({
         wordCount: 5,
         words: [
           { id: 'whisk', english: 'whisk', portuguese: 'batedor de arame', accepted: ['whisk'] },
-          { id: 'grater', english: 'grater', portuguese: 'ralador', accepted: ['grater'] },
-          { id: 'ladle', english: 'ladle', portuguese: 'concha', accepted: ['ladle'] },
+          { id: 'grater', english: 'grater', portuguese: 'ralador', accepted: ['grater'], recognitionAliases: ['greater'] },
+          { id: 'ladle', english: 'ladle', portuguese: 'concha', accepted: ['ladle'], recognitionAliases: ['play doh', 'play dough', 'lego'] },
           { id: 'peeler', english: 'peeler', portuguese: 'descascador', accepted: ['peeler'] },
           { id: 'cutting-board', english: 'cutting board', portuguese: 'tábua de corte', accepted: ['cutting board'] }
         ]

@@ -84,6 +84,26 @@ function pushBrowserState(screen) {
     window.history.pushState(buildAppHistoryState(screen), '', window.location.href);
 }
 
+// Mantém o título do app bar contextual sincronizado com a tela atual.
+// A Home continua sendo a raiz e, por isso, não recebe botão Voltar.
+function updatePhase2NavigationCopy(screen) {
+    const wordsTitle = document.getElementById('words-nav-title');
+    const wordsSubtitle = document.getElementById('words-nav-subtitle');
+
+    if (wordsTitle && wordsSubtitle) {
+        if (screen === SCREENS.WORDS_SUBMENU) {
+            wordsTitle.textContent = 'SIMPLE VERBS';
+            wordsSubtitle.textContent = 'Choose a set';
+        } else if (screen === SCREENS.WORDS_SUBMENU_PAST) {
+            wordsTitle.textContent = 'SIMPLE PAST';
+            wordsSubtitle.textContent = 'Choose a set';
+        } else if (screen === SCREENS.WORDS_MENU) {
+            wordsTitle.textContent = 'WORDS';
+            wordsSubtitle.textContent = 'Choose a word game';
+        }
+    }
+}
+
 // Função para mostrar a tela
 function showScreen(screen, options = {}) {
     if (![SCREENS.WORDS_MENU, SCREENS.WORDS_SUBMENU, SCREENS.WORDS_SUBMENU_PAST, SCREENS.WORDS_GAME].includes(screen)) {
@@ -234,6 +254,7 @@ function showScreen(screen, options = {}) {
             break;
     }
     
+    updatePhase2NavigationCopy(screen);
     currentScreen = screen;
 }
 
@@ -544,6 +565,8 @@ function initWordsSettings() {
         'numbers-menu-settings-btn',
         'numbers-game-settings-btn',
         'topics-menu-settings-btn',
+        'topic-level-settings-btn',
+        'topic-game-menu-settings-btn',
         'topic-match-settings-btn'
     ].forEach((id) => {
         document.getElementById(id)?.addEventListener('click', openWordsSettings);
@@ -799,15 +822,31 @@ let highScores = {
     random21_99: 0, random101_999: 0, random1001_9999: 0, mixedAdvanced: 0
 };
 
+// NUMBERS scoring source of truth. During a round, `score` is the base score.
+// Bonuses are applied only once when the round ends.
+let lastNumbersResult = null;
+
 let lives = 3, streak = 0, multiplier = 1, answered = false, availableNumbers = [];
 let gameActive = false, gameEnded = false;
 let isWaiting = false;
+
+// Keep the correct answer position random, but never let it repeat
+// in the same slot more than twice in a row.
+let lastCorrectPlatformIndex = null;
+let consecutiveCorrectPlatformCount = 0;
 
 // ============================================
 // 4. EAGLE ANIMAÇÃO
 // ============================================
 
-let eagleX = 250, eagleY = 200, eagleTargetX = 250, isJumping = false, jumpProgress = 0, eagleDirection = -1;
+const EAGLE_HOME_Y_RATIO = 0.76;
+const EAGLE_LANDING_Y_RATIO = 0.955;
+const EAGLE_JUMP_HEIGHT_RATIO = 0.22;
+
+let eagleX = 250, eagleY = 190;
+let eagleStartX = 250, eagleStartY = 190;
+let eagleTargetX = 250, eagleTargetY = 239;
+let isJumping = false, jumpProgress = 0, eagleDirection = -1;
 let currentAnimation = 'idle', animationFrame = 0, isAnimating = false;
 
 // ============================================
@@ -1358,52 +1397,88 @@ function playAudio() {
 async function showLeaderboardModal() {
     const existingModal = document.querySelector('.leaderboard-modal');
     if (existingModal) existingModal.remove();
-    
+
     const modal = document.createElement('div');
     modal.className = 'leaderboard-modal';
     modal.innerHTML = `
-        <div class="leaderboard-content">
+        <div class="leaderboard-content" role="dialog" aria-modal="true" aria-labelledby="leaderboard-dialog-title">
             <div class="leaderboard-header">
-                <h2>🏆 GLOBAL LEADERBOARDS</h2>
-                <button class="close-modal">&times;</button>
+                <div class="leaderboard-heading">
+                    <div class="leaderboard-kicker">
+                        <span class="leaderboard-kicker-badge" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" focusable="false"><path d="M7 3h10v2h3a1 1 0 0 1 1 1v2a5 5 0 0 1-4 4.9A6 6 0 0 1 13 17.9V20h4v2H7v-2h4v-2.1A6 6 0 0 1 7 12.9A5 5 0 0 1 3 8V6a1 1 0 0 1 1-1h3V3Zm0 4H5v1a3 3 0 0 0 2 2.82V7Zm10 0v3.82A3 3 0 0 0 19 8V7h-2Z"/></svg>
+                        </span>
+                        <span>Global Leaderboards</span>
+                    </div>
+                    <h2 id="leaderboard-dialog-title">Global Leaderboards</h2>
+                    <p>Track the best scores for each Numbers mode.</p>
+                </div>
+                <button class="close-modal" type="button" aria-label="Close global leaderboards"></button>
             </div>
-            <div class="leaderboard-tabs" id="leaderboard-tabs"></div>
-            <div id="leaderboard-list" class="leaderboard-list">
-                <div class="leaderboard-empty">Loading...</div>
+            <div class="leaderboard-tabs-wrap">
+                <div class="leaderboard-tabs" id="leaderboard-tabs" role="tablist" aria-label="Numbers modes"></div>
+            </div>
+            <div class="leaderboard-panel">
+                <div class="leaderboard-panel-header">
+                    <div>
+                        <span class="leaderboard-panel-label">Showing leaderboard for</span>
+                        <strong id="leaderboard-mode-label">1–10</strong>
+                    </div>
+                    <span class="leaderboard-panel-note">Top 20 scores</span>
+                </div>
+                <div id="leaderboard-list" class="leaderboard-list">
+                    <div class="leaderboard-empty">Loading...</div>
+                </div>
             </div>
         </div>
     `;
-    
+
     document.body.appendChild(modal);
-    
+
+    const trophyEmptyIcon = `<span class="leaderboard-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><path d="M7 3h10v2h3a1 1 0 0 1 1 1v2a5 5 0 0 1-4 4.9A6 6 0 0 1 13 17.9V20h4v2H7v-2h4v-2.1A6 6 0 0 1 7 12.9A5 5 0 0 1 3 8V6a1 1 0 0 1 1-1h3V3Zm0 4H5v1a3 3 0 0 0 2 2.82V7Zm10 0v3.82A3 3 0 0 0 19 8V7h-2Z"/></svg></span>`;
     const gameModes = [
-        { id: 'numbers', name: '1-10' }, { id: 'numbers11-20', name: '11-20' },
-        { id: 'tens', name: 'Tens' }, { id: 'hundreds', name: '100s' },
-        { id: 'thousands', name: '1,000s' }, { id: 'random21_99', name: '21-99' },
-        { id: 'random101_999', name: '101-999' }, { id: 'random1001_9999', name: '1K-9K' },
+        { id: 'numbers', name: '1–10' },
+        { id: 'numbers11-20', name: '11–20' },
+        { id: 'tens', name: 'Tens' },
+        { id: 'random21_99', name: '21–99' },
+        { id: 'hundreds', name: '100s' },
+        { id: 'random101_999', name: '101–999' },
+        { id: 'thousands', name: '1,000s' },
+        { id: 'random1001_9999', name: '1K–9K' },
         { id: 'mixedAdvanced', name: 'Mixed' }
     ];
-    
+    const modeMap = Object.fromEntries(gameModes.map(mode => [mode.id, mode.name]));
+
     const tabsContainer = document.getElementById('leaderboard-tabs');
+    const modeLabel = document.getElementById('leaderboard-mode-label');
+
     gameModes.forEach((mode, index) => {
         const btn = document.createElement('button');
+        btn.type = 'button';
         btn.className = 'tab-btn' + (index === 0 ? ' active' : '');
         btn.textContent = mode.name;
         btn.dataset.mode = mode.id;
+        btn.setAttribute('role', 'tab');
+        btn.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
         btn.onclick = () => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected', 'false');
+            });
             btn.classList.add('active');
+            btn.setAttribute('aria-selected', 'true');
             loadLeaderboardForMode(mode.id);
         };
         tabsContainer.appendChild(btn);
     });
-    
+
     async function loadLeaderboardForMode(modeId) {
         const listContainer = document.getElementById('leaderboard-list');
+        modeLabel.textContent = modeMap[modeId] || modeId;
         listContainer.innerHTML = '<div class="leaderboard-empty">Loading...</div>';
-        
+
         let scores = [];
-        
+
         if (typeof firebase !== 'undefined' && firebase.firestore) {
             try {
                 const db = firebase.firestore();
@@ -1414,7 +1489,7 @@ async function showLeaderboardModal() {
                 snapshot.forEach(doc => scores.push(doc.data()));
                 console.log(`✅ Loaded ${scores.length} scores from Firebase for ${modeId}`);
             } catch (err) {
-                console.error("❌ Error loading from Firebase:", err);
+                console.error('❌ Error loading from Firebase:', err);
                 const leaderboardKey = `leaderboard_${modeId}`;
                 scores = JSON.parse(localStorage.getItem(leaderboardKey)) || [];
             }
@@ -1422,27 +1497,47 @@ async function showLeaderboardModal() {
             const leaderboardKey = `leaderboard_${modeId}`;
             scores = JSON.parse(localStorage.getItem(leaderboardKey)) || [];
         }
-        
+
         if (scores.length === 0) {
-            listContainer.innerHTML = '<div class="leaderboard-empty">No scores yet. Be the first!</div>';
+            const safeModeName = escapeHtml(modeMap[modeId] || modeId);
+            listContainer.innerHTML = `
+                <div class="leaderboard-empty">
+                    ${trophyEmptyIcon}
+                    <h3>No scores yet for ${safeModeName}</h3>
+                    <p>Be the first to set a record in this mode.</p>
+                </div>
+            `;
             return;
         }
-        
+
         scores.sort((a, b) => b.score - a.score);
-        
-        listContainer.innerHTML = '';
+        listContainer.innerHTML = `
+            <div class="leaderboard-columns" aria-hidden="true">
+                <span>Rank</span>
+                <span>Player</span>
+                <span>Score</span>
+            </div>
+        `;
+
         scores.slice(0, 20).forEach((score, index) => {
             const item = document.createElement('div');
-            item.className = 'leaderboard-item';
-            item.innerHTML = `<div class="leaderboard-rank">${index + 1}º</div>
+            item.className = `leaderboard-item rank-${Math.min(index + 1, 3)}`;
+            item.innerHTML = `
+                <div class="leaderboard-rank">#${index + 1}</div>
                 <div class="leaderboard-name">${escapeHtml(score.name)}</div>
-                <div class="leaderboard-score">${score.score}</div>`;
+                <div class="leaderboard-score">${Number(score.score) || 0}</div>
+            `;
             listContainer.appendChild(item);
         });
     }
-    
+
     await loadLeaderboardForMode('numbers');
-    modal.querySelector('.close-modal').onclick = () => modal.remove();
+
+    const close = () => modal.remove();
+    modal.querySelector('.close-modal').onclick = close;
+    modal.addEventListener('click', (event) => {
+        if (event.target === modal) close();
+    });
 }
 
 function escapeHtml(text) {
@@ -1561,18 +1656,82 @@ function animate() {
     drawEagle();
 }
 
+function easeInOutCubic(t) {
+    return t < 0.5
+        ? 4 * t * t * t
+        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+}
+
+function getEagleHomePosition() {
+    const width = DOM.canvas?.width || 500;
+    const height = DOM.canvas?.height || 250;
+    return {
+        x: width / 2,
+        y: height * EAGLE_HOME_Y_RATIO
+    };
+}
+
+function getPlatformTargetInCanvas(idx) {
+    const canvas = DOM.canvas;
+    const platform = DOM.platforms?.[idx];
+
+    if (!canvas || !platform) {
+        return {
+            x: PLATFORM_POSITIONS[idx] ?? 250,
+            y: (canvas?.height || 250) * EAGLE_LANDING_Y_RATIO
+        };
+    }
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const platformRect = platform.getBoundingClientRect();
+
+    // When the game is hidden, layout boxes can temporarily have zero width.
+    // Fall back to the normalized legacy rail until the real geometry exists.
+    if (canvasRect.width <= 0 || platformRect.width <= 0) {
+        return {
+            x: PLATFORM_POSITIONS[idx] ?? 250,
+            y: canvas.height * EAGLE_LANDING_Y_RATIO
+        };
+    }
+
+    const platformCenterViewportX = platformRect.left + platformRect.width / 2;
+    const relativeCssX = platformCenterViewportX - canvasRect.left;
+    const canvasX = relativeCssX * (canvas.width / canvasRect.width);
+
+    return {
+        x: Math.max(0, Math.min(canvas.width, canvasX)),
+        // The answer cards live immediately below the canvas. Keeping the
+        // eagle's feet just inside the bottom edge makes it visually land
+        // directly above the chosen card without clipping the sprite.
+        y: canvas.height * EAGLE_LANDING_Y_RATIO
+    };
+}
+
 function updateEagleMovement() {
     const now = Date.now();
-    
+
     if (isJumping) {
-        jumpProgress += JUMP_SPEED;
-        
+        jumpProgress = Math.min(1, jumpProgress + JUMP_SPEED);
+        const eased = easeInOutCubic(jumpProgress);
+        const canvasHeight = DOM.canvas?.height || 250;
+        const jumpHeight = canvasHeight * EAGLE_JUMP_HEIGHT_RATIO;
+
+        const baseX = eagleStartX + (eagleTargetX - eagleStartX) * eased;
+        const baseY = eagleStartY + (eagleTargetY - eagleStartY) * eased;
+
+        eagleX = baseX;
+        eagleY = baseY - jumpHeight * Math.sin(jumpProgress * Math.PI);
+
+        if (!isAnimating || currentAnimation !== 'flap') {
+            startAnimation('flap');
+        }
+
         if (jumpProgress >= 1) {
             eagleX = eagleTargetX;
-            eagleY = 200;
+            eagleY = eagleTargetY;
             isJumping = false;
             jumpProgress = 0;
-            
+
             if (gameActive && answered) {
                 isWaiting = true;
                 DOM.platforms.forEach(p => p.disabled = true);
@@ -1583,28 +1742,22 @@ function updateEagleMovement() {
                     nextRound();
                 }, 300);
             }
-        } else {
-            eagleX += (eagleTargetX - eagleX) * HORIZONTAL_EASING;
-            eagleY = 200 - 35 * Math.sin(jumpProgress * Math.PI);
-            if (!isAnimating || currentAnimation !== 'flap') {
-                startAnimation('flap');
-            }
         }
     }
-    
+
     if (now - lastAnimationFrame >= EAGLE_ANIMATION_DELAY) {
         lastAnimationFrame = now;
-        
+
         if (isAnimating) {
             animationFrame++;
-            
+
             if (currentAnimation === 'flap') {
                 if (animationFrame >= eagleImages.flap.length) animationFrame = 0;
-                console.log("🎬 Flap frame:", animationFrame);
             }
             else if (currentAnimation === 'celebrate') {
-                if (animationFrame >= eagleImages.celebrate.length) {}
-                console.log("🎬 Celebrate frame:", animationFrame);
+                if (animationFrame >= eagleImages.celebrate.length) {
+                    animationFrame = Math.max(0, eagleImages.celebrate.length - 1);
+                }
             }
             else if (currentAnimation === 'wrong') {
                 if (animationFrame >= eagleImages.wrong.length) stopAnimation();
@@ -1616,7 +1769,7 @@ function updateEagleMovement() {
 function drawEagle() {
     if (!DOM.ctx) return;
     
-    DOM.ctx.clearRect(0, 0, 500, 250);
+    DOM.ctx.clearRect(0, 0, DOM.canvas?.width || 500, DOM.canvas?.height || 250);
     
     let img = eagleImages.idle;
     if (currentAnimation === 'flap' && eagleImages.flap[animationFrame]) img = eagleImages.flap[animationFrame];
@@ -1649,23 +1802,40 @@ function stopAnimation() {
     isAnimating = false; 
 }
 
-function jumpToPlatform(idx) { 
-    eagleTargetX = PLATFORM_POSITIONS[idx]; 
-    isJumping = true; 
-    jumpProgress = 0; 
-    eagleDirection = eagleTargetX > eagleX ? 1 : -1; 
+function jumpToPlatform(idx) {
+    const target = getPlatformTargetInCanvas(idx);
+
+    eagleStartX = eagleX;
+    eagleStartY = eagleY;
+    eagleTargetX = target.x;
+    eagleTargetY = target.y;
+    isJumping = true;
+    jumpProgress = 0;
+
+    if (Math.abs(eagleTargetX - eagleStartX) < 1) {
+        // A center answer still gets a real vertical jump.
+        eagleDirection = -1;
+    } else {
+        eagleDirection = eagleTargetX > eagleStartX ? 1 : -1;
+    }
+
     startAnimation('flap');
 }
 
-function resetEagle() { 
-    eagleX = 250; 
-    eagleY = 200; 
-    isJumping = false; 
-    jumpProgress = 0; 
-    currentAnimation = 'idle'; 
-    animationFrame = 0; 
-    isAnimating = false; 
-    eagleDirection = -1; 
+function resetEagle() {
+    const home = getEagleHomePosition();
+    eagleX = home.x;
+    eagleY = home.y;
+    eagleStartX = home.x;
+    eagleStartY = home.y;
+    eagleTargetX = home.x;
+    eagleTargetY = (DOM.canvas?.height || 250) * EAGLE_LANDING_Y_RATIO;
+    isJumping = false;
+    jumpProgress = 0;
+    currentAnimation = 'idle';
+    animationFrame = 0;
+    isAnimating = false;
+    eagleDirection = -1;
     isWaiting = false;
 }
 
@@ -1686,24 +1856,15 @@ function handlePlatformClick(e) {
         btn.classList.add('correct');
         updateScore();
         updateMultiplier();
-        updateHighScore();
         playSound('correct');
         showScorePopup(roundScore.total, roundScore.timeBonus);
         
         answered = true;
         DOM.platforms.forEach(p => p.disabled = true);
         
-        if (PLATFORM_POSITIONS[idx] === eagleX) {
-            isWaiting = true;
-            startAnimation('celebrate');
-            setTimeout(() => {
-                stopAnimation();
-                isWaiting = false;
-                nextRound();
-            }, 300);
-        } else {
-            jumpToPlatform(idx);
-        }
+        // Always animate the answer, including a vertical jump when the
+        // correct platform is the center one.
+        jumpToPlatform(idx);
     } else {
         btn.classList.add('wrong');
         streak = 0;
@@ -1752,11 +1913,40 @@ function updateLives() {
     }
 }
 
-function updateHighScore() {
-    if (score > highScores[currentGame]) {
-        highScores[currentGame] = score;
-        if (DOM.highScore) DOM.highScore.textContent = score;
+function updateHighScore(finalScoreCandidate = null) {
+    if (Number.isFinite(finalScoreCandidate) && finalScoreCandidate > (highScores[currentGame] || 0)) {
+        highScores[currentGame] = finalScoreCandidate;
     }
+
+    if (DOM.highScore) {
+        DOM.highScore.textContent = highScores[currentGame] || 0;
+    }
+
+    return highScores[currentGame] || 0;
+}
+
+function calculateNumbersFinalResult() {
+    const totalGameTime = Math.max(0, endTime ?? currentTime ?? 0);
+
+    let speedBonus = 1.0;
+    if (totalGameTime <= 22) speedBonus = 2.4;
+    else if (totalGameTime <= 30) speedBonus = 2.2;
+    else if (totalGameTime <= 45) speedBonus = 1.8;
+    else if (totalGameTime <= 65) speedBonus = 1.5;
+    else if (totalGameTime <= 90) speedBonus = 1.2;
+
+    const lifeBonus = 1 + (lives * 0.2);
+    const baseScore = score;
+    const finalScore = Math.floor(baseScore * speedBonus * lifeBonus);
+
+    return {
+        baseScore,
+        speedBonus,
+        lifeBonus,
+        finalScore,
+        totalGameTime,
+        livesRemaining: lives
+    };
 }
 
 function gameOver() {
@@ -1774,30 +1964,30 @@ function gameOver() {
 
 function winGame() {
     if (gameEnded) return;
-    
-    const totalGameTime = endTime || currentTime;
-    let speedBonus = 1.0;
-    if (totalGameTime <= 22) speedBonus = 2.4;
-    else if (totalGameTime <= 30) speedBonus = 2.2;
-    else if (totalGameTime <= 45) speedBonus = 1.8;
-    else if (totalGameTime <= 65) speedBonus = 1.5;
-    else if (totalGameTime <= 90) speedBonus = 1.2;
-    else speedBonus = 1.0;
-    
-    const lifeBonus = 1 + (lives * 0.2);
-    const finalScore = Math.floor(score * speedBonus * lifeBonus);
-    
+
     gameActive = false;
     gameEnded = true;
     stopTimer();
+
+    // Calculate bonuses exactly once. This object is the canonical result for
+    // the result screen, high score and leaderboard.
+    const completedResult = calculateNumbersFinalResult();
+    lastNumbersResult = completedResult;
+    updateHighScore(completedResult.finalScore);
+
+    console.log('🏆 NUMBERS final result:', completedResult);
+
     playSound('win');
     DOM.platforms.forEach(p => p.disabled = true);
-    
+
+    // Capture the completed result so a fast UI action cannot change the
+    // score that is submitted to the leaderboard.
+    const completedGameMode = currentGame;
     setTimeout(() => {
-        showNameEntryModal(finalScore, currentGame);
+        showNameEntryModal(completedResult.finalScore, completedGameMode);
     }, 500);
-    
-    showWinWithBonus();
+
+    showWinWithBonus(completedResult);
 }
 
 function loseLife() { 
@@ -1814,6 +2004,10 @@ function nextRound() {
         winGame(); 
         return; 
     }
+
+    // Each prompt begins from the same neutral center position so the jump
+    // clearly communicates which answer was correct.
+    resetEagle();
     
     const rand = Math.floor(Math.random() * availableNumbers.length);
     currentNumber = availableNumbers[rand];
@@ -1836,54 +2030,81 @@ function nextRound() {
 
 function setupPlatforms() {
     const correctValue = currentNumber.value;
-    let options = [correctValue];
-    let possibleValues = currentNumbers.map(n => n.value);
-    
-    while (options.length < 3) {
+    const possibleValues = currentNumbers
+        .map(n => n.value)
+        .filter(value => value !== correctValue);
+
+    // Choose the slot for the correct answer. All three positions remain
+    // equally eligible unless one has already been used twice in a row.
+    let allowedCorrectIndexes = [0, 1, 2];
+    if (lastCorrectPlatformIndex !== null && consecutiveCorrectPlatformCount >= 2) {
+        allowedCorrectIndexes = allowedCorrectIndexes.filter(index => index !== lastCorrectPlatformIndex);
+    }
+
+    const correctIndex = allowedCorrectIndexes[
+        Math.floor(Math.random() * allowedCorrectIndexes.length)
+    ];
+
+    if (correctIndex === lastCorrectPlatformIndex) {
+        consecutiveCorrectPlatformCount++;
+    } else {
+        lastCorrectPlatformIndex = correctIndex;
+        consecutiveCorrectPlatformCount = 1;
+    }
+
+    // Pick two unique distractors, then place the correct answer directly
+    // in its selected slot instead of shuffling all three afterward.
+    const distractors = [];
+    while (distractors.length < 2 && possibleValues.length > 0) {
         const randomIndex = Math.floor(Math.random() * possibleValues.length);
-        const randomValue = possibleValues[randomIndex];
-        if (!options.includes(randomValue) && randomValue !== correctValue) {
-            options.push(randomValue);
+        const [randomValue] = possibleValues.splice(randomIndex, 1);
+        if (!distractors.includes(randomValue)) distractors.push(randomValue);
+    }
+
+    const options = new Array(3);
+    options[correctIndex] = correctValue;
+    let distractorIndex = 0;
+    for (let i = 0; i < options.length; i++) {
+        if (i !== correctIndex) {
+            options[i] = distractors[distractorIndex++];
         }
     }
-    
-    for (let i = options.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [options[i], options[j]] = [options[j], options[i]];
-    }
-    
+
     DOM.platforms.forEach((p, i) => {
         p.textContent = options[i];
         p.dataset.value = options[i];
     });
 }
 
-function showWinWithBonus() {
+function showWinWithBonus(result = lastNumbersResult) {
+    const finalScore = result?.finalScore ?? score;
+
     let winScreen = document.createElement('div');
     winScreen.className = 'win-screen';
     winScreen.innerHTML = `
-        <h2>🎉 YOU WIN! 🎉</h2>
+        <h2>Round Complete</h2>
+        <p class="phase5-win-subtitle">Great work. Your results are ready.</p>
         <div class="win-stats">
-            <p>⏱️ Time: ${DOM.timer.textContent}</p>
-            <p>💰 Score: ${score}</p>
+            <p><span>Time</span><strong>${DOM.timer.textContent}</strong></p>
+            <p><span>Final Score</span><strong>${finalScore}</strong></p>
             <button class="restart-btn" id="win-restart-btn">PLAY AGAIN</button>
             <button class="restart-btn" id="win-menu-btn">BACK TO MENU</button>
         </div>
     `;
-    
+
     DOM.game.appendChild(winScreen);
-    
-    document.getElementById('win-restart-btn')?.addEventListener('click', () => { 
-        winScreen.remove(); 
-        removeRestartButton(); 
+
+    document.getElementById('win-restart-btn')?.addEventListener('click', () => {
+        winScreen.remove();
+        removeRestartButton();
         resetGame();
         startGame();
     });
-    
-    document.getElementById('win-menu-btn')?.addEventListener('click', () => { 
-        winScreen.remove(); 
-        removeRestartButton(); 
-        showMenu(); 
+
+    document.getElementById('win-menu-btn')?.addEventListener('click', () => {
+        winScreen.remove();
+        removeRestartButton();
+        showMenu();
     });
 }
 
@@ -1900,11 +2121,12 @@ function showMenu() {
         p.classList.remove('correct', 'wrong'); 
     });
     if (DOM.wordDisplay) DOM.wordDisplay.textContent = 'Ready?';
-    if (DOM.instructions) DOM.instructions.textContent = '👆 Click START to begin';
-    if (DOM.gameStats) DOM.gameStats.style.display = 'none';
-    if (DOM.startButton) { 
-        DOM.startButton.style.display = 'block'; 
-        DOM.startButton.disabled = false; 
+    if (DOM.instructions) DOM.instructions.textContent = 'Press START to begin';
+    if (DOM.gameStats) DOM.gameStats.style.display = 'grid';
+    if (DOM.startButton) {
+        DOM.startButton.style.display = 'block';
+        DOM.startButton.classList.remove('is-running-placeholder');
+        DOM.startButton.disabled = false;
     }
     DOM.game.classList.remove('game-active');
     
@@ -1953,6 +2175,18 @@ function resetGame() {
     multiplier = 1;
     gameEnded = false;
     answered = false;
+    lastNumbersResult = null;
+
+    // Start each new game with a fresh answer-position history.
+    lastCorrectPlatformIndex = null;
+    consecutiveCorrectPlatformCount = 0;
+
+    // A new game must never inherit timing data from the previous round.
+    startTime = null;
+    endTime = null;
+    currentTime = 0;
+    roundStartTime = 0;
+    if (DOM.timer) DOM.timer.textContent = '00:00';
     
     updateScore();
     updateMultiplier();
@@ -1978,9 +2212,13 @@ function startGame() {
     
     gameActive = true;
     DOM.game.classList.add('game-active');
-    if (DOM.startButton) DOM.startButton.style.display = 'none';
-    if (DOM.gameStats) DOM.gameStats.style.display = 'flex';
-    if (DOM.instructions) DOM.instructions.textContent = '👆 Click the number';
+    if (DOM.startButton) {
+        DOM.startButton.style.display = 'block';
+        DOM.startButton.classList.add('is-running-placeholder');
+        DOM.startButton.disabled = true;
+    }
+    if (DOM.gameStats) DOM.gameStats.style.display = 'grid';
+    if (DOM.instructions) DOM.instructions.textContent = 'Choose the matching number';
     resetGame();
     startTimer();
 }
@@ -2137,6 +2375,20 @@ function playMatchedPastPronunciation(portugueseId) {
 
 window.selectGame = function(gameType) {
     currentGame = gameType;
+
+    const modeLabelMap = {
+        'numbers': 'Numbers 1–10',
+        'numbers11-20': 'Numbers 11–20',
+        'tens': 'Tens',
+        'hundreds': 'Hundreds',
+        'thousands': 'Thousands',
+        'random21_99': 'Numbers 21–99',
+        'random101_999': 'Numbers 101–999',
+        'random1001_9999': 'Numbers 1,001–9,999',
+        'mixedAdvanced': 'Mixed Advanced'
+    };
+    const navSubtitle = document.getElementById('game-subtitle');
+    if (navSubtitle) navSubtitle.textContent = modeLabelMap[gameType] || 'Numbers';
     
     const modeMap = {
         'numbers': gameData.numbers,
@@ -2156,6 +2408,20 @@ window.selectGame = function(gameType) {
     
     const currentHighScore = highScores[gameType] || 0;
     if (DOM.highScore) DOM.highScore.textContent = currentHighScore;
+
+    // Stable Ready state: initialize visible HUD values without creating a round.
+    score = 0;
+    lives = 3;
+    streak = 0;
+    multiplier = 1;
+    startTime = null;
+    endTime = null;
+    currentTime = 0;
+    roundStartTime = 0;
+    updateScore();
+    updateMultiplier();
+    updateLives();
+    if (DOM.timer) DOM.timer.textContent = '00:00';
     
     gameActive = false;
     stopTimer();
@@ -2172,11 +2438,12 @@ window.selectGame = function(gameType) {
     }
     
     if (DOM.wordDisplay) DOM.wordDisplay.textContent = 'Ready?';
-    if (DOM.instructions) DOM.instructions.textContent = '👆 Click START to begin';
-    if (DOM.gameStats) DOM.gameStats.style.display = 'none';
-    if (DOM.startButton) { 
-        DOM.startButton.style.display = 'block'; 
-        DOM.startButton.disabled = false; 
+    if (DOM.instructions) DOM.instructions.textContent = 'Press START to begin';
+    if (DOM.gameStats) DOM.gameStats.style.display = 'grid';
+    if (DOM.startButton) {
+        DOM.startButton.style.display = 'block';
+        DOM.startButton.classList.remove('is-running-placeholder');
+        DOM.startButton.disabled = false;
     }
     
     if (DOM.game) {
@@ -2216,10 +2483,11 @@ function initGame() {
                 p.classList.remove('correct', 'wrong'); 
             });
             if (DOM.wordDisplay) DOM.wordDisplay.textContent = 'Ready?';
-            if (DOM.gameStats) DOM.gameStats.style.display = 'none';
-            if (DOM.startButton) { 
-                DOM.startButton.style.display = 'block'; 
-                DOM.startButton.disabled = false; 
+            if (DOM.gameStats) DOM.gameStats.style.display = 'grid';
+            if (DOM.startButton) {
+                DOM.startButton.style.display = 'block';
+                DOM.startButton.classList.remove('is-running-placeholder');
+                DOM.startButton.disabled = false;
             }
             DOM.game.classList.remove('game-active');
             
@@ -3014,6 +3282,14 @@ window.selectWordGame = function(gameType) {
     const selected = gameDataMap[gameType];
     
     if (selected) {
+        const vocabNavSubtitle = document.getElementById('vocab-nav-subtitle');
+        if (vocabNavSubtitle) {
+            const match = String(gameType).match(/(\d+)$/);
+            const setNumber = match ? match[1] : '';
+            vocabNavSubtitle.textContent = selected.type === 'past'
+                ? `Simple Past${setNumber ? ` ${setNumber}` : ''}`
+                : `Simple Verbs${setNumber ? ` ${setNumber}` : ''}`;
+        }
         // Garantir que o container pai está visível
         const categoryContainer = document.getElementById('category-container');
         if (categoryContainer) categoryContainer.style.display = 'block';

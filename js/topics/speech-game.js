@@ -214,8 +214,11 @@
     const source = Array.isArray(word?.accepted) && word.accepted.length
       ? word.accepted
       : [word?.english];
+    const recognitionAliases = Array.isArray(word?.recognitionAliases)
+      ? word.recognitionAliases
+      : [];
 
-    return source
+    return [...source, ...recognitionAliases]
       .filter(Boolean)
       .map(normalizeAnswer)
       .filter(Boolean);
@@ -397,11 +400,16 @@
     if (state.recognitionBlocked) {
       unsupported.hidden = false;
       mic.hidden = true;
+      mic.disabled = true;
       return;
     }
 
     unsupported.hidden = true;
     mic.hidden = false;
+    // A new word/round must always restore the microphone button. A correct
+    // answer disables it temporarily, so without this reset the next level
+    // (for example Common -> Advanced) can inherit a disabled button.
+    mic.disabled = false;
   }
 
   function renderCurrentWord() {
@@ -553,10 +561,14 @@
       }
 
       const bestTranscript = alternatives[0] || '';
-      const correctTranscript = alternatives.find((candidate) => answerIsCorrect(candidate, word));
 
-      if (correctTranscript) {
-        showCorrectResult(word, bestTranscript || correctTranscript);
+      // Validate only the transcript we actually show to the learner.
+      // Previously, a lower-ranked hidden alternative could mark the answer
+      // as correct while "I heard" displayed a different word, which was
+      // confusing (for example: showing "gratitude" but accepting because
+      // another hidden alternative was "grater").
+      if (answerIsCorrect(bestTranscript, word)) {
+        showCorrectResult(word, bestTranscript);
       } else {
         showWrongResult(bestTranscript);
       }
@@ -764,6 +776,14 @@
     state.recognitionBlocked = false;
     state.recognition = null;
     state.pendingPronunciation = null;
+
+    const mic = $('topic-speak-mic');
+    if (mic) {
+      mic.disabled = false;
+      mic.hidden = false;
+      mic.classList.remove('is-listening');
+      mic.setAttribute('aria-pressed', 'false');
+    }
 
     updateHeader();
     hideReview();
