@@ -923,10 +923,29 @@ if (!window.navigation) {
       </div>
 
       <div class="category-home-actions">
-        <button id="category-settings-btn" class="category-home-settings" type="button" aria-label="Open audio settings" aria-haspopup="dialog" aria-controls="words-settings-overlay">⚙️</button>
-        <div class="user-info" id="category-user-info" style="display: none;">
+        <button id="category-settings-btn" class="category-home-settings category-home-icon-btn" type="button" aria-label="Open audio settings" aria-haspopup="dialog" aria-controls="words-settings-overlay">
+          <svg class="category-home-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+            <path d="M12 8.1a3.9 3.9 0 1 0 0 7.8 3.9 3.9 0 0 0 0-7.8Z"/>
+            <path d="M19.2 13.3c.05-.43.05-.87 0-1.3l1.72-1.34a.9.9 0 0 0 .22-1.15l-1.63-2.82a.9.9 0 0 0-1.1-.4l-2.03.82a7.7 7.7 0 0 0-1.12-.65L14.95 4.3a.9.9 0 0 0-.88-.72h-3.25a.9.9 0 0 0-.88.72l-.32 2.16c-.4.18-.77.4-1.12.65l-2.03-.82a.9.9 0 0 0-1.1.4L3.84 9.5a.9.9 0 0 0 .22 1.15L5.78 12c-.05.43-.05.87 0 1.3l-1.72 1.34a.9.9 0 0 0-.22 1.15l1.63 2.82a.9.9 0 0 0 1.1.4l2.03-.82c.35.25.72.47 1.12.65l.32 2.16a.9.9 0 0 0 .88.72h3.25a.9.9 0 0 0 .88-.72l.32-2.16c.4-.18.77-.4 1.12-.65l2.03.82a.9.9 0 0 0 1.1-.4l1.63-2.82a.9.9 0 0 0-.22-1.15L19.2 13.3Z"/>
+          </svg>
+        </button>
+
+        <div class="user-info category-home-account" id="category-user-info" style="display: none;">
+          <span class="category-home-user-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" focusable="false">
+              <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
+              <path d="M4.8 20c.65-3.34 3.47-5.55 7.2-5.55s6.55 2.21 7.2 5.55"/>
+            </svg>
+          </span>
           <span id="category-user-name" class="user-name"></span>
-          <button id="category-logout-btn" class="logout-btn" type="button" aria-label="Sign out">🚪</button>
+          <span class="category-home-account-divider" aria-hidden="true"></span>
+          <button id="category-logout-btn" class="logout-btn category-home-logout" type="button" aria-label="Sign out">
+            <svg class="category-home-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M10 5H6.5A2.5 2.5 0 0 0 4 7.5v9A2.5 2.5 0 0 0 6.5 19H10"/>
+              <path d="M14 8l4 4-4 4"/>
+              <path d="M18 12H9"/>
+            </svg>
+          </button>
         </div>
       </div>
     </header>
