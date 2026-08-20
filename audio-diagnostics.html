@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <title>English Next Level — Audio Diagnostics</title>
+  <style>
+    :root { color-scheme: light; font-family: Arial, Helvetica, sans-serif; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background:#173f61; color:#183a5c; padding:20px 12px 40px; }
+    main { max-width:720px; margin:auto; background:#fff; border:3px solid #d3a12a; border-radius:24px; padding:22px; }
+    h1 { margin:0 0 6px; font-size:1.45rem; }
+    h2 { margin:26px 0 10px; font-size:1.1rem; }
+    p { color:#657581; line-height:1.45; }
+    .warning { padding:12px 14px; background:#fff7dc; border:1px solid #d3a12a; border-radius:12px; color:#5b4a1a; }
+    .row { display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center; padding:10px 0; border-bottom:1px solid #e5eaf0; }
+    button { min-height:46px; border:2px solid #d3a12a; border-radius:14px; background:#fff; color:#183a5c; font-weight:700; padding:9px 14px; font-size:1rem; touch-action:manipulation; }
+    button:active { transform:scale(.98); }
+    .status { min-width:92px; text-align:right; font-weight:700; }
+    .ok { color:#16864d; }.bad{color:#c23939}.wait{color:#a46d00}
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; padding:13px; background:#f5f7fa; border-radius:12px; font-size:.78rem; line-height:1.4; }
+    .actions { display:grid; gap:10px; margin-top:14px; }
+    .phase { padding:14px; border:1px solid #d7dee8; border-radius:16px; margin-top:12px; }
+    .phase strong { display:block; margin-bottom:5px; }
+    audio { width:100%; margin-top:10px; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>Audio Diagnostics</h1>
+  <p>English Next Level — temporary standalone test. This page is not connected to the game.</p>
+  <div class="warning"><strong>Important:</strong> First run Section A before touching any microphone button. If possible, fully close Chrome and open this page directly before testing.</div>
+
+  <h2>A — Test BEFORE microphone access</h2>
+  <div class="phase">
+    <div class="row"><button id="ttsA">1. Test TTS voice</button><span id="ttsAStatus" class="status">Not tested</span></div>
+    <div class="row"><button id="wavA">2. Test generated WAV</button><span id="wavAStatus" class="status">Not tested</span></div>
+    <audio id="wavPlayer" controls preload="auto"></audio>
+    <div class="row"><button id="mp3A">3. Test project MP3</button><span id="mp3AStatus" class="status">Not tested</span></div>
+    <audio id="mp3Player" controls preload="none" src="sfx/CorrectAnswer.mp3"></audio>
+    <div class="row"><button id="webA">4. Test Web Audio tone</button><span id="webAStatus" class="status">Not tested</span></div>
+  </div>
+
+  <h2>B — Microphone isolation test</h2>
+  <p>This intentionally opens the microphone for about 3 seconds and then closes every track. Do this only after finishing Section A.</p>
+  <div class="phase">
+    <div class="row"><button id="mic">Open microphone for 3 sec</button><span id="micStatus" class="status">Not used</span></div>
+    <div class="row"><button id="wavB">5. WAV after microphone</button><span id="wavBStatus" class="status">Not tested</span></div>
+    <div class="row"><button id="mp3B">6. MP3 after microphone</button><span id="mp3BStatus" class="status">Not tested</span></div>
+    <div class="row"><button id="webB">7. Web Audio after microphone</button><span id="webBStatus" class="status">Not tested</span></div>
+  </div>
+
+  <h2>Technical report</h2>
+  <pre id="report"></pre>
+  <div class="actions"><button id="copy">Copy report</button><button id="reset">Reset tests</button></div>
+</main>
+<script>
+(() => {
+  const results = {};
+  let ctx = null;
+  let wavUrl = null;
+  const $ = id => document.getElementById(id);
+
+  function setStatus(id, text, kind='wait') {
+    const el=$(id); el.textContent=text; el.className='status '+kind; updateReport();
+  }
+
+  function baseInfo() {
+    const ua=navigator.userAgent;
+    const uaAct=navigator.userActivation;
+    return [
+      `URL: ${location.href}`,
+      `Time: ${new Date().toISOString()}`,
+      `Visibility: ${document.visibilityState}`,
+      `User activation: active=${uaAct?.isActive ?? 'n/a'}, ever=${uaAct?.hasBeenActive ?? 'n/a'}`,
+      `speechSynthesis: ${'speechSynthesis' in window}`,
+      `Audio: ${typeof Audio === 'function'}`,
+      `AudioContext: ${Boolean(window.AudioContext || window.webkitAudioContext)}`,
+      `AudioContext state: ${ctx?.state || 'not-created'}`,
+      `AudioContext sampleRate: ${ctx?.sampleRate || 'n/a'}`,
+      `AudioContext sinkId: ${ctx && 'sinkId' in ctx ? String(ctx.sinkId) : 'unsupported/unknown'}`,
+      `setSinkId: ${Boolean(ctx && typeof ctx.setSinkId === 'function')}`,
+      `mediaDevices: ${Boolean(navigator.mediaDevices)}`,
+      `UA: ${ua}`
+    ].join('\n');
+  }
+  function updateReport(){
+    const lines=Object.entries(results).map(([k,v])=>`${k}: ${v}`);
+    $('report').textContent=baseInfo()+'\n\nRESULTS\n'+(lines.join('\n')||'No tests yet.');
+  }
+  function result(key,val){results[key]=val; updateReport();}
+
+  function makeWavUrl() {
+    if (wavUrl) return wavUrl;
+    const sampleRate=44100, seconds=.55, freq=660, frames=Math.floor(sampleRate*seconds);
+    const buffer=new ArrayBuffer(44+frames*2), view=new DataView(buffer);
+    const write=(o,s)=>{for(let i=0;i<s.length;i++) view.setUint8(o+i,s.charCodeAt(i));};
+    write(0,'RIFF'); view.setUint32(4,36+frames*2,true); write(8,'WAVE'); write(12,'fmt ');
+    view.setUint32(16,16,true); view.setUint16(20,1,true); view.setUint16(22,1,true); view.setUint32(24,sampleRate,true);
+    view.setUint32(28,sampleRate*2,true); view.setUint16(32,2,true); view.setUint16(34,16,true); write(36,'data'); view.setUint32(40,frames*2,true);
+    for(let i=0;i<frames;i++){
+      const env=Math.min(1,i/(sampleRate*.02))*Math.min(1,(frames-i)/(sampleRate*.06));
+      const sample=Math.sin(2*Math.PI*freq*i/sampleRate)*0.65*env;
+      view.setInt16(44+i*2,Math.max(-1,Math.min(1,sample))*32767,true);
+    }
+    wavUrl=URL.createObjectURL(new Blob([buffer],{type:'audio/wav'}));
+    $('wavPlayer').src=wavUrl;
+    return wavUrl;
+  }
+
+  async function testMedia(player,key,statusId) {
+    try {
+      player.pause(); player.currentTime=0; player.muted=false; player.volume=1;
+      const p=player.play(); if(p) await p;
+      setStatus(statusId,'Playing','ok'); result(key,`play() resolved; readyState=${player.readyState}; networkState=${player.networkState}; volume=${player.volume}; muted=${player.muted}`);
+      const ended=()=>{setStatus(statusId,'Finished','ok'); result(key,results[key]+'; ended=true'); player.removeEventListener('ended',ended);};
+      player.addEventListener('ended',ended);
+    } catch(e){setStatus(statusId,'Rejected','bad'); result(key,`${e.name}: ${e.message}`);}
+  }
+
+  function testTts(){
+    const key='TTS before mic';
+    try {
+      speechSynthesis.cancel(); const u=new SpeechSynthesisUtterance('audio test'); u.lang='en-US'; u.volume=1;
+      u.onstart=()=>{setStatus('ttsAStatus','Playing','ok');result(key,'started');};
+      u.onend=()=>{setStatus('ttsAStatus','Finished','ok');result(key,'ended');};
+      u.onerror=e=>{setStatus('ttsAStatus','Error','bad');result(key,`error=${e.error}`);};
+      speechSynthesis.speak(u);
+    } catch(e){setStatus('ttsAStatus','Error','bad');result(key,`${e.name}: ${e.message}`);}
+  }
+
+  async function getCtx(){
+    const C=window.AudioContext||window.webkitAudioContext; if(!C) throw new Error('AudioContext unsupported');
+    if(!ctx || ctx.state==='closed') ctx=new C({latencyHint:'interactive'});
+    if(typeof ctx.setSinkId==='function') {
+      try { await ctx.setSinkId('default'); result('setSinkId(default)','resolved'); } catch(e) { result('setSinkId(default)',`${e.name}: ${e.message}`); }
+    }
+    if(ctx.state!=='running') await ctx.resume(); return ctx;
+  }
+  async function testWeb(key,statusId){
+    try {
+      const c=await getCtx(); const osc=c.createOscillator(), gain=c.createGain(), now=c.currentTime;
+      osc.type='sine'; osc.frequency.setValueAtTime(660,now); gain.gain.setValueAtTime(.35,now); gain.gain.exponentialRampToValueAtTime(.001,now+.6);
+      osc.connect(gain); gain.connect(c.destination); osc.onended=()=>{setStatus(statusId,'Finished','ok');result(key,results[key]+'; ended=true');};
+      osc.start(); osc.stop(now+.62); setStatus(statusId,'Started','ok'); result(key,`context=${c.state}; sampleRate=${c.sampleRate}; currentTime=${c.currentTime.toFixed(3)}; sinkId=${'sinkId' in c?String(c.sinkId):'n/a'}`);
+    } catch(e){setStatus(statusId,'Error','bad');result(key,`${e.name}: ${e.message}`);}
+  }
+
+  async function micTest(){
+    try {
+      setStatus('micStatus','Requesting','wait');
+      const stream=await navigator.mediaDevices.getUserMedia({audio:true}); setStatus('micStatus','Active','ok'); result('Microphone','getUserMedia resolved; tracks='+stream.getAudioTracks().length);
+      await new Promise(r=>setTimeout(r,3000)); stream.getTracks().forEach(t=>t.stop()); setStatus('micStatus','Stopped','ok'); result('Microphone',results.Microphone+'; all tracks stopped');
+    } catch(e){setStatus('micStatus','Error','bad');result('Microphone',`${e.name}: ${e.message}`);}
+  }
+
+  makeWavUrl(); updateReport();
+  $('ttsA').onclick=testTts;
+  $('wavA').onclick=()=>testMedia($('wavPlayer'),'Generated WAV before mic','wavAStatus');
+  $('mp3A').onclick=()=>testMedia($('mp3Player'),'Project MP3 before mic','mp3AStatus');
+  $('webA').onclick=()=>testWeb('Web Audio before mic','webAStatus');
+  $('mic').onclick=micTest;
+  $('wavB').onclick=()=>testMedia($('wavPlayer'),'Generated WAV after mic','wavBStatus');
+  $('mp3B').onclick=()=>testMedia($('mp3Player'),'Project MP3 after mic','mp3BStatus');
+  $('webB').onclick=()=>testWeb('Web Audio after mic','webBStatus');
+  $('copy').onclick=async()=>{updateReport();try{await navigator.clipboard.writeText($('report').textContent);$('copy').textContent='Copied';setTimeout(()=>$('copy').textContent='Copy report',1200);}catch{alert('Copy failed. Take a screenshot of the report.');}};
+  $('reset').onclick=()=>location.reload();
+})();
+</script>
+</body>
+</html>
