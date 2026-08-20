@@ -1675,3 +1675,358 @@
     gap: 7px;
   }
 }
+
+/* ============================================
+   PHASE 2 — shared contextual app bar inside TOPICS screens
+   Loaded after style.css, so these rules neutralize legacy Speak button geometry.
+   ============================================ */
+.topic-speak-screen .phase2-app-nav .topic-speak-settings-btn {
+  position: static !important;
+  inset: auto !important;
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  min-height: 42px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 1px solid rgba(255,255,255,.23) !important;
+  border-radius: 13px !important;
+  background: rgba(255,255,255,.105) !important;
+  color: #f2c85e !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.09), 0 7px 16px rgba(15,35,65,.12) !important;
+  font-size: 0 !important;
+}
+
+.topic-speak-screen .phase2-app-nav .topic-speak-settings-btn:hover,
+.topic-speak-screen .phase2-app-nav .topic-speak-settings-btn:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(242,200,94,.55) !important;
+  background: rgba(255,255,255,.17) !important;
+  color: #f5d475 !important;
+}
+
+.topic-speak-screen .phase2-app-nav .topic-speak-settings-btn:focus-visible {
+  outline: 3px solid rgba(210,164,61,.42) !important;
+  outline-offset: 3px;
+}
+
+@media (max-width: 560px) {
+  .topic-speak-screen .phase2-app-nav .topic-speak-settings-btn {
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    min-height: 38px !important;
+    border-radius: 12px !important;
+  }
+}
+
+@media (max-width: 370px) {
+  .topic-speak-screen .phase2-app-nav .topic-speak-settings-btn {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+  }
+}
+
+/* ============================================
+   TOPICS — Phase 4 menu redesign
+   Only selection screens; Match/Speak gameplay stays unchanged.
+   ============================================ */
+
+.phase4-menu-screen--topics .phase4-menu-content {
+  padding: 4px 10px 0;
+}
+
+.phase4-menu-screen--topics .topics-menu-intro {
+  max-width: 610px;
+  margin: 6px auto 20px;
+}
+
+.phase4-menu-screen--topics .phase4-topics-brand-icon {
+  width: 70px;
+  height: 70px;
+  margin: 0 auto 12px;
+  display: grid;
+  place-items: center;
+  border-radius: 21px;
+  background: #f0f2ff;
+  box-shadow: inset 0 0 0 1px rgba(73,111,209,.10);
+}
+
+.phase4-menu-screen--topics .phase4-topics-brand-icon img {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+}
+
+.phase4-menu-screen--topics .topics-menu-intro .menu-title {
+  margin: 0 0 7px;
+  color: #14284a;
+  font-size: clamp(1.45rem,2vw,1.9rem);
+}
+
+.phase4-menu-screen--topics .topics-menu-intro p {
+  color: #65738a;
+  font-size: .86rem;
+}
+
+.phase4-menu-screen--topics .topics-grid {
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: 12px;
+}
+
+.phase4-menu-screen--topics .topic-card {
+  min-height: 138px;
+  padding: 15px 12px;
+  gap: 7px;
+  border: 1px solid #dfe6ef;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(27,57,96,.06);
+}
+
+.phase4-menu-screen--topics .topic-card-active {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(430px,100%);
+  min-height: 176px;
+  border-color: rgba(73,111,209,.26);
+  background: linear-gradient(180deg,#fff 0%,#f4f5ff 100%);
+  box-shadow: 0 10px 26px rgba(27,57,96,.09);
+}
+
+.phase4-menu-screen--topics .topic-card-active:hover,
+.phase4-menu-screen--topics .topic-card-active:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(73,111,209,.46);
+  box-shadow: 0 14px 30px rgba(27,57,96,.13);
+  outline: none;
+}
+
+.phase4-menu-screen--topics .topic-card-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 15px;
+  background: #f3f6fb;
+  font-size: 1.55rem;
+}
+
+.phase4-menu-screen--topics .topic-card-active .topic-card-icon {
+  width: 62px;
+  height: 62px;
+  border-radius: 18px;
+  background: #eef1ff;
+  font-size: 2rem;
+}
+
+.phase4-menu-screen--topics .topic-card-title {
+  color: #14284a;
+  font-size: .88rem;
+}
+
+.phase4-menu-screen--topics .topic-card-description {
+  color: #65738a;
+  font-size: .72rem;
+}
+
+.phase4-menu-screen--topics .topic-card-badge,
+.phase4-menu-screen--topics .topic-choice-badge {
+  min-height: 23px;
+  padding: 3px 9px;
+  background: #e9edff;
+  color: #496fd1;
+  font-size: .58rem;
+}
+
+.phase4-menu-screen--topics .topic-card-coming {
+  opacity: .62;
+  background: #f7f9fc;
+  box-shadow: none;
+}
+
+.phase4-menu-screen--topics .topic-card-coming .topic-card-badge {
+  background: #edf0f5;
+  color: #7e8998;
+}
+
+.phase4-topic-step .topic-selection-heading {
+  max-width: 620px;
+  margin: 6px auto 20px;
+  padding: 16px 18px;
+  border: 1px solid #dfe6ef;
+  border-radius: 19px;
+  background: linear-gradient(180deg,#fff 0%,#f7f9fc 100%);
+  box-shadow: 0 7px 20px rgba(27,57,96,.06);
+}
+
+.phase4-topic-step .topic-selection-icon {
+  flex-basis: 64px;
+  width: 64px;
+  height: 64px;
+  border: 0;
+  border-radius: 18px;
+  background: #eef1ff;
+  font-size: 2rem;
+}
+
+.phase4-topic-step .topic-selection-kicker {
+  color: #d2a43d;
+}
+
+.phase4-topic-step .topic-selection-heading h2,
+.phase4-topic-step .topics-step-title {
+  color: #14284a;
+}
+
+.phase4-topic-step .topic-selection-heading p:last-child {
+  color: #65738a;
+}
+
+.phase4-topic-step .topics-step-title {
+  margin: 7px 0 14px;
+  font-size: 1.12rem;
+}
+
+.phase4-topic-step .topic-choice-grid {
+  max-width: 650px;
+  margin: 0 auto;
+  gap: 14px;
+}
+
+.phase4-topic-step .topic-choice-card {
+  min-height: 205px;
+  padding: 21px 17px;
+  border: 1px solid #dfe6ef;
+  border-radius: 21px;
+  background: #fff;
+  box-shadow: 0 8px 22px rgba(27,57,96,.07);
+}
+
+.phase4-topic-step .topic-choice-card:hover,
+.phase4-topic-step .topic-choice-card:focus-visible {
+  transform: translateY(-3px);
+  border-color: rgba(73,111,209,.38);
+  background: #fff;
+  box-shadow: 0 13px 28px rgba(27,57,96,.12);
+  outline: none;
+}
+
+.phase4-topic-step .topic-choice-icon {
+  width: 62px;
+  height: 62px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: #f0f2ff;
+  font-size: 2rem;
+}
+
+.phase4-topic-step .topic-choice-title {
+  color: #14284a;
+  font-size: 1rem;
+}
+
+.phase4-topic-step .topic-choice-description {
+  color: #65738a;
+  font-size: .78rem;
+}
+
+@media (max-width: 820px) {
+  .phase4-menu-screen--topics .topics-grid {
+    grid-template-columns: repeat(3,minmax(0,1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .phase4-menu-screen--topics .phase4-menu-content {
+    padding-inline: 3px;
+  }
+
+  .phase4-menu-screen--topics .topics-menu-intro {
+    margin-bottom: 15px;
+  }
+
+  .phase4-menu-screen--topics .phase4-topics-brand-icon {
+    width: 58px;
+    height: 58px;
+    border-radius: 17px;
+  }
+
+  .phase4-menu-screen--topics .phase4-topics-brand-icon img {
+    width: 38px;
+    height: 38px;
+  }
+
+  .phase4-menu-screen--topics .topics-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+    gap: 9px;
+  }
+
+  .phase4-menu-screen--topics .topic-card-active {
+    grid-column: 1 / -1;
+    width: min(330px,92%);
+    min-height: 150px;
+  }
+
+  .phase4-menu-screen--topics .topic-card {
+    min-height: 116px;
+    padding: 11px 8px;
+    border-radius: 16px;
+  }
+
+  .phase4-menu-screen--topics .topic-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    font-size: 1.25rem;
+  }
+
+  .phase4-menu-screen--topics .topic-card-active .topic-card-icon {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    font-size: 1.7rem;
+  }
+
+  .phase4-menu-screen--topics .topic-card-title {
+    font-size: .74rem;
+  }
+
+  .phase4-menu-screen--topics .topic-card-description {
+    display: block;
+    font-size: .64rem;
+  }
+
+  .phase4-menu-screen--topics .topic-card-coming .topic-card-description {
+    display: none;
+  }
+
+  .phase4-topic-step .topic-selection-heading {
+    margin-bottom: 15px;
+    padding: 13px;
+  }
+
+  .phase4-topic-step .topic-choice-grid {
+    grid-template-columns: 1fr;
+    width: min(330px,92%);
+  }
+
+  .phase4-topic-step .topic-choice-card {
+    min-height: 175px;
+  }
+}
+
+@media (max-width: 360px) {
+  .phase4-menu-screen--topics .topics-grid {
+    grid-template-columns: repeat(2,minmax(0,1fr));
+  }
+
+  .phase4-menu-screen--topics .topic-card {
+    min-height: 110px;
+  }
+}
