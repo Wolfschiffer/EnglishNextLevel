@@ -2173,7 +2173,7 @@ body.words-settings-open {
 /* Scoped to Categories so existing games stay unchanged. */
 /* ============================================ */
 #category-container.category-home-active {
-  --home-bg: #f3f6fa;
+  --home-bg: #eef3f8;
   --home-hero: #edf4fc;
   --home-navy: #14284a;
   --home-text: #65738a;
@@ -2199,14 +2199,36 @@ body.words-settings-open {
   border-radius: 0;
   box-shadow: none;
   background:
-    radial-gradient(circle at 15% 5%, rgba(255,255,255,.9), transparent 27%),
-    linear-gradient(180deg, var(--home-hero) 0 29%, #f8fafe 40%, var(--home-bg) 64% 100%);
+    radial-gradient(circle at 50% 42%, rgba(212, 224, 238, .42), transparent 48%),
+    radial-gradient(circle at 15% 5%, rgba(255,255,255,.88), transparent 27%),
+    linear-gradient(180deg, var(--home-hero) 0 29%, #f6f9fd 40%, var(--home-bg) 64% 100%);
 }
 
 #category-container.category-home-active .category-home-shell {
   position: relative;
   min-height: 100%;
   padding-bottom: max(34px, env(safe-area-inset-bottom));
+}
+
+/* Subtle brand watermark: decorative only, always behind interactive content. */
+#category-container.category-home-active .category-home-shell::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    url('../images/brand/eagle-logo.png'),
+    url('../images/brand/eagle-logo.png');
+  background-repeat: no-repeat, no-repeat;
+  background-size:
+    clamp(360px, 29vw, 475px) auto,
+    clamp(360px, 29vw, 475px) auto;
+  background-position:
+    calc(0% - 135px) 270px,
+    calc(100% + 135px) 270px;
+  opacity: .052;
+  filter: saturate(.62);
 }
 
 #category-container.category-home-active .category-home-shell::after {
@@ -2519,6 +2541,14 @@ body.words-settings-open {
 }
 
 @media (max-width: 760px) {
+  #category-container.category-home-active .category-home-shell::before {
+    background-image: url('../images/brand/eagle-logo.png');
+    background-size: min(86vw, 335px) auto;
+    background-position: center 330px;
+    opacity: .028;
+    filter: saturate(.48);
+  }
+
   #category-container.category-home-active .category-home-shell::after {
     top: 172px;
     height: 60px;
