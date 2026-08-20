@@ -24,6 +24,7 @@ if (isMobileDevice && window.location.protocol === 'file:') {
         
         if (categoryContainer) {
             categoryContainer.style.display = 'block';
+            categoryContainer.classList.add('category-home-active');
         }
         
         // FORÇA O DATA-SCREEN NO BODY PARA O CSS FUNCIONAR
@@ -108,15 +109,21 @@ function showScreen(screenName) {
     
     screens.forEach(screen => {
         const el = document.getElementById(screen);
-        if (el) el.style.display = 'none';
+        if (el) {
+            el.style.display = 'none';
+            if (screen === 'category-container') {
+                el.classList.remove('category-home-active');
+            }
+        }
     });
     
     const target = document.getElementById(screenName);
     if (target) target.style.display = 'block';
     
     if (screenName === 'category-container') {
+        target?.classList.add('category-home-active');
         const catBtns = document.querySelector('.category-buttons');
-        if (catBtns) catBtns.style.display = 'flex';
+        if (catBtns) catBtns.style.display = 'grid';
     }
 }
 
@@ -207,8 +214,11 @@ auth.onAuthStateChanged((user) => {
                 const categoryButtons = document.querySelector('.category-buttons');
                 
                 if (authContainer) authContainer.style.display = 'none';
-                if (categoryContainer) categoryContainer.style.display = 'block';
-                if (categoryButtons) categoryButtons.style.display = 'flex';
+                if (categoryContainer) {
+                    categoryContainer.style.display = 'block';
+                    categoryContainer.classList.add('category-home-active');
+                }
+                if (categoryButtons) categoryButtons.style.display = 'grid';
                 
                 if (typeof updateGameUserName === 'function') updateGameUserName();
             })
@@ -222,8 +232,11 @@ auth.onAuthStateChanged((user) => {
                 const categoryButtons = document.querySelector('.category-buttons');
                 
                 if (authContainer) authContainer.style.display = 'none';
-                if (categoryContainer) categoryContainer.style.display = 'block';
-                if (categoryButtons) categoryButtons.style.display = 'flex';
+                if (categoryContainer) {
+                    categoryContainer.style.display = 'block';
+                    categoryContainer.classList.add('category-home-active');
+                }
+                if (categoryButtons) categoryButtons.style.display = 'grid';
                 
                 if (typeof updateGameUserName === 'function') updateGameUserName();
             });
@@ -377,11 +390,12 @@ if (guestBtn) {
         if (authContainer) authContainer.style.display = 'none';
         if (categoryContainer) {
             categoryContainer.style.display = 'block';
+            categoryContainer.classList.add('category-home-active');
             console.log('✅ Tela de categorias exibida como guest');
         }
         
         const categoryButtons = document.querySelector('.category-buttons');
-        if (categoryButtons) categoryButtons.style.display = 'flex';
+        if (categoryButtons) categoryButtons.style.display = 'grid';
         
         if (typeof updateGameUserName === 'function') updateGameUserName();
     });
