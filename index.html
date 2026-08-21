@@ -856,6 +856,7 @@ body:not([data-screen="words"]) [data-words-only="true"] {
         }
     }
   </style>
+  <link rel="stylesheet" href="css/words-game.css">
 
 
 <!-- Navigation API suporte -->
@@ -1024,7 +1025,7 @@ if (!window.navigation) {
     </main>
   </div>
 
-  <div id="vocab-game-container" style="display: none;">
+  <div id="vocab-game-container" class="phase5b-words-game" style="display: none;">
     <div class="vocab-header phase2-app-nav">
       <button id="back-to-category-from-vocab" class="phase2-nav-button phase2-nav-back" type="button" aria-label="Back">
         <svg class="phase2-nav-icon phase2-nav-back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1042,11 +1043,36 @@ if (!window.navigation) {
         </svg>
       </button>
     </div>
-    <div class="phase2-nav-meta-row">
-      <div class="vocab-stats">
-        <span>Matches: <span id="vocab-matches">0</span>/<span id="vocab-total">10</span></span>
+    <div class="phase5b-vocab-toolbar">
+      <div class="phase5b-vocab-instruction">
+        <span class="phase5b-vocab-instruction-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M8 4h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Z"/>
+            <path d="M9 8h6M9 12h4M9 16h5"/>
+          </svg>
+        </span>
+        <span class="phase5b-vocab-instruction-copy">
+          <small>HOW TO PLAY</small>
+          <strong id="vocab-instruction-text">Drag each English verb to its matching meaning.</strong>
+        </span>
+      </div>
+
+      <div class="phase5b-vocab-hud" aria-label="Game statistics">
+        <div class="phase5b-vocab-stat phase5b-vocab-stat--matches">
+          <span>Matches</span>
+          <strong><span id="vocab-matches">0</span><small>/<span id="vocab-total">10</span></small></strong>
+        </div>
+        <div class="phase5b-vocab-stat">
+          <span>Points</span>
+          <strong id="vocab-score">0</strong>
+        </div>
+        <div class="phase5b-vocab-stat">
+          <span>Time</span>
+          <strong id="vocab-timer">00:00</strong>
+        </div>
       </div>
     </div>
+
     <div class="vocab-game-area">
       <div class="vocab-column">
         <h3 id="vocab-left-heading">ENGLISH</h3>
@@ -1057,22 +1083,40 @@ if (!window.navigation) {
         <div id="portuguese-words-list" class="vocab-list"></div>
       </div>
     </div>
-    <div class="vocab-bottom-stats" aria-label="Game statistics">
-      <div class="vocab-stats">
-        <span>Points: <span id="vocab-score">0</span></span>
-      </div>
-      <div class="vocab-stats">
-        <span>Time: <span id="vocab-timer">00:00</span></span>
-      </div>
-    </div>
-    <div id="vocab-message" class="vocab-message"></div>
+    <div id="vocab-message" class="vocab-message" role="status" aria-live="polite"></div>
   </div>
 
   <div id="vocab-start-overlay" class="vocab-start-overlay" aria-hidden="true">
     <div class="vocab-start-modal" role="dialog" aria-modal="true" aria-labelledby="vocab-start-title">
+      <span class="vocab-start-kicker">WORDS · VOCABULARY MATCH</span>
+      <span class="vocab-start-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false">
+          <path d="M8.5 3.5h3v3a2 2 0 1 0 4 0v-3h3a2 2 0 0 1 2 2v3h-3a2 2 0 1 0 0 4h3v3a2 2 0 0 1-2 2h-3v-3a2 2 0 1 0-4 0v3h-3a2 2 0 0 1-2-2v-3h-3a2 2 0 1 1 0-4h3v-3a2 2 0 0 1 2-2Z"/>
+        </svg>
+      </span>
       <h2 id="vocab-start-title">Ready?</h2>
-      <p>Match all the pairs as fast as you can. The timer starts when you press START.</p>
+      <p id="vocab-start-description">Match all the pairs as fast as you can. The timer starts when you press START.</p>
       <button id="vocab-start-btn" class="vocab-start-btn" type="button">START</button>
+    </div>
+  </div>
+
+  <div id="vocab-result-overlay" class="vocab-result-overlay" aria-hidden="true">
+    <div class="vocab-result-modal" role="dialog" aria-modal="true" aria-labelledby="vocab-result-title">
+      <span class="vocab-result-kicker">WORDS · SET COMPLETE</span>
+      <span class="vocab-result-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false"><path d="m5 12 4 4L19 6"/></svg>
+      </span>
+      <h2 id="vocab-result-title">Set Complete</h2>
+      <p id="vocab-result-subtitle">You matched every pair.</p>
+      <div class="vocab-result-stats">
+        <div><span>Matches</span><strong id="vocab-result-matches">10/10</strong></div>
+        <div><span>Points</span><strong id="vocab-result-score">0</strong></div>
+        <div><span>Time</span><strong id="vocab-result-time">00:00</strong></div>
+      </div>
+      <div class="vocab-result-actions">
+        <button id="vocab-result-replay" class="vocab-result-primary" type="button">Play Again</button>
+        <button id="vocab-result-back" class="vocab-result-secondary" type="button">Back to Words</button>
+      </div>
     </div>
   </div>
 
@@ -1173,13 +1217,13 @@ if (!window.navigation) {
       <span class="topic-choice-icon">🌱</span>
       <span class="topic-choice-title">COMMON</span>
       <span class="topic-choice-description">Easy and frequently used vocabulary</span>
-      <span class="topic-choice-badge">10 words</span>
+      <span class="topic-choice-badge">2 volumes · 20 words</span>
     </button>
     <button class="topic-choice-card" type="button" data-topic-level="advanced">
       <span class="topic-choice-icon">⭐</span>
       <span class="topic-choice-title">ADVANCED</span>
       <span class="topic-choice-description">Less common and more challenging vocabulary</span>
-      <span class="topic-choice-badge">5 words</span>
+      <span class="topic-choice-badge">2 volumes · 12 words</span>
     </button>
   </div>
 
@@ -1215,7 +1259,18 @@ if (!window.navigation) {
     </div>
   </div>
 
-  <h3 class="topics-step-title">Choose Your Game</h3>
+  <section class="topic-volume-section" aria-labelledby="topic-volume-step-title">
+    <div class="topic-volume-heading">
+      <div>
+        <p class="topic-selection-kicker">VOCABULARY SET</p>
+        <h3 class="topics-step-title" id="topic-volume-step-title">Choose a Common Volume</h3>
+      </div>
+      <span class="topic-volume-hint">Each volume uses a different word set.</span>
+    </div>
+    <div class="topic-volume-grid" id="topic-volume-grid" aria-label="Vocabulary volumes"></div>
+  </section>
+
+  <h3 class="topics-step-title topic-game-step-title">Choose Your Game</h3>
   <div class="topic-choice-grid">
     <button class="topic-choice-card topic-game-choice" id="topic-match-pairs-btn" type="button" data-topic-game="match">
       <span class="topic-choice-icon">🧩</span>
@@ -1379,9 +1434,6 @@ if (!window.navigation) {
       <button id="topic-speak-reveal" class="topic-review-btn topic-review-btn-secondary" type="button">SHOW ANSWER</button>
     </div>
 
-    <div class="topic-speak-actions">
-      <button id="topic-speak-next" class="topic-review-btn topic-review-btn-primary" type="button" hidden>NEXT</button>
-    </div>
   </div>
 
   <section id="topic-speak-review" class="topic-match-review topic-speak-review" aria-labelledby="topic-speak-review-title" aria-hidden="true">
@@ -1520,15 +1572,15 @@ if (!window.navigation) {
       <p>Select a range and train listening, recognition and pronunciation.</p>
     </div>
     <div class="game-cards">
-      <div class="game-card" onclick="startNumberGame('numbers')"><div class="card-icon phase4-number-token">1–10</div><h3>Numbers 1-10</h3><p>one, two, three...</p><span class="card-badge easy">Easy</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('numbers11-20')"><div class="card-icon phase4-number-token">11–20</div><h3>Numbers 11-20</h3><p>eleven, twelve...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('tens')"><div class="card-icon phase4-number-token">20s</div><h3>Tens</h3><p>twenty, thirty, forty...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('random21_99')"><div class="card-icon phase4-number-token">21–99</div><h3>21 - 99</h3><p>twenty-one, thirty-two...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('hundreds')"><div class="card-icon phase4-number-token">100s</div><h3>Hundreds</h3><p>one hundred, two hundred...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('random101_999')"><div class="card-icon phase4-number-token">101–999</div><h3>101 - 999</h3><p>one hundred one, two hundred thirty...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('thousands')"><div class="card-icon phase4-number-token">1K</div><h3>Thousands</h3><p>one thousand, two thousand...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('random1001_9999')"><div class="card-icon phase4-number-token">1K–9K</div><h3>1,001 - 9,999</h3><p>one thousand one, five thousand two hundred...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" onclick="startNumberGame('mixedAdvanced')"><div class="card-icon phase4-number-token">MIX</div><h3>Mixed Advanced</h3><p>21, 357, 4,821...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="numbers" onclick="startNumberGame('numbers')"><div class="card-icon phase4-number-token">1–10</div><h3>Numbers 1-10</h3><p>one, two, three...</p><span class="card-badge easy">Easy</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="numbers11-20" onclick="startNumberGame('numbers11-20')"><div class="card-icon phase4-number-token">11–20</div><h3>Numbers 11-20</h3><p>eleven, twelve...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="tens" onclick="startNumberGame('tens')"><div class="card-icon phase4-number-token">20s</div><h3>Tens</h3><p>twenty, thirty, forty...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="random21_99" onclick="startNumberGame('random21_99')"><div class="card-icon phase4-number-token">21–99</div><h3>21 - 99</h3><p>twenty-one, thirty-two...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="hundreds" onclick="startNumberGame('hundreds')"><div class="card-icon phase4-number-token">100s</div><h3>Hundreds</h3><p>one hundred, two hundred...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="random101_999" onclick="startNumberGame('random101_999')"><div class="card-icon phase4-number-token">101–999</div><h3>101 - 999</h3><p>one hundred one, two hundred thirty...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="thousands" onclick="startNumberGame('thousands')"><div class="card-icon phase4-number-token">1K</div><h3>Thousands</h3><p>one thousand, two thousand...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="random1001_9999" onclick="startNumberGame('random1001_9999')"><div class="card-icon phase4-number-token">1K–9K</div><h3>1,001 - 9,999</h3><p>one thousand one, five thousand two hundred...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="mixedAdvanced" onclick="startNumberGame('mixedAdvanced')"><div class="card-icon phase4-number-token">MIX</div><h3>Mixed Advanced</h3><p>21, 357, 4,821...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
     </div>
     <div class="menu-footer">
       <p>From the ebook <strong>“English Next Level”</strong> by Mylena Machado</p>
@@ -1842,6 +1894,10 @@ if (!window.navigation) {
       <div class="phase5-stage-label">
         <span class="phase5-stage-dot" aria-hidden="true"></span>
         Eagle stage
+      </div>
+      <div id="numbers-round-feedback" class="phase5-round-feedback" role="status" aria-live="polite" aria-atomic="true">
+        <strong class="phase5-round-feedback-title"></strong>
+        <span class="phase5-round-feedback-copy"></span>
       </div>
       <div class="phase5-eagle-track">
         <canvas id="stickman-canvas" width="500" height="250"></canvas>
