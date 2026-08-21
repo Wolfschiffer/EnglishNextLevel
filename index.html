@@ -857,6 +857,8 @@ body:not([data-screen="words"]) [data-words-only="true"] {
     }
   </style>
   <link rel="stylesheet" href="css/words-game.css">
+  <link rel="stylesheet" href="css/progress.css">
+  <link rel="stylesheet" href="css/mobile-nav.css">
 
 
 <!-- Navigation API suporte -->
@@ -943,13 +945,15 @@ if (!window.navigation) {
         </button>
 
         <div class="user-info category-home-account" id="category-user-info" style="display: none;">
-          <span class="category-home-user-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" focusable="false">
-              <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
-              <path d="M4.8 20c.65-3.34 3.47-5.55 7.2-5.55s6.55 2.21 7.2 5.55"/>
-            </svg>
-          </span>
-          <span id="category-user-name" class="user-name"></span>
+          <button id="category-profile-btn" class="category-home-profile-btn" type="button" aria-label="Open profile and progress">
+            <span class="category-home-user-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"/>
+                <path d="M4.8 20c.65-3.34 3.47-5.55 7.2-5.55s6.55 2.21 7.2 5.55"/>
+              </svg>
+            </span>
+            <span id="category-user-name" class="user-name"></span>
+          </button>
           <span class="category-home-account-divider" aria-hidden="true"></span>
           <button id="category-logout-btn" class="logout-btn category-home-logout" type="button" aria-label="Sign out">
             <svg class="category-home-action-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1123,6 +1127,86 @@ if (!window.navigation) {
   <div class="menu-footer">
     <p>From the ebook <strong>“English Next Level”</strong> by Mylena Machado</p>
   </div>
+</div>
+
+<!-- PROFILE / PROGRESS -->
+<div class="game-container progress-profile-screen" id="profile-container" style="display: none; max-width: 1040px;">
+  <div class="header phase2-app-nav">
+    <button id="back-from-profile" class="phase2-nav-button phase2-nav-back" type="button" aria-label="Back to Home">
+      <svg class="phase2-nav-icon phase2-nav-back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M15.5 5.5 9 12l6.5 6.5"/>
+        <path d="M9.5 12H20"/>
+      </svg>
+    </button>
+    <div class="phase2-nav-copy">
+      <strong>MY PROGRESS</strong>
+      <small>Profile</small>
+    </div>
+    <span class="progress-sync-status" id="progress-sync-status" aria-live="polite">Saved on this device</span>
+  </div>
+
+  <main class="progress-main">
+    <section class="progress-identity" aria-labelledby="progress-profile-name">
+      <div class="progress-avatar" id="progress-avatar" aria-hidden="true">P</div>
+      <div class="progress-identity-copy">
+        <span class="progress-eyebrow">YOUR PROFILE</span>
+        <h1 id="progress-profile-name">Player</h1>
+        <p id="progress-profile-email">Guest progress is stored on this device.</p>
+      </div>
+      <div class="progress-overall">
+        <span>Overall progress</span>
+        <strong id="progress-overall-percent">0%</strong>
+        <div class="progress-overall-track" aria-hidden="true"><span id="progress-overall-fill"></span></div>
+      </div>
+    </section>
+
+    <section class="progress-summary-grid" aria-label="Progress overview">
+      <article class="progress-summary-card">
+        <span class="progress-summary-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M5 18V9"/><path d="M12 18V5"/><path d="M19 18v-6"/><path d="M3 20h18"/></svg>
+        </span>
+        <div><span>NUMBERS</span><strong id="progress-numbers-primary">0/9</strong><small id="progress-numbers-secondary">Modes practiced</small></div>
+      </article>
+      <article class="progress-summary-card">
+        <span class="progress-summary-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H11v16H6.5A2.5 2.5 0 0 0 4 21.5Z"/><path d="M20 5.5A2.5 2.5 0 0 0 17.5 3H13v16h4.5a2.5 2.5 0 0 1 2.5 2.5Z"/></svg>
+        </span>
+        <div><span>WORDS</span><strong id="progress-words-primary">0/2</strong><small id="progress-words-secondary">Sets completed</small></div>
+      </article>
+      <article class="progress-summary-card">
+        <span class="progress-summary-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 4.8 3.3 7.6 8 9 4.7-1.4 8-4.2 8-9V7Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg>
+        </span>
+        <div><span>TOPICS</span><strong id="progress-topics-primary">0/0</strong><small id="progress-topics-secondary">Activities completed</small></div>
+      </article>
+    </section>
+
+    <section class="progress-section">
+      <div class="progress-section-heading">
+        <div><span class="progress-eyebrow">NUMBERS</span><h2>Best Scores</h2></div>
+        <span class="progress-section-meta" id="progress-numbers-best">Highest: 0</span>
+      </div>
+      <div class="progress-numbers-grid" id="progress-numbers-grid"></div>
+    </section>
+
+    <section class="progress-section">
+      <div class="progress-section-heading">
+        <div><span class="progress-eyebrow">WORDS</span><h2>Vocabulary Match</h2></div>
+        <span class="progress-section-meta">Personal bests</span>
+      </div>
+      <div class="progress-words-grid" id="progress-words-grid"></div>
+    </section>
+
+    <section class="progress-section">
+      <div class="progress-section-heading">
+        <div><span class="progress-eyebrow">TOPICS</span><h2>Topic Progress</h2></div>
+        <span class="progress-section-meta">Match + Speak</span>
+      </div>
+      <div class="progress-topics-list" id="progress-topics-list"></div>
+    </section>
+  </main>
+
+  <div class="menu-footer"><p>From the ebook <strong>“English Next Level”</strong> by Mylena Machado</p></div>
 </div>
 
 <!-- MENU CONTAINER (TOPICS) -->
@@ -1339,7 +1423,7 @@ if (!window.navigation) {
           <p class="topic-selection-kicker">REVIEW</p>
           <h3 id="topic-review-title">Words from this round</h3>
         </div>
-        <span class="topic-review-variant">🇺🇸 American English</span>
+        <span class="topic-review-variant">American English · en-US</span>
       </div>
 
       <div class="topic-review-column-labels" aria-hidden="true">
@@ -1367,7 +1451,7 @@ if (!window.navigation) {
 </div>
 
 <!-- TOPICS: SPEAK -->
-<div class="game-container topics-shell topic-speak-screen" id="topic-speak-container" style="display: none; max-width: 760px;">
+<div class="game-container topics-shell topic-speak-screen" id="topic-speak-container" style="display: none; max-width: 820px;">
   <div class="header phase2-app-nav">
     <button id="back-from-topic-speak" class="phase2-nav-button phase2-nav-back" type="button" aria-label="Back">
         <svg class="phase2-nav-icon phase2-nav-back-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
@@ -1393,22 +1477,32 @@ if (!window.navigation) {
       <p class="topic-speak-instruction">Read the Portuguese word and say it in English.</p>
     </div>
     <div class="topic-speak-progress" aria-live="polite">
-      <span>Word</span>
-      <strong><span id="topic-speak-current">1</span>/<span id="topic-speak-total">10</span></strong>
+      <div class="topic-speak-progress-copy">
+        <span>Word</span>
+        <strong><span id="topic-speak-current">1</span>/<span id="topic-speak-total">10</span></strong>
+      </div>
+      <div class="topic-speak-progress-track" aria-hidden="true">
+        <span id="topic-speak-progress-fill"></span>
+      </div>
     </div>
   </div>
 
   <div id="topic-speak-play-area" class="topic-speak-play-area">
     <div class="topic-speak-prompt-card" aria-labelledby="topic-speak-portuguese">
-      <button id="topic-speak-preview-audio" class="topic-speak-preview-audio" type="button" aria-label="Listen to the English pronunciation" title="Listen in American English" hidden>🔊</button>
+      <button id="topic-speak-preview-audio" class="topic-speak-preview-audio" type="button" aria-label="Listen to the English pronunciation" title="Listen in American English" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9v6h4l5 4V5L8 9H4zm11.5 3a3.5 3.5 0 0 0-2-3.16v6.32a3.5 3.5 0 0 0 2-3.16zm0-7.1v2.06a6 6 0 0 1 0 10.08v2.06a8 8 0 0 0 0-14.2z"/></svg>
+      </button>
       <span class="topic-speak-prompt-label">PORTUGUÊS</span>
       <strong id="topic-speak-portuguese">geladeira</strong>
+      <span class="topic-speak-prompt-helper">Say it in English</span>
     </div>
 
     <p id="topic-speak-status" class="topic-speak-status" role="status" aria-live="polite">Tap the microphone and say the word in English.</p>
 
     <button id="topic-speak-mic" class="topic-speak-mic" type="button" aria-label="Start speaking">
-      <span class="topic-speak-mic-icon" aria-hidden="true">🎙️</span>
+      <span class="topic-speak-mic-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" focusable="false"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 1 0-6 0v6a3 3 0 0 0 3 3zm5-3a1 1 0 1 1 2 0 7 7 0 0 1-6 6.92V21h3a1 1 0 1 1 0 2H8a1 1 0 1 1 0-2h3v-3.08A7 7 0 0 1 5 11a1 1 0 1 1 2 0 5 5 0 0 0 10 0z"/></svg>
+      </span>
       <span id="topic-speak-mic-label">SPEAK</span>
     </button>
 
@@ -1423,7 +1517,9 @@ if (!window.navigation) {
         <strong id="topic-speak-result-title">Correct!</strong>
         <div class="topic-speak-answer-line">
           <span id="topic-speak-answer">refrigerator</span>
-          <button id="topic-speak-audio" class="topic-review-audio" type="button" aria-label="Listen to the correct pronunciation">🔊</button>
+          <button id="topic-speak-audio" class="topic-review-audio" type="button" aria-label="Listen to the correct pronunciation">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9v6h4l5 4V5L8 9H4zm11.5 3a3.5 3.5 0 0 0-2-3.16v6.32a3.5 3.5 0 0 0 2-3.16zm0-7.1v2.06a6 6 0 0 1 0 10.08v2.06a8 8 0 0 0 0-14.2z"/></svg>
+          </button>
         </div>
       </div>
     </div>
@@ -1450,7 +1546,7 @@ if (!window.navigation) {
         <p class="topic-selection-kicker">REVIEW</p>
         <h3 id="topic-speak-review-title">Words from this round</h3>
       </div>
-      <span class="topic-review-variant">🇺🇸 American English</span>
+      <span class="topic-review-variant">American English · en-US</span>
     </div>
 
     <div class="topic-review-column-labels" aria-hidden="true">
@@ -1519,7 +1615,7 @@ if (!window.navigation) {
   </div>
 
   <div id="topic-speak-start-overlay" class="topic-match-start-overlay" aria-hidden="true">
-    <div class="topic-match-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-speak-start-title">
+    <div class="topic-match-start-modal topic-speak-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-speak-start-title">
       <h2 id="topic-speak-start-title">Ready?</h2>
       <p>Read each Portuguese word, tap the microphone and say it in American English.</p>
       <button id="topic-speak-start-btn" class="topic-match-start-btn" type="button">START</button>
@@ -1918,11 +2014,45 @@ if (!window.navigation) {
   </div>
 </div>
 
+
+<!-- MOBILE BOTTOM NAVIGATION — top-level destinations only -->
+<nav id="mobile-bottom-nav" class="mobile-bottom-nav" aria-label="Primary navigation">
+  <button id="mobile-nav-home" class="mobile-bottom-nav-button" type="button" data-mobile-nav="home" aria-label="Home">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M3.5 10.5 12 3.8l8.5 6.7"/>
+      <path d="M5.5 9.5V20h13V9.5"/>
+      <path d="M9.5 20v-6h5v6"/>
+    </svg>
+    <span>Home</span>
+  </button>
+
+  <button id="mobile-nav-progress" class="mobile-bottom-nav-button" type="button" data-mobile-nav="progress" aria-label="Progress">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M5 19V11"/>
+      <path d="M12 19V5"/>
+      <path d="M19 19V8"/>
+      <path d="M3 19.5h18"/>
+    </svg>
+    <span>Progress</span>
+  </button>
+
+  <button id="mobile-nav-settings" class="mobile-bottom-nav-button" type="button" data-mobile-nav="settings" aria-label="Settings" aria-haspopup="dialog" aria-controls="words-settings-overlay">
+    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+      <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z"/>
+      <path d="M19.1 13.4c.08-.46.12-.93.12-1.4s-.04-.94-.12-1.4l2-1.55-2-3.46-2.48 1a8.1 8.1 0 0 0-2.42-1.4L13.82 2h-4l-.38 3.19a8.1 8.1 0 0 0-2.42 1.4l-2.48-1-2 3.46 2 1.55c-.08.46-.12.93-.12 1.4s.04.94.12 1.4l-2 1.55 2 3.46 2.48-1a8.1 8.1 0 0 0 2.42 1.4l.38 3.19h4l.38-3.19a8.1 8.1 0 0 0 2.42-1.4l2.48 1 2-3.46-2-1.55Z"/>
+    </svg>
+    <span>Settings</span>
+  </button>
+</nav>
+
 <script src="js/firebase-config.js"></script>
 <script src="js/game.js"></script>
+<script src="js/progress-profile.js"></script>
+<script src="js/mobile-nav.js"></script>
 <script src="js/topics/topics-data.js"></script>
 <script src="js/topics/match-pairs.js"></script>
 <script src="js/topics/speech-game.js"></script>
+<script src="js/topics/speech-ui.js"></script>
 <script src="js/topics/topics-menu.js"></script>
 <script>
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
