@@ -1,12 +1,13 @@
 // ============================================
 // TOPICS — MENU / SELECTION FLOW
-// Phase 1: topic -> level -> game type
+// topic -> level -> volume -> game type
 // ============================================
 
 (function () {
   const state = {
     topicId: 'kitchen',
     levelId: 'common',
+    volumeId: 'volume-1',
     gameType: null
   };
 
@@ -19,6 +20,40 @@
     return topic?.levels?.[state.levelId] || null;
   }
 
+  function getVolumes() {
+    const level = getLevel();
+    if (!level) return [];
+    if (Array.isArray(level.volumes) && level.volumes.length) return level.volumes;
+
+    // Backward-compatible fallback for any future topic still using one flat word list.
+    if (Array.isArray(level.words)) {
+      return [{ id: 'volume-1', label: 'Volume 1', words: level.words }];
+    }
+    return [];
+  }
+
+  function getVolume() {
+    const volumes = getVolumes();
+    return volumes.find((volume) => volume.id === state.volumeId) || volumes[0] || null;
+  }
+
+  function getPlayableLevel() {
+    const level = getLevel();
+    const volume = getVolume();
+    if (!level || !volume) return null;
+
+    return {
+      id: level.id,
+      levelId: level.id,
+      volumeId: volume.id,
+      baseLabel: level.label,
+      volumeLabel: volume.label,
+      label: `${level.label} · ${volume.label}`,
+      wordCount: volume.words.length,
+      words: volume.words
+    };
+  }
+
   function navigate(screen) {
     if (typeof window.navigateTo === 'function') {
       window.navigateTo(screen);
@@ -28,9 +63,7 @@
   }
 
   function back() {
-    if (typeof window.goBack === 'function') {
-      window.goBack();
-    }
+    if (typeof window.goBack === 'function') window.goBack();
   }
 
   function syncUserInfo() {
@@ -61,31 +94,74 @@
     if (icon) icon.textContent = topic.icon;
     if (title) title.textContent = topic.title;
     if (description) description.textContent = topic.description;
+
+    document.querySelectorAll('[data-topic-level]').forEach((button) => {
+      const level = topic.levels?.[button.dataset.topicLevel];
+      const badge = button.querySelector('.topic-choice-badge');
+      if (!level || !badge) return;
+      const volumes = Array.isArray(level.volumes) ? level.volumes : [];
+      const totalWords = volumes.reduce((sum, volume) => sum + (volume.words?.length || 0), 0);
+      badge.textContent = volumes.length > 1
+        ? `${volumes.length} volumes · ${totalWords} words`
+        : `${totalWords || level.words?.length || 0} words`;
+    });
+  }
+
+  function renderVolumeSelector() {
+    const container = document.getElementById('topic-volume-grid');
+    if (!container) return;
+
+    const volumes = getVolumes();
+    container.innerHTML = '';
+
+    volumes.forEach((volume, index) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = `topic-volume-card${volume.id === state.volumeId ? ' active' : ''}`;
+      button.dataset.topicVolume = volume.id;
+      button.setAttribute('aria-pressed', volume.id === state.volumeId ? 'true' : 'false');
+      button.innerHTML = `
+        <span class="topic-volume-number">${String(index + 1).padStart(2, '0')}</span>
+        <span class="topic-volume-copy">
+          <strong>${volume.label}</strong>
+          <small>${volume.words.length} ${volume.words.length === 1 ? 'word' : 'words'}</small>
+        </span>
+      `;
+      button.addEventListener('click', () => selectVolume(volume.id));
+      container.appendChild(button);
+    });
   }
 
   function renderGameMenu() {
     const topic = getTopic();
-    const level = getLevel();
-    if (!topic || !level) return;
+    const playableLevel = getPlayableLevel();
+    if (!topic || !playableLevel) return;
 
     const icon = document.getElementById('game-menu-topic-icon');
     const title = document.getElementById('game-menu-topic-title');
     const levelLabel = document.getElementById('game-menu-level-label');
+    const volumeTitle = document.getElementById('topic-volume-step-title');
     const message = document.getElementById('topic-phase-message');
 
     if (icon) icon.textContent = topic.icon;
     if (title) title.textContent = topic.title;
-    if (levelLabel) levelLabel.textContent = `${level.label.toUpperCase()} · ${level.wordCount} WORDS`;
+    if (levelLabel) {
+      levelLabel.textContent = `${playableLevel.baseLabel.toUpperCase()} · ${playableLevel.volumeLabel.toUpperCase()} · ${playableLevel.wordCount} WORDS`;
+    }
+    if (volumeTitle) volumeTitle.textContent = `Choose a ${playableLevel.baseLabel} Volume`;
     if (message) {
       message.textContent = '';
       message.classList.remove('visible');
     }
+
+    renderVolumeSelector();
   }
 
   function selectTopic(topicId) {
     if (!window.TOPICS_DATA?.[topicId]) return;
     state.topicId = topicId;
     state.levelId = 'common';
+    state.volumeId = 'volume-1';
     state.gameType = null;
     renderTopicLevelScreen();
     navigate('topicLevel');
@@ -95,14 +171,23 @@
     const topic = getTopic();
     if (!topic?.levels?.[levelId]) return;
     state.levelId = levelId;
+    state.volumeId = getVolumes()[0]?.id || 'volume-1';
     state.gameType = null;
     renderGameMenu();
     navigate('topicGameMenu');
   }
 
+  function selectVolume(volumeId) {
+    const volume = getVolumes().find((item) => item.id === volumeId);
+    if (!volume) return;
+    state.volumeId = volume.id;
+    state.gameType = null;
+    renderGameMenu();
+  }
+
   function selectGame(gameType) {
     const topic = getTopic();
-    const level = getLevel();
+    const level = getPlayableLevel();
     if (!topic || !level) return;
 
     state.gameType = gameType;
@@ -118,7 +203,6 @@
         console.error('TOPICS: Match Pairs module is unavailable.');
         return;
       }
-
       window.TopicMatchPairs.prepare({ topic, level });
       navigate('topicMatch');
       return;
@@ -129,7 +213,6 @@
         console.error('TOPICS: Speak module is unavailable.');
         return;
       }
-
       window.TopicSpeakGame.prepare({ topic, level });
       navigate('topicSpeak');
     }
@@ -149,13 +232,18 @@
   document.getElementById('back-to-topics-from-level')?.addEventListener('click', back);
   document.getElementById('back-to-level-from-game-menu')?.addEventListener('click', back);
 
+  // Initialize counts in case the screen is opened by restored browser history.
+  renderTopicLevelScreen();
+
   window.TopicApp = {
     syncUserInfo,
     getSelection() {
       return {
         ...state,
         topic: getTopic(),
-        level: getLevel()
+        level: getPlayableLevel(),
+        baseLevel: getLevel(),
+        volume: getVolume()
       };
     }
   };
