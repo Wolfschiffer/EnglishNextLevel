@@ -6278,3 +6278,884 @@ body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .ph
     grid-column: 1 / -1;
   }
 }
+
+
+/* ============================================ */
+/* PHASE 5A.5 — NUMBERS ROUND FEEDBACK */
+/* ============================================ */
+#game-container.phase5-numbers-game .phase5-numbers-stage {
+  isolation: isolate;
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback {
+  position: absolute;
+  z-index: 8;
+  top: 18px;
+  right: 18px;
+  min-width: 150px;
+  max-width: min(240px, calc(100% - 36px));
+  padding: 11px 15px 12px;
+  border: 1px solid rgba(70, 111, 168, 0.18);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 16px 36px rgba(20, 40, 74, 0.13);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-7px) scale(0.97);
+  transition: opacity 0.18s ease, transform 0.22s ease;
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 12px;
+  bottom: 12px;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: var(--phase5-gold);
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback.is-visible {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback.is-success {
+  border-color: rgba(52, 151, 101, 0.24);
+  background: rgba(246, 253, 249, 0.95);
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback.is-success::before {
+  background: #3a9a69;
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback.is-error {
+  border-color: rgba(207, 83, 95, 0.24);
+  background: rgba(255, 248, 249, 0.96);
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback.is-error::before {
+  background: #cf535f;
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback-title {
+  color: var(--phase5-navy);
+  font-size: 1.08rem;
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.015em;
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback.is-success .phase5-round-feedback-title {
+  color: #287a52;
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback.is-error .phase5-round-feedback-title {
+  color: #a43f4a;
+}
+
+#game-container.phase5-numbers-game .phase5-round-feedback-copy {
+  color: #6e7f99;
+  font-size: 0.76rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+@media (max-width: 640px) {
+  #game-container.phase5-numbers-game .phase5-round-feedback {
+    top: 12px;
+    right: 12px;
+    min-width: 128px;
+    max-width: calc(100% - 24px);
+    padding: 9px 12px 10px;
+    border-radius: 15px;
+  }
+
+  #game-container.phase5-numbers-game .phase5-round-feedback-title {
+    font-size: 0.98rem;
+  }
+
+  #game-container.phase5-numbers-game .phase5-round-feedback-copy {
+    font-size: 0.71rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #game-container.phase5-numbers-game .phase5-round-feedback {
+    transition: opacity 0.12s linear;
+    transform: none;
+  }
+}
+
+/* ============================================ */
+/* 50. PHASE 5A.6 — UNIFIED NUMBERS RESULT */
+/* ============================================ */
+.numbers-result-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 22px;
+  background: rgba(16, 27, 47, 0.58);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.numbers-result-card {
+  width: min(570px, 100%);
+  max-height: min(92vh, 820px);
+  overflow-y: auto;
+  padding: 28px;
+  border: 1px solid rgba(210, 164, 61, 0.38);
+  border-radius: 30px;
+  background: linear-gradient(180deg, #fbfcff 0%, #f5f8fd 100%);
+  box-shadow: 0 30px 90px rgba(15, 28, 52, 0.32);
+  color: #14284a;
+}
+
+.numbers-result-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.numbers-result-icon {
+  width: 52px;
+  height: 52px;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 18px;
+  color: #d2a43d;
+  background: linear-gradient(180deg, rgba(210,164,61,0.17) 0%, rgba(210,164,61,0.08) 100%);
+  box-shadow: inset 0 0 0 1px rgba(210,164,61,0.18);
+}
+
+.numbers-result-icon svg {
+  width: 24px;
+  height: 24px;
+  fill: currentColor;
+}
+
+.numbers-result-eyebrow {
+  display: block;
+  margin: 1px 0 4px;
+  color: #d2a43d;
+  font-size: 0.76rem;
+  font-weight: 900;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.numbers-result-heading h2 {
+  margin: 0;
+  color: #14284a;
+  font-size: 1.9rem;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.numbers-result-heading p {
+  margin: 7px 0 0;
+  color: #6e7f99;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
+.numbers-result-best {
+  width: fit-content;
+  margin: 18px 0 0 68px;
+  padding: 8px 13px;
+  border-radius: 999px;
+  color: #9c7216;
+  background: rgba(210, 164, 61, 0.13);
+  border: 1px solid rgba(210, 164, 61, 0.24);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.numbers-result-breakdown {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin-top: 22px;
+}
+
+.numbers-result-stat {
+  min-width: 0;
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 12px 8px;
+  border: 1px solid rgba(219, 228, 239, 0.96);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 10px 24px rgba(20, 40, 74, 0.04);
+}
+
+.numbers-result-stat span {
+  color: #8190a7;
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.07em;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.numbers-result-stat strong {
+  color: #2f4e7d;
+  font-size: 1.05rem;
+  font-weight: 900;
+}
+
+.numbers-result-final {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 12px;
+  padding: 18px 20px;
+  border: 1px solid rgba(210, 164, 61, 0.32);
+  border-radius: 20px;
+  background: linear-gradient(135deg, rgba(255, 249, 235, 0.96) 0%, rgba(246, 250, 255, 0.98) 100%);
+}
+
+.numbers-result-final span {
+  color: #6e7f99;
+  font-size: 0.77rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.numbers-result-final strong {
+  color: #14284a;
+  font-size: 2rem;
+  line-height: 1;
+  font-weight: 950;
+  letter-spacing: -0.04em;
+}
+
+.numbers-result-leaderboard {
+  margin-top: 18px;
+  padding: 17px;
+  border: 1px solid rgba(216, 225, 237, 0.96);
+  border-radius: 20px;
+  background: rgba(238, 244, 251, 0.68);
+}
+
+.numbers-result-leaderboard-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 11px;
+}
+
+.numbers-result-leaderboard-copy strong {
+  color: #2f4e7d;
+  font-size: 0.92rem;
+}
+
+.numbers-result-leaderboard-copy span {
+  color: #7b8ba2;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.numbers-result-save-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 9px;
+}
+
+.numbers-result-name {
+  width: 100%;
+  min-width: 0;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1.5px solid rgba(183, 198, 218, 0.9);
+  border-radius: 14px;
+  outline: none;
+  background: #fff;
+  color: #14284a;
+  font-family: inherit;
+  font-size: 16px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.numbers-result-name:focus {
+  border-color: #d2a43d;
+  box-shadow: 0 0 0 3px rgba(210, 164, 61, 0.13);
+}
+
+.numbers-result-name:disabled {
+  color: #8492a7;
+  background: #f2f5f9;
+}
+
+.numbers-result-save {
+  min-height: 46px;
+  padding: 0 17px;
+  border: 1px solid rgba(210, 164, 61, 0.72);
+  border-radius: 14px;
+  background: #fff;
+  color: #9d741b;
+  font-family: inherit;
+  font-size: 0.84rem;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
+}
+
+.numbers-result-save:hover,
+.numbers-result-save:focus-visible {
+  transform: translateY(-1px);
+  background: rgba(210, 164, 61, 0.09);
+  box-shadow: 0 10px 22px rgba(210, 164, 61, 0.12);
+}
+
+.numbers-result-save:disabled {
+  transform: none;
+  cursor: default;
+  color: #fff;
+  background: #3b5f95;
+  border-color: #3b5f95;
+  box-shadow: none;
+}
+
+.numbers-result-save-status {
+  min-height: 18px;
+  margin-top: 7px;
+  color: #527056;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.numbers-result-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.numbers-result-action {
+  min-height: 50px;
+  border-radius: 15px;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+
+.numbers-result-action.primary {
+  border: 1px solid rgba(182, 137, 37, 0.68);
+  background: linear-gradient(180deg, #ddb459 0%, #d2a43d 100%);
+  color: #14284a;
+  box-shadow: 0 12px 26px rgba(210, 164, 61, 0.18);
+}
+
+.numbers-result-action.secondary {
+  border: 1px solid rgba(70, 111, 168, 0.22);
+  background: #edf3fa;
+  color: #2f4e7d;
+}
+
+.numbers-result-action:hover,
+.numbers-result-action:focus-visible {
+  transform: translateY(-1px);
+}
+
+.numbers-result-action.primary:hover,
+.numbers-result-action.primary:focus-visible {
+  box-shadow: 0 16px 30px rgba(210, 164, 61, 0.25);
+}
+
+.numbers-result-action.secondary:hover,
+.numbers-result-action.secondary:focus-visible {
+  background: #e3ecf7;
+}
+
+@media (max-width: 640px) {
+  .numbers-result-modal {
+    align-items: flex-end;
+    padding: 10px;
+  }
+
+  .numbers-result-card {
+    width: 100%;
+    max-height: 92vh;
+    padding: 20px 16px 16px;
+    border-radius: 28px 28px 18px 18px;
+  }
+
+  .numbers-result-heading {
+    gap: 12px;
+  }
+
+  .numbers-result-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 15px;
+  }
+
+  .numbers-result-heading h2 {
+    font-size: 1.55rem;
+  }
+
+  .numbers-result-heading p {
+    font-size: 0.86rem;
+  }
+
+  .numbers-result-best {
+    margin-left: 57px;
+  }
+
+  .numbers-result-breakdown {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .numbers-result-stat {
+    min-height: 72px;
+  }
+
+  .numbers-result-final {
+    padding: 15px 16px;
+  }
+
+  .numbers-result-final strong {
+    font-size: 1.7rem;
+  }
+
+  .numbers-result-save-row {
+    grid-template-columns: 1fr;
+  }
+
+  .numbers-result-save {
+    width: 100%;
+  }
+
+  .numbers-result-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .numbers-result-action,
+  .numbers-result-save {
+    transition: none;
+  }
+}
+
+/* ============================================ */
+/* PHASE 5A.8 — REAL MOBILE GAMEPLAY LAYOUT    */
+/* ============================================ */
+/*
+  Mobile NUMBERS is treated as its own gameplay composition rather than a
+  squeezed desktop card. The answer rail remains aligned to the canvas so
+  Block 3's geometry-based eagle landing stays accurate at every width.
+*/
+@media (max-width: 760px) {
+  body[data-screen="numbersGame"] {
+    min-height: 100dvh;
+    height: auto;
+    align-items: flex-start;
+    justify-content: center;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding:
+      max(8px, env(safe-area-inset-top))
+      max(8px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(8px, env(safe-area-inset-left));
+  }
+
+  #game-container.phase5-numbers-game {
+    width: min(100%, 620px) !important;
+    max-width: 620px !important;
+    margin: 0 auto !important;
+    padding: 10px !important;
+    border-radius: 22px !important;
+    overflow: hidden;
+  }
+
+  #game-container.phase5-numbers-game .phase2-app-nav {
+    min-height: 48px;
+    margin-bottom: 8px !important;
+    padding-top: 4px;
+    padding-bottom: 8px;
+  }
+
+  #game-container.phase5-numbers-game .instructions {
+    min-height: 28px;
+    margin: 0 auto 8px;
+    padding: 6px 11px 6px 26px;
+    font-size: 0.72rem;
+    line-height: 1.2;
+  }
+
+  #game-container.phase5-numbers-game .instructions::before {
+    left: 11px;
+    width: 6px;
+    height: 6px;
+    box-shadow: 0 0 0 3px rgba(210, 164, 61, 0.11);
+  }
+
+  /* Two compact HUD rows:
+     Points + Best share the wide card with Time on row one;
+     Multiplier + Lives split row two. */
+  #game-container.phase5-numbers-game #game-stats,
+  #game-container.phase5-numbers-game.game-active #game-stats {
+    display: grid !important;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 6px;
+    margin-bottom: 8px;
+  }
+
+  #game-container.phase5-numbers-game #game-stats .score-container {
+    grid-column: span 4;
+  }
+
+  #game-container.phase5-numbers-game #game-stats .timer-box {
+    grid-column: span 2;
+  }
+
+  #game-container.phase5-numbers-game #game-stats .multiplier-box,
+  #game-container.phase5-numbers-game #game-stats .lives-box {
+    grid-column: span 3;
+  }
+
+  #game-container.phase5-numbers-game .score-container,
+  #game-container.phase5-numbers-game .timer-box,
+  #game-container.phase5-numbers-game .multiplier-box,
+  #game-container.phase5-numbers-game .lives-box {
+    min-height: 52px;
+    padding: 7px 8px;
+    border-radius: 14px;
+    box-shadow: 0 7px 18px rgba(20, 40, 74, 0.045);
+  }
+
+  #game-container.phase5-numbers-game .score-container {
+    gap: 4px;
+  }
+
+  #game-container.phase5-numbers-game .score-container p {
+    gap: 3px;
+  }
+
+  #game-container.phase5-numbers-game .timer-box,
+  #game-container.phase5-numbers-game .multiplier-box,
+  #game-container.phase5-numbers-game .lives-box {
+    gap: 4px;
+  }
+
+  #game-container.phase5-numbers-game .score-container span,
+  #game-container.phase5-numbers-game .timer-box > span,
+  #game-container.phase5-numbers-game .multiplier-box > span,
+  #game-container.phase5-numbers-game .lives-box > span {
+    font-size: 0.58rem;
+    letter-spacing: 0.065em;
+  }
+
+  #game-container.phase5-numbers-game .score-container strong,
+  #game-container.phase5-numbers-game .timer-display,
+  #game-container.phase5-numbers-game .multiplier-display {
+    font-size: 0.95rem;
+  }
+
+  #game-container.phase5-numbers-game .lives-display {
+    min-height: 16px;
+    gap: 3px;
+  }
+
+  #game-container.phase5-numbers-game .life-circle {
+    width: 11px;
+    height: 11px;
+    border-width: 1.5px;
+  }
+
+  /* Current word remains prominent but no longer consumes a desktop-sized row. */
+  #game-container.phase5-numbers-game .phase5-prompt-card {
+    width: 100%;
+    margin: 0 auto 7px;
+    padding: 7px 10px 8px;
+    border-radius: 15px;
+  }
+
+  #game-container.phase5-numbers-game .phase5-prompt-label {
+    font-size: 0.57rem;
+    letter-spacing: 0.095em;
+  }
+
+  #game-container.phase5-numbers-game .phase5-prompt-card .word-box {
+    min-height: 31px;
+    margin-top: 1px;
+    font-size: clamp(1.25rem, 6.5vw, 1.72rem);
+    line-height: 1.02;
+  }
+
+  /* Preserve a real flight lane. Its 2:1 ratio mirrors the 500×250 canvas,
+     so shrinking the CSS width never distorts the eagle's coordinate system. */
+  #game-container.phase5-numbers-game .phase5-numbers-stage {
+    width: 100%;
+    min-height: 0;
+    border-radius: 18px;
+  }
+
+  #game-container.phase5-numbers-game .phase5-stage-label {
+    min-height: 24px;
+    padding: 6px 10px 0;
+    font-size: 0.55rem;
+    letter-spacing: 0.07em;
+  }
+
+  #game-container.phase5-numbers-game .phase5-stage-dot {
+    width: 6px;
+    height: 6px;
+    box-shadow: 0 0 0 3px rgba(210, 164, 61, 0.11);
+  }
+
+  #game-container.phase5-numbers-game .phase5-eagle-track {
+    width: 100%;
+    max-width: 560px;
+    aspect-ratio: 2 / 1;
+    margin: 0 auto;
+  }
+
+  #game-container.phase5-numbers-game .phase5-eagle-track #stickman-canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+
+  /* The answer rail deliberately uses the same full width as the flight lane.
+     JS converts each real button center into canvas coordinates. */
+  #game-container.phase5-numbers-game .platforms {
+    width: 100%;
+    max-width: 560px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 7px;
+    margin: 7px auto 0;
+    padding-inline: 0;
+  }
+
+  #game-container.phase5-numbers-game .platform {
+    min-height: 58px;
+    padding: 7px 4px;
+    border-radius: 14px;
+    font-size: clamp(1.05rem, 5.3vw, 1.45rem);
+    line-height: 1;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  #game-container.phase5-numbers-game #start-game-btn {
+    width: min(280px, 82%);
+    min-height: 46px;
+    margin-top: 8px;
+    padding: 9px 16px;
+    border-radius: 14px;
+    font-size: 0.86rem;
+    touch-action: manipulation;
+  }
+
+  #game-container.phase5-numbers-game .ebook-credit {
+    margin-top: 8px;
+    padding-top: 7px;
+    font-size: 0.62rem;
+    line-height: 1.25;
+  }
+
+  /* Keep toast clear of the eagle's central flight path on narrow screens. */
+  #game-container.phase5-numbers-game .phase5-round-feedback {
+    top: 28px;
+    right: 8px;
+    min-width: 112px;
+    max-width: 44%;
+    padding: 7px 9px 8px;
+    border-radius: 12px;
+  }
+
+  #game-container.phase5-numbers-game .phase5-round-feedback-title {
+    font-size: 0.88rem;
+  }
+
+  #game-container.phase5-numbers-game .phase5-round-feedback-copy {
+    font-size: 0.63rem;
+  }
+
+  .numbers-result-modal {
+    min-height: 100dvh;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+
+  .numbers-result-card {
+    max-height: calc(100dvh - max(20px, env(safe-area-inset-top)) - max(10px, env(safe-area-inset-bottom)));
+  }
+}
+
+@media (max-width: 420px) {
+  #game-container.phase5-numbers-game {
+    width: 100% !important;
+    padding: 8px !important;
+    border-radius: 18px !important;
+  }
+
+  #game-container.phase5-numbers-game .phase2-app-nav {
+    min-height: 44px;
+    margin-bottom: 6px !important;
+  }
+
+  #game-container.phase5-numbers-game #game-stats,
+  #game-container.phase5-numbers-game.game-active #game-stats {
+    gap: 5px;
+    margin-bottom: 6px;
+  }
+
+  #game-container.phase5-numbers-game .score-container,
+  #game-container.phase5-numbers-game .timer-box,
+  #game-container.phase5-numbers-game .multiplier-box,
+  #game-container.phase5-numbers-game .lives-box {
+    min-height: 49px;
+    padding: 6px;
+    border-radius: 12px;
+  }
+
+  #game-container.phase5-numbers-game .score-container strong,
+  #game-container.phase5-numbers-game .timer-display,
+  #game-container.phase5-numbers-game .multiplier-display {
+    font-size: 0.9rem;
+  }
+
+  #game-container.phase5-numbers-game .phase5-prompt-card {
+    margin-bottom: 6px;
+    padding: 6px 8px 7px;
+    border-radius: 13px;
+  }
+
+  #game-container.phase5-numbers-game .phase5-prompt-card .word-box {
+    min-height: 29px;
+    font-size: clamp(1.18rem, 6.7vw, 1.55rem);
+  }
+
+  #game-container.phase5-numbers-game .phase5-stage-label {
+    min-height: 21px;
+    padding-top: 5px;
+    font-size: 0.51rem;
+  }
+
+  #game-container.phase5-numbers-game .platforms {
+    gap: 5px;
+    margin-top: 6px;
+  }
+
+  #game-container.phase5-numbers-game .platform {
+    min-height: 54px;
+    border-radius: 12px;
+    font-size: clamp(1rem, 5.1vw, 1.28rem);
+  }
+
+  #game-container.phase5-numbers-game #start-game-btn {
+    min-height: 44px;
+    margin-top: 7px;
+  }
+
+  #game-container.phase5-numbers-game .ebook-credit {
+    margin-top: 6px;
+    padding-top: 6px;
+  }
+}
+
+/* Short phones: compress chrome/HUD, never the eagle-answer relationship. */
+@media (max-width: 760px) and (max-height: 740px) {
+  #game-container.phase5-numbers-game .phase2-app-nav {
+    min-height: 40px;
+    padding-top: 2px;
+    padding-bottom: 5px;
+    margin-bottom: 4px !important;
+  }
+
+  #game-container.phase5-numbers-game .instructions {
+    margin-bottom: 5px;
+    min-height: 24px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+  }
+
+  #game-container.phase5-numbers-game #game-stats,
+  #game-container.phase5-numbers-game.game-active #game-stats {
+    gap: 4px;
+    margin-bottom: 5px;
+  }
+
+  #game-container.phase5-numbers-game .score-container,
+  #game-container.phase5-numbers-game .timer-box,
+  #game-container.phase5-numbers-game .multiplier-box,
+  #game-container.phase5-numbers-game .lives-box {
+    min-height: 45px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  #game-container.phase5-numbers-game .phase5-prompt-card {
+    margin-bottom: 5px;
+    padding-top: 5px;
+    padding-bottom: 5px;
+  }
+
+  #game-container.phase5-numbers-game .phase5-eagle-track {
+    max-width: 500px;
+  }
+
+  #game-container.phase5-numbers-game .platform {
+    min-height: 50px;
+  }
+
+  #game-container.phase5-numbers-game #start-game-btn {
+    min-height: 40px;
+    margin-top: 5px;
+  }
+
+  #game-container.phase5-numbers-game .ebook-credit {
+    display: none;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  #game-container.phase5-numbers-game .platform:hover:not(:disabled) {
+    transform: none;
+    border-color: rgba(70, 111, 168, 0.28);
+    background: rgba(255,255,255,0.97);
+    box-shadow: 0 12px 26px rgba(20, 40, 74, 0.055);
+  }
+
+  #game-container.phase5-numbers-game .platform:active:not(:disabled) {
+    transform: scale(0.975);
+    border-color: rgba(210, 164, 61, 0.72);
+    background: #fffaf0;
+  }
+
+  #game-container.phase5-numbers-game .start-btn:hover {
+    transform: none;
+  }
+
+  #game-container.phase5-numbers-game .start-btn:active {
+    transform: scale(0.985);
+  }
+}
