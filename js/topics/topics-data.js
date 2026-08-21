@@ -25,7 +25,7 @@ window.TOPICS_DATA = Object.freeze({
               { id: 'stove', english: 'stove', portuguese: 'fogão', accepted: ['stove'] },
               { id: 'oven', english: 'oven', portuguese: 'forno', accepted: ['oven'] },
               { id: 'microwave', english: 'microwave', portuguese: 'micro-ondas', accepted: ['microwave'] },
-              { id: 'sink', english: 'sink', portuguese: 'pia', accepted: ['sink'] },
+              { id: 'sink', english: 'sink', portuguese: 'pia', accepted: ['sink'], recognitionAliases: ['sync'] },
               { id: 'plate', english: 'plate', portuguese: 'prato', accepted: ['plate'] },
               { id: 'glass', english: 'glass', portuguese: 'copo', accepted: ['glass'] },
               { id: 'fork', english: 'fork', portuguese: 'garfo', accepted: ['fork'] },
@@ -60,7 +60,7 @@ window.TOPICS_DATA = Object.freeze({
             id: 'volume-1',
             label: 'Volume 1',
             words: [
-              { id: 'whisk', english: 'whisk', portuguese: 'batedor de arame', accepted: ['whisk'] },
+              { id: 'whisk', english: 'whisk', portuguese: 'fuê', accepted: ['whisk'] },
               { id: 'grater', english: 'grater', portuguese: 'ralador', accepted: ['grater'], recognitionAliases: ['greater'] },
               { id: 'ladle', english: 'ladle', portuguese: 'concha', accepted: ['ladle'], recognitionAliases: ['play doh', 'play dough', 'lego'] },
               { id: 'peeler', english: 'peeler', portuguese: 'descascador', accepted: ['peeler'] },

@@ -14,23 +14,12 @@
     started: false,
     matchedPairs: 0,
     pendingTimeouts: [],
-    activeUtterance: null
+    activeUtterance: null,
+    feedbackTimeout: null
   };
 
   function $(id) {
     return document.getElementById(id);
-  }
-
-  function getVoiceVolume() {
-    return window.EnglishNextLevelAudio?.getVoiceVolume?.() ?? 100;
-  }
-
-  function playSfx(type) {
-    window.EnglishNextLevelAudio?.playSfx?.(type);
-  }
-
-  function unlockSfx() {
-    window.EnglishNextLevelAudio?.unlockSfx?.();
   }
 
   function clearPendingTimeouts() {
@@ -44,6 +33,51 @@
       callback();
     }, delay);
     state.pendingTimeouts.push(timeoutId);
+  }
+
+  function ensureFeedbackElement() {
+    const content = $('topic-match-container')?.querySelector('.topic-match-content');
+    const grid = $('topic-match-grid');
+    if (!content || !grid) return null;
+
+    let feedback = $('topic-match-feedback');
+    if (!feedback) {
+      feedback = document.createElement('div');
+      feedback.id = 'topic-match-feedback';
+      feedback.className = 'topic-match-feedback';
+      feedback.setAttribute('role', 'status');
+      feedback.setAttribute('aria-live', 'polite');
+      feedback.setAttribute('aria-atomic', 'true');
+      content.insertBefore(feedback, grid);
+    }
+    return feedback;
+  }
+
+  function clearFeedback() {
+    if (state.feedbackTimeout) {
+      clearTimeout(state.feedbackTimeout);
+      state.feedbackTimeout = null;
+    }
+    const feedback = $('topic-match-feedback');
+    if (!feedback) return;
+    feedback.textContent = '';
+    feedback.classList.remove('visible', 'is-correct', 'is-wrong');
+  }
+
+  function showFeedback(message, type) {
+    const feedback = ensureFeedbackElement();
+    if (!feedback) return;
+
+    if (state.feedbackTimeout) clearTimeout(state.feedbackTimeout);
+    feedback.textContent = message;
+    feedback.classList.remove('is-correct', 'is-wrong');
+    if (type) feedback.classList.add(`is-${type}`);
+    feedback.classList.add('visible');
+
+    state.feedbackTimeout = setTimeout(() => {
+      feedback.classList.remove('visible');
+      state.feedbackTimeout = null;
+    }, 900);
   }
 
   function shuffle(items) {
@@ -172,12 +206,9 @@
     const utterance = new SpeechSynthesisUtterance(word.english);
     const voice = getAmericanVoice(locale);
 
-    const voiceVolume = getVoiceVolume();
-    if (voiceVolume <= 0) return;
-
     utterance.lang = locale;
     utterance.rate = 0.9;
-    utterance.volume = voiceVolume / 100;
+    utterance.volume = Math.max(0, Math.min(1, (window.EnglishNextLevelAudio?.getVoiceVolume?.() ?? 100) / 100));
     if (voice) utterance.voice = voice;
 
     state.activeUtterance = utterance;
@@ -190,9 +221,7 @@
 
     utterance.onend = cleanup;
     utterance.onerror = cleanup;
-    window.speechSynthesis.resume?.();
     window.speechSynthesis.speak(utterance);
-    window.speechSynthesis.resume?.();
   }
 
   function renderReview() {
@@ -215,7 +244,10 @@
       const audioButton = document.createElement('button');
       audioButton.type = 'button';
       audioButton.className = 'topic-review-audio';
-      audioButton.textContent = '🔊';
+      audioButton.innerHTML = `
+        <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path d="M3 9v6h4l5 4V5L7 9H3zm11.5 3a3.5 3.5 0 0 0-1.5-2.87v5.74A3.5 3.5 0 0 0 14.5 12zm-1.5-7.1v2.06a6 6 0 0 1 0 10.08v2.06a8 8 0 0 0 0-14.2z"/>
+        </svg>`;
       audioButton.setAttribute('aria-label', `Listen to ${word.english} in American English`);
       audioButton.title = `Listen to ${word.english}`;
       audioButton.addEventListener('click', () => playPronunciation(word, audioButton));
@@ -272,7 +304,7 @@
   }
 
   function startRound() {
-    unlockSfx();
+    clearFeedback();
     state.started = true;
     state.inputLocked = false;
     hideStartOverlay();
@@ -293,13 +325,10 @@
   function handleCardClick(cardElement) {
     if (!state.started || state.inputLocked || cardIsUnavailable(cardElement)) return;
 
-    // O card em inglês também funciona como controle de pronúncia. A fala
-    // acontece no mesmo toque usado para selecionar o card, sem exigir um
-    // botão de áudio separado.
+    // English cards always pronounce their visible word when tapped/clicked.
+    // Portuguese cards intentionally stay silent so audio does not reveal the pair.
     if (cardElement.dataset.language === 'en') {
-      const word = (state.level?.words || []).find(
-        (candidate) => String(candidate.id) === String(cardElement.dataset.pairId)
-      );
+      const word = (state.level?.words || []).find((item) => item.id === cardElement.dataset.pairId);
       if (word) playPronunciation(word);
     }
 
@@ -334,7 +363,7 @@
     const first = state.firstCard;
     const second = state.secondCard;
 
-    playSfx('wrong');
+    showFeedback('Try a different pair', 'wrong');
     first?.classList.add('is-wrong');
     second?.classList.add('is-wrong');
 
@@ -351,7 +380,7 @@
     const first = state.firstCard;
     const second = state.secondCard;
 
-    playSfx('correct');
+    showFeedback('Match found', 'correct');
     first?.classList.add('is-correct');
     second?.classList.add('is-correct');
 
@@ -375,10 +404,7 @@
       if (state.matchedPairs >= totalPairs) {
         state.inputLocked = true;
         state.started = false;
-        schedule(() => {
-          playSfx('win');
-          showReview();
-        }, 220);
+        schedule(showReview, 220);
       } else {
         state.inputLocked = false;
       }
@@ -392,7 +418,9 @@
     }
 
     clearPendingTimeouts();
+    clearFeedback();
     stopSpeech();
+    ensureFeedbackElement();
     state.topic = topic;
     state.level = level;
     state.cards = createDeck(level.words);
@@ -420,12 +448,14 @@
     // Current flow is Topic -> Level -> Game -> Match.
     // Two back operations return to the selected topic's Common/Advanced screen.
     if (typeof window.goBack === 'function') {
-      window.goBack(2);
+      window.goBack();
+      window.goBack();
     }
   }
 
   function leaveGame() {
     clearPendingTimeouts();
+    clearFeedback();
     stopSpeech();
     state.inputLocked = true;
     state.started = false;

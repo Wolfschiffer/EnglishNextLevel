@@ -37,12 +37,14 @@ const EAGLE_ANIMATION_DELAY = MOBILE_CONFIG.eagleAnimationDelay;
 
 let navigationStack = []; // Telas anteriores dentro do jogo
 let currentScreen = null;
+let pendingRootNavigation = null;
 
 const APP_HISTORY_MARKER = 'english-next-level-navigation';
 
 const SCREENS = {
     LOGIN: 'login',
     CATEGORIES: 'categories',
+    PROFILE: 'profile',
     NUMBERS_MENU: 'numbersMenu',
     NUMBERS_GAME: 'numbersGame',
     WORDS_MENU: 'wordsMenu',
@@ -140,6 +142,7 @@ function showScreen(screen, options = {}) {
     
     const auth = document.getElementById('auth-container');
     const category = document.getElementById('category-container');
+    const profile = document.getElementById('profile-container');
     const numbersMenu = document.getElementById('numbers-menu-container');
     const game = document.getElementById('game-container');
     const vocab = document.getElementById('vocab-game-container');
@@ -157,6 +160,7 @@ function showScreen(screen, options = {}) {
     // Esconde todas
     if (auth) auth.style.display = 'none';
     if (category) category.style.display = 'none';
+    if (profile) profile.style.display = 'none';
     if (numbersMenu) numbersMenu.style.display = 'none';
     if (game) game.style.display = 'none';
     if (vocab) vocab.style.display = 'none';
@@ -182,6 +186,11 @@ function showScreen(screen, options = {}) {
             }
             const catBtns = document.querySelector('.category-buttons');
             if (catBtns) catBtns.style.display = 'grid';
+            break;
+
+        case SCREENS.PROFILE:
+            if (profile) profile.style.display = 'block';
+            window.EnglishNextLevelProgress?.refreshProfile?.();
             break;
             
         case SCREENS.NUMBERS_MENU:
@@ -293,6 +302,45 @@ function navigateTo(screen, options = {}) {
     pushBrowserState(currentScreen);
 }
 
+// Navegação de nível superior usada pela bottom navigation mobile.
+// Primeiro colapsa o histórico interno até Home; depois abre o destino pedido.
+// Assim Home continua sendo a raiz real e Progress volta para Home com o botão físico.
+function navigateToRoot(screen) {
+    const target = screen === SCREENS.PROFILE ? SCREENS.PROFILE : SCREENS.CATEGORIES;
+
+    if (!window.currentUser && !window.isGuest) {
+        showScreen(SCREENS.LOGIN);
+        navigationStack = [];
+        replaceCurrentBrowserState(SCREENS.LOGIN);
+        return;
+    }
+
+    if (target === SCREENS.CATEGORIES && currentScreen === SCREENS.CATEGORIES) {
+        return;
+    }
+
+    if (target === SCREENS.PROFILE && currentScreen === SCREENS.PROFILE) {
+        window.EnglishNextLevelProgress?.refreshProfile?.();
+        return;
+    }
+
+    // Se há telas internas empilhadas, volta de uma vez até Categories usando
+    // o histórico real do navegador. O popstate finaliza a navegação pendente.
+    if (navigationStack.length > 0 && isAppHistoryState(window.history.state)) {
+        pendingRootNavigation = target;
+        window.history.go(-navigationStack.length);
+        return;
+    }
+
+    navigationStack = [];
+    showScreen(SCREENS.CATEGORIES);
+    replaceCurrentBrowserState(SCREENS.CATEGORIES);
+
+    if (target === SCREENS.PROFILE) {
+        navigateTo(SCREENS.PROFILE);
+    }
+}
+
 function cleanBeforeBack() {
     const simpleSubmenu = document.getElementById('simple-verbs-submenu');
     const pastSubmenu = document.getElementById('simple-verbs-past-submenu');
@@ -355,6 +403,21 @@ window.addEventListener('popstate', (event) => {
     navigationStack = Array.isArray(event.state.stack)
         ? [...event.state.stack]
         : [];
+
+    if (pendingRootNavigation) {
+        const target = pendingRootNavigation;
+        pendingRootNavigation = null;
+
+        // A navegação inferior sempre parte de Home como raiz real.
+        navigationStack = [];
+        showScreen(SCREENS.CATEGORIES);
+        replaceCurrentBrowserState(SCREENS.CATEGORIES);
+
+        if (target === SCREENS.PROFILE) {
+            navigateTo(SCREENS.PROFILE);
+        }
+        return;
+    }
 
     showScreen(event.state.screen);
 });
@@ -1915,6 +1978,7 @@ function updateHighScore(finalScoreCandidate = null) {
         highScores[currentGame] = Math.max(0, Math.floor(finalScoreCandidate));
         persistNumbersHighScores();
         syncNumbersMenuBestScores();
+        window.EnglishNextLevelProgress?.recordNumbersBest?.(currentGame, highScores[currentGame]);
     }
 
     if (DOM.highScore) {
@@ -2830,6 +2894,12 @@ function finishVocabularyGameStats() {
         vocabTimerInterval = null;
     }
     updateVocabularyStats();
+
+    window.EnglishNextLevelProgress?.recordWordsResult?.({
+        mode: currentVerbGameType,
+        score: vocabScore,
+        timeSeconds: vocabElapsedSeconds
+    });
 }
 
 function clearVocabularyResultTimeout() {
