@@ -114,6 +114,8 @@ function showScreen(screen, options = {}) {
     if (currentScreen === SCREENS.WORDS_GAME && screen !== SCREENS.WORDS_GAME) {
         stopVocabularyTimer();
         hideVocabularyStartModal();
+        hideVocabularyResultModal();
+        clearVocabularyResultTimeout();
     }
 
     // Clean up TOPICS game interactions when leaving their screens.
@@ -184,6 +186,7 @@ function showScreen(screen, options = {}) {
             
         case SCREENS.NUMBERS_MENU:
             if (numbersMenu) numbersMenu.style.display = 'block';
+            syncNumbersMenuBestScores();
             break;
             
         case SCREENS.NUMBERS_GAME:
@@ -817,10 +820,18 @@ let currentGame = 'numbers';
 let currentNumbers = [];
 let currentNumber = null;
 let score = 0;
-let highScores = {
-    numbers: 0, numbers11_20: 0, tens: 0, hundreds: 0, thousands: 0,
-    random21_99: 0, random101_999: 0, random1001_9999: 0, mixedAdvanced: 0
-};
+const NUMBERS_HIGH_SCORE_STORAGE_PREFIX = 'englishNextLevel.numbersHighScores.v1';
+const NUMBERS_MODE_IDS = [
+    'numbers', 'numbers11_20', 'tens', 'random21_99', 'hundreds',
+    'random101_999', 'thousands', 'random1001_9999', 'mixedAdvanced'
+];
+
+function createEmptyNumbersHighScores() {
+    return Object.fromEntries(NUMBERS_MODE_IDS.map(modeId => [modeId, 0]));
+}
+
+let highScores = createEmptyNumbersHighScores();
+let loadedNumbersHighScoreStorageKey = null;
 
 // NUMBERS scoring source of truth. During a round, `score` is the base score.
 // Bonuses are applied only once when the round ends.
@@ -1001,62 +1012,57 @@ function calculateRoundScore() {
     };
 }
 
+let numbersFeedbackTimer = null;
+
+function showNumbersRoundFeedback(type, title, copy) {
+    const feedback = document.getElementById('numbers-round-feedback');
+    if (!feedback) return;
+
+    const titleEl = feedback.querySelector('.phase5-round-feedback-title');
+    const copyEl = feedback.querySelector('.phase5-round-feedback-copy');
+
+    if (numbersFeedbackTimer) {
+        clearTimeout(numbersFeedbackTimer);
+        numbersFeedbackTimer = null;
+    }
+
+    feedback.classList.remove('is-visible', 'is-success', 'is-error');
+    if (titleEl) titleEl.textContent = title;
+    if (copyEl) copyEl.textContent = copy;
+    feedback.classList.add(type === 'error' ? 'is-error' : 'is-success');
+
+    // Force a fresh transition even when two feedback messages happen quickly.
+    void feedback.offsetWidth;
+    feedback.classList.add('is-visible');
+
+    numbersFeedbackTimer = setTimeout(() => {
+        feedback.classList.remove('is-visible');
+        numbersFeedbackTimer = null;
+    }, 950);
+}
+
+function clearNumbersRoundFeedback() {
+    if (numbersFeedbackTimer) {
+        clearTimeout(numbersFeedbackTimer);
+        numbersFeedbackTimer = null;
+    }
+
+    const feedback = document.getElementById('numbers-round-feedback');
+    if (!feedback) return;
+    feedback.classList.remove('is-visible', 'is-success', 'is-error');
+}
+
 function showScorePopup(points, timeBonus) {
-    const popup = document.createElement('div');
-    popup.className = 'score-popup';
-    
-    let bonusText = '';
-    if (timeBonus > 1.8) bonusText = '✨ EXCELLENT! ✨';
-    else if (timeBonus > 1.5) bonusText = '🎯 GREAT! 🎯';
-    else if (timeBonus > 1.2) bonusText = '👍 GOOD! 👍';
-    else bonusText = '💪 KEEP GOING! 💪';
-    
-    const fontSize = isMobile ? '1.1rem' : '1.3rem';
-    const padding = isMobile ? '8px 16px' : '12px 24px';
-    
-    popup.innerHTML = `<span class="points" style="font-size: ${fontSize}">+${points}</span>
-        <span class="bonus-message" style="font-size: ${fontSize}">${bonusText}</span>`;
-    
-    popup.style.position = 'fixed';
-    popup.style.top = '40%';
-    popup.style.left = '50%';
-    popup.style.transform = 'translate(-50%, -50%)';
-    popup.style.background = '#c9a13b';
-    popup.style.color = '#1e3c5c';
-    popup.style.padding = padding;
-    popup.style.borderRadius = '50px';
-    popup.style.fontWeight = 'bold';
-    popup.style.zIndex = '1000';
-    popup.style.boxShadow = '0 4px 15px rgba(0,0,0,0.2)';
-    popup.style.border = '2px solid white';
-    popup.style.display = 'flex';
-    popup.style.flexDirection = 'column';
-    popup.style.alignItems = 'center';
-    popup.style.gap = '3px';
-    popup.style.animation = 'floatUp 0.8s ease-out forwards';
-    
-    document.body.appendChild(popup);
-    setTimeout(() => popup.remove(), 800);
+    let bonusText = 'Keep going';
+    if (timeBonus > 1.8) bonusText = 'Excellent';
+    else if (timeBonus > 1.5) bonusText = 'Great';
+    else if (timeBonus > 1.2) bonusText = 'Good';
+
+    showNumbersRoundFeedback('success', `+${points}`, bonusText);
 }
 
 function showWrongPopup() {
-    const popup = document.createElement('div');
-    popup.innerHTML = `❌ WRONG!`;
-    popup.style.position = 'fixed';
-    popup.style.top = '40%';
-    popup.style.left = '50%';
-    popup.style.transform = 'translate(-50%, -50%)';
-    popup.style.background = '#ef4444';
-    popup.style.color = 'white';
-    popup.style.padding = '12px 24px';
-    popup.style.borderRadius = '50px';
-    popup.style.fontWeight = 'bold';
-    popup.style.fontSize = '1.3rem';
-    popup.style.zIndex = '1000';
-    popup.style.animation = 'floatUp 0.8s ease-out forwards';
-    
-    document.body.appendChild(popup);
-    setTimeout(() => popup.remove(), 800);
+    showNumbersRoundFeedback('error', 'Try again', 'Choose another number');
 }
 
 // ============================================
@@ -1546,67 +1552,6 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function showNameEntryModal(score, gameMode) {
-    console.log("🎯 Vitória! Score:", score, "GameMode:", gameMode);
-    
-    const existingModal = document.querySelector('.name-entry-modal');
-    if (existingModal) existingModal.remove();
-    
-    const modal = document.createElement('div');
-    modal.className = 'name-entry-modal';
-    modal.innerHTML = `
-        <div class="name-entry-content">
-            <h3>🏆 YOU WIN! 🏆</h3>
-            <p>You scored <strong style="color:#c9a13b; font-size:1.8rem;">${score}</strong> points</p>
-            <p>Enter your name for the global leaderboard:</p>
-            <input type="text" id="player-name-input" class="name-input" placeholder="Your name" maxlength="20">
-            <div class="name-entry-buttons">
-                <button id="submit-name-btn" class="name-entry-btn submit">SUBMIT</button>
-                <button id="skip-name-btn" class="name-entry-btn skip">SKIP</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    setTimeout(() => {
-        const nameInput = document.getElementById('player-name-input');
-        if (nameInput) nameInput.focus();
-    }, 100);
-    
-    const submitBtn = document.getElementById('submit-name-btn');
-    if (submitBtn) {
-        submitBtn.onclick = () => {
-            const name = document.getElementById('player-name-input')?.value;
-            const finalName = (name && name.trim()) ? name.trim() : "Anonymous";
-            console.log("💾 Salvando no leaderboard:", finalName, score, gameMode);
-            saveToLeaderboard(gameMode, score, finalName);
-            modal.remove();
-        };
-    }
-    
-    const skipBtn = document.getElementById('skip-name-btn');
-    if (skipBtn) {
-        skipBtn.onclick = () => {
-            console.log("Usuário pulou o leaderboard");
-            modal.remove();
-        };
-    }
-    
-    const nameInput = document.getElementById('player-name-input');
-    if (nameInput) {
-        nameInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                const name = e.target.value;
-                const finalName = (name && name.trim()) ? name.trim() : "Anonymous";
-                console.log("💾 Salvando no leaderboard (Enter):", finalName, score, gameMode);
-                saveToLeaderboard(gameMode, score, finalName);
-                modal.remove();
-            }
-        });
-    }
-}
-
 function saveToLeaderboard(gameMode, score, playerName) {
     if (!playerName || playerName.trim() === "") return;
     
@@ -1913,13 +1858,67 @@ function updateLives() {
     }
 }
 
+function getNumbersHighScoreStorageKey() {
+    if (!window.isGuest && window.currentUser?.uid) {
+        return `${NUMBERS_HIGH_SCORE_STORAGE_PREFIX}.user.${window.currentUser.uid}`;
+    }
+    if (window.isGuest) {
+        return `${NUMBERS_HIGH_SCORE_STORAGE_PREFIX}.guest`;
+    }
+    return `${NUMBERS_HIGH_SCORE_STORAGE_PREFIX}.local`;
+}
+
+function loadNumbersHighScoresForCurrentProfile(force = false) {
+    const storageKey = getNumbersHighScoreStorageKey();
+    if (!force && loadedNumbersHighScoreStorageKey === storageKey) return highScores;
+
+    const loaded = createEmptyNumbersHighScores();
+    try {
+        const stored = JSON.parse(localStorage.getItem(storageKey) || '{}');
+        NUMBERS_MODE_IDS.forEach(modeId => {
+            const value = Math.max(0, Math.floor(Number(stored?.[modeId]) || 0));
+            loaded[modeId] = value;
+        });
+    } catch (error) {
+        console.warn('NUMBERS: could not load saved Best Scores.', error);
+    }
+
+    highScores = loaded;
+    loadedNumbersHighScoreStorageKey = storageKey;
+    return highScores;
+}
+
+function persistNumbersHighScores() {
+    const storageKey = getNumbersHighScoreStorageKey();
+    loadedNumbersHighScoreStorageKey = storageKey;
+    try {
+        localStorage.setItem(storageKey, JSON.stringify(highScores));
+    } catch (error) {
+        console.warn('NUMBERS: could not save Best Scores.', error);
+    }
+}
+
+function syncNumbersMenuBestScores() {
+    loadNumbersHighScoresForCurrentProfile();
+    document.querySelectorAll('#numbers-menu-container [data-numbers-mode]').forEach(card => {
+        const modeId = card.dataset.numbersMode;
+        const value = card.querySelector('.best-score-value');
+        if (!modeId || !value) return;
+        value.textContent = formatNumbersScore(highScores[modeId] || 0);
+    });
+}
+
 function updateHighScore(finalScoreCandidate = null) {
+    loadNumbersHighScoresForCurrentProfile();
+
     if (Number.isFinite(finalScoreCandidate) && finalScoreCandidate > (highScores[currentGame] || 0)) {
-        highScores[currentGame] = finalScoreCandidate;
+        highScores[currentGame] = Math.max(0, Math.floor(finalScoreCandidate));
+        persistNumbersHighScores();
+        syncNumbersMenuBestScores();
     }
 
     if (DOM.highScore) {
-        DOM.highScore.textContent = highScores[currentGame] || 0;
+        DOM.highScore.textContent = formatNumbersScore(highScores[currentGame] || 0);
     }
 
     return highScores[currentGame] || 0;
@@ -1951,15 +1950,26 @@ function calculateNumbersFinalResult() {
 
 function gameOver() {
     if (gameEnded) return;
-    gameActive = false; 
-    gameEnded = true; 
+
+    gameActive = false;
+    gameEnded = true;
     stopTimer();
     playSound('gameOver');
     DOM.platforms.forEach(p => p.disabled = true);
-    setTimeout(() => { 
-        if (DOM.wordDisplay) DOM.wordDisplay.textContent = 'GAME OVER'; 
-        addRestartButton(); 
-    }, 1000);
+
+    const completedResult = calculateNumbersFinalResult();
+    lastNumbersResult = {
+        ...completedResult,
+        isNewBest: false,
+        completedMode: currentGame,
+        won: false
+    };
+
+    if (DOM.wordDisplay) DOM.wordDisplay.textContent = 'GAME OVER';
+
+    setTimeout(() => {
+        showNumbersResultModal(lastNumbersResult, { won: false });
+    }, 450);
 }
 
 function winGame() {
@@ -1969,25 +1979,30 @@ function winGame() {
     gameEnded = true;
     stopTimer();
 
-    // Calculate bonuses exactly once. This object is the canonical result for
-    // the result screen, high score and leaderboard.
+    // Calculate the canonical result exactly once.
     const completedResult = calculateNumbersFinalResult();
-    lastNumbersResult = completedResult;
-    updateHighScore(completedResult.finalScore);
+    const completedGameMode = currentGame;
+    loadNumbersHighScoresForCurrentProfile();
+    const previousHighScore = highScores[completedGameMode] || 0;
+    const isNewBest = completedResult.finalScore > previousHighScore;
 
-    console.log('🏆 NUMBERS final result:', completedResult);
+    lastNumbersResult = {
+        ...completedResult,
+        isNewBest,
+        previousHighScore,
+        completedMode: completedGameMode,
+        won: true
+    };
+
+    updateHighScore(completedResult.finalScore);
+    console.log('🏆 NUMBERS final result:', lastNumbersResult);
 
     playSound('win');
     DOM.platforms.forEach(p => p.disabled = true);
 
-    // Capture the completed result so a fast UI action cannot change the
-    // score that is submitted to the leaderboard.
-    const completedGameMode = currentGame;
     setTimeout(() => {
-        showNameEntryModal(completedResult.finalScore, completedGameMode);
-    }, 500);
-
-    showWinWithBonus(completedResult);
+        showNumbersResultModal(lastNumbersResult, { won: true });
+    }, 450);
 }
 
 function loseLife() { 
@@ -2005,9 +2020,10 @@ function nextRound() {
         return; 
     }
 
-    // Each prompt begins from the same neutral center position so the jump
-    // clearly communicates which answer was correct.
-    resetEagle();
+    // Keep the eagle on the platform of the previous correct answer.
+    // It moves again only after the player gets another answer right.
+    // resetEagle() is reserved for a new game / leaving the gameplay.
+    clearNumbersRoundFeedback();
     
     const rand = Math.floor(Math.random() * availableNumbers.length);
     currentNumber = availableNumbers[rand];
@@ -2076,49 +2092,171 @@ function setupPlatforms() {
     });
 }
 
-function showWinWithBonus(result = lastNumbersResult) {
-    const finalScore = result?.finalScore ?? score;
+function formatNumbersResultTime(totalSeconds = 0) {
+    const safeSeconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+    const minutes = Math.floor(safeSeconds / 60);
+    const seconds = safeSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
 
-    let winScreen = document.createElement('div');
-    winScreen.className = 'win-screen';
-    winScreen.innerHTML = `
-        <h2>Round Complete</h2>
-        <p class="phase5-win-subtitle">Great work. Your results are ready.</p>
-        <div class="win-stats">
-            <p><span>Time</span><strong>${DOM.timer.textContent}</strong></p>
-            <p><span>Final Score</span><strong>${finalScore}</strong></p>
-            <button class="restart-btn" id="win-restart-btn">PLAY AGAIN</button>
-            <button class="restart-btn" id="win-menu-btn">BACK TO MENU</button>
+function formatNumbersScore(value = 0) {
+    return Math.max(0, Math.floor(Number(value) || 0)).toLocaleString('en-US');
+}
+
+function getDefaultLeaderboardName() {
+    const storedName = String(window.currentUserName || '').trim();
+    if (storedName && storedName.toLowerCase() !== 'guest') return storedName;
+
+    const displayName = String(window.currentUser?.displayName || '').trim();
+    if (displayName) return displayName;
+
+    if (!window.isGuest && window.currentUser?.email) {
+        return String(window.currentUser.email).split('@')[0].slice(0, 20);
+    }
+
+    return '';
+}
+
+function removeNumbersResultModal() {
+    document.querySelector('.numbers-result-modal')?.remove();
+}
+
+function showNumbersResultModal(result = lastNumbersResult, options = {}) {
+    if (!result) return;
+
+    removeNumbersResultModal();
+    removeWinScreen();
+    removeRestartButton();
+
+    const won = options.won !== false;
+    const modal = document.createElement('div');
+    modal.className = 'numbers-result-modal';
+
+    const speedBonus = Number(result.speedBonus || 1).toFixed(1);
+    const lifeBonus = Number(result.lifeBonus || 1).toFixed(1);
+    const defaultName = escapeHtml(getDefaultLeaderboardName());
+    const modeForLeaderboard = result.completedMode || currentGame;
+
+    modal.innerHTML = `
+        <div class="numbers-result-card" role="dialog" aria-modal="true" aria-labelledby="numbers-result-title">
+            <div class="numbers-result-heading">
+                <span class="numbers-result-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" focusable="false">
+                        <path d="M7 3h10v2h3a1 1 0 0 1 1 1v2a5 5 0 0 1-4 4.9A6 6 0 0 1 13 17.9V20h4v2H7v-2h4v-2.1A6 6 0 0 1 7 12.9A5 5 0 0 1 3 8V6a1 1 0 0 1 1-1h3V3Zm0 4H5v1a3 3 0 0 0 2 2.82V7Zm10 0v3.82A3 3 0 0 0 19 8V7h-2Z"/>
+                    </svg>
+                </span>
+                <div>
+                    <span class="numbers-result-eyebrow">${won ? 'Round complete' : 'Round ended'}</span>
+                    <h2 id="numbers-result-title">${won ? 'Excellent work' : 'Game Over'}</h2>
+                    <p>${won ? 'Your final score includes your speed and remaining-lives bonuses.' : 'Review your score and try again when you are ready.'}</p>
+                </div>
+            </div>
+
+            ${won && result.isNewBest ? '<div class="numbers-result-best">New Best Score</div>' : ''}
+
+            <div class="numbers-result-breakdown">
+                <div class="numbers-result-stat">
+                    <span>Base Score</span>
+                    <strong>${formatNumbersScore(result.baseScore)}</strong>
+                </div>
+                <div class="numbers-result-stat">
+                    <span>Speed Bonus</span>
+                    <strong>×${speedBonus}</strong>
+                </div>
+                <div class="numbers-result-stat">
+                    <span>Lives Bonus</span>
+                    <strong>×${lifeBonus}</strong>
+                </div>
+                <div class="numbers-result-stat">
+                    <span>Time</span>
+                    <strong>${formatNumbersResultTime(result.totalGameTime)}</strong>
+                </div>
+            </div>
+
+            <div class="numbers-result-final">
+                <span>Final Score</span>
+                <strong>${formatNumbersScore(result.finalScore)}</strong>
+            </div>
+
+            ${won ? `
+                <div class="numbers-result-leaderboard">
+                    <div class="numbers-result-leaderboard-copy">
+                        <strong>Global Leaderboard</strong>
+                        <span>Save this final score to the selected Numbers mode.</span>
+                    </div>
+                    <div class="numbers-result-save-row">
+                        <input id="numbers-result-name" class="numbers-result-name" type="text" maxlength="20" autocomplete="name" placeholder="Your name" value="${defaultName}">
+                        <button id="numbers-result-save" class="numbers-result-save" type="button">Save Score</button>
+                    </div>
+                    <div id="numbers-result-save-status" class="numbers-result-save-status" aria-live="polite"></div>
+                </div>
+            ` : ''}
+
+            <div class="numbers-result-actions">
+                <button id="numbers-result-restart" class="numbers-result-action primary" type="button">Play Again</button>
+                <button id="numbers-result-menu" class="numbers-result-action secondary" type="button">Back to Menu</button>
+            </div>
         </div>
     `;
 
-    DOM.game.appendChild(winScreen);
+    document.body.appendChild(modal);
 
-    document.getElementById('win-restart-btn')?.addEventListener('click', () => {
-        winScreen.remove();
-        removeRestartButton();
+    const restartButton = modal.querySelector('#numbers-result-restart');
+    const menuButton = modal.querySelector('#numbers-result-menu');
+
+    restartButton?.addEventListener('click', () => {
+        removeNumbersResultModal();
         resetGame();
         startGame();
     });
 
-    document.getElementById('win-menu-btn')?.addEventListener('click', () => {
-        winScreen.remove();
-        removeRestartButton();
+    menuButton?.addEventListener('click', () => {
+        removeNumbersResultModal();
         showMenu();
     });
+
+    if (won) {
+        const nameInput = modal.querySelector('#numbers-result-name');
+        const saveButton = modal.querySelector('#numbers-result-save');
+        const saveStatus = modal.querySelector('#numbers-result-save-status');
+
+        const submitScore = () => {
+            if (!saveButton || saveButton.disabled) return;
+            const typedName = String(nameInput?.value || '').trim();
+            const finalName = typedName || 'Anonymous';
+
+            saveToLeaderboard(modeForLeaderboard, result.finalScore, finalName);
+            saveButton.disabled = true;
+            saveButton.textContent = 'Saved';
+            if (nameInput) nameInput.disabled = true;
+            if (saveStatus) saveStatus.textContent = `Score saved as ${finalName}.`;
+        };
+
+        saveButton?.addEventListener('click', submitScore);
+        nameInput?.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitScore();
+            }
+        });
+    }
 }
 
 
 function showMenu() {
-    gameActive = false; 
-    stopTimer(); 
-    removeWinScreen(); 
-    removeRestartButton(); 
+    removeNumbersResultModal();
+    gameActive = false;
+    EnglishSpeechEngine.stop();
+    stopTimer();
+    removeWinScreen();
+    removeRestartButton();
     resetEagle();
-    DOM.platforms.forEach(p => { 
-        p.textContent = '?'; 
-        p.disabled = true; 
-        p.classList.remove('correct', 'wrong'); 
+    clearNumbersRoundFeedback();
+
+    DOM.platforms.forEach(p => {
+        p.textContent = '?';
+        p.disabled = true;
+        p.classList.remove('correct', 'wrong');
     });
     if (DOM.wordDisplay) DOM.wordDisplay.textContent = 'Ready?';
     if (DOM.instructions) DOM.instructions.textContent = 'Press START to begin';
@@ -2129,11 +2267,20 @@ function showMenu() {
         DOM.startButton.disabled = false;
     }
     DOM.game.classList.remove('game-active');
-    
-    if (DOM.game) DOM.game.style.display = 'none';
-    if (DOMcat && DOMcat.numbersMenuContainer) {
-        DOMcat.numbersMenuContainer.style.display = 'block';
+
+    // Important: return through the same navigation system used by the regular
+    // Back button. Manually showing the menu left currentScreen/history on
+    // numbersGame, so clicking a game was ignored as "already on this screen".
+    if (currentScreen === SCREENS.NUMBERS_GAME) {
+        goBack();
+        return;
     }
+
+    // Defensive fallback for restored/legacy history states.
+    showScreen(SCREENS.NUMBERS_MENU);
+    currentScreen = SCREENS.NUMBERS_MENU;
+    navigationStack = navigationStack.filter(screen => screen !== SCREENS.NUMBERS_GAME);
+    replaceCurrentBrowserState(SCREENS.NUMBERS_MENU);
 }
 
 function removeRestartButton() { document.querySelector('.restart-btn')?.remove(); }
@@ -2153,6 +2300,7 @@ function addRestartButton() {
 }
 
 function resetGame() {
+    clearNumbersRoundFeedback();
     const shuffled = [...currentNumbers];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -2406,8 +2554,9 @@ window.selectGame = function(gameType) {
     
     console.log(`📊 Game mode: ${gameType} - ${currentNumbers.length} numbers available`);
     
+    loadNumbersHighScoresForCurrentProfile();
     const currentHighScore = highScores[gameType] || 0;
-    if (DOM.highScore) DOM.highScore.textContent = currentHighScore;
+    if (DOM.highScore) DOM.highScore.textContent = formatNumbersScore(currentHighScore);
 
     // Stable Ready state: initialize visible HUD values without creating a round.
     score = 0;
@@ -2427,6 +2576,7 @@ window.selectGame = function(gameType) {
     stopTimer();
     removeWinScreen();
     removeRestartButton();
+    removeNumbersResultModal();
     resetEagle();
     
     if (DOM.platforms) {
@@ -2543,6 +2693,8 @@ let vocabElapsedSeconds = 0;
 let vocabTimerInterval = null;
 let vocabGameFinished = false;
 let vocabGameStarted = false;
+let currentVocabularySourceData = null;
+let vocabResultTimeout = null;
 
 const englishList = document.getElementById('english-words-list');
 const portugueseList = document.getElementById('portuguese-words-list');
@@ -2555,6 +2707,16 @@ const vocabLeftHeading = document.getElementById('vocab-left-heading');
 const vocabRightHeading = document.getElementById('vocab-right-heading');
 const vocabStartOverlay = document.getElementById('vocab-start-overlay');
 const vocabStartBtn = document.getElementById('vocab-start-btn');
+const vocabStartDescription = document.getElementById('vocab-start-description');
+const vocabInstructionText = document.getElementById('vocab-instruction-text');
+const vocabGameContainer = document.getElementById('vocab-game-container');
+const vocabResultOverlay = document.getElementById('vocab-result-overlay');
+const vocabResultSubtitle = document.getElementById('vocab-result-subtitle');
+const vocabResultMatches = document.getElementById('vocab-result-matches');
+const vocabResultScore = document.getElementById('vocab-result-score');
+const vocabResultTime = document.getElementById('vocab-result-time');
+const vocabResultReplay = document.getElementById('vocab-result-replay');
+const vocabResultBack = document.getElementById('vocab-result-back');
 
 function showVocabularyStartModal() {
     if (!vocabStartOverlay) return;
@@ -2595,7 +2757,7 @@ function formatVocabularyTime(totalSeconds) {
 }
 
 function updateVocabularyStats() {
-    if (vocabScoreSpan) vocabScoreSpan.textContent = vocabScore;
+    if (vocabScoreSpan) vocabScoreSpan.textContent = Number(vocabScore || 0).toLocaleString('en-US');
     if (vocabTimerSpan) vocabTimerSpan.textContent = formatVocabularyTime(vocabElapsedSeconds);
 }
 
@@ -2670,6 +2832,75 @@ function finishVocabularyGameStats() {
     updateVocabularyStats();
 }
 
+function clearVocabularyResultTimeout() {
+    if (!vocabResultTimeout) return;
+    clearTimeout(vocabResultTimeout);
+    vocabResultTimeout = null;
+}
+
+function showVocabularyResultModal() {
+    if (!vocabResultOverlay || currentScreen !== SCREENS.WORDS_GAME) return;
+
+    if (vocabResultMatches) {
+        vocabResultMatches.textContent = `${matchesCount}/${currentEnglishWords.length}`;
+    }
+    if (vocabResultScore) {
+        vocabResultScore.textContent = Number(vocabScore || 0).toLocaleString('en-US');
+    }
+    if (vocabResultTime) {
+        vocabResultTime.textContent = formatVocabularyTime(vocabElapsedSeconds);
+    }
+    if (vocabResultSubtitle) {
+        vocabResultSubtitle.textContent = currentVerbGameType === 'past'
+            ? 'You matched every present verb with its simple past form.'
+            : 'You matched every English verb with its Portuguese meaning.';
+    }
+
+    vocabResultOverlay.classList.add('active');
+    vocabResultOverlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('vocab-modal-open');
+    requestAnimationFrame(() => vocabResultReplay?.focus());
+}
+
+function hideVocabularyResultModal() {
+    if (!vocabResultOverlay) return;
+    vocabResultOverlay.classList.remove('active');
+    vocabResultOverlay.setAttribute('aria-hidden', 'true');
+    if (!vocabStartOverlay?.classList.contains('active')) {
+        document.body.classList.remove('vocab-modal-open');
+    }
+}
+
+function queueVocabularyResultModal() {
+    clearVocabularyResultTimeout();
+    vocabResultTimeout = setTimeout(() => {
+        vocabResultTimeout = null;
+        showVocabularyResultModal();
+    }, 650);
+}
+
+function handleVocabularyCorrectMatchFeedback() {
+    if (matchesCount === currentEnglishWords.length) {
+        playSound('win');
+        showVocabMessage('Set complete', 'win');
+        queueVocabularyResultModal();
+        return;
+    }
+
+    playSound('correct');
+    showVocabMessage('Correct match', 'success');
+}
+
+vocabResultReplay?.addEventListener('click', () => {
+    hideVocabularyResultModal();
+    startVocabularyGame(currentVocabularySourceData, currentVerbGameType);
+});
+
+vocabResultBack?.addEventListener('click', () => {
+    hideVocabularyResultModal();
+    goBack(1);
+});
+
 function shuffleArray(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -2683,6 +2914,9 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     
     // Usar dados específicos do jogo ou o padrão
     const activeData = vocabularyDataParam || vocabularyDataVerbs1;
+    currentVocabularySourceData = activeData;
+    clearVocabularyResultTimeout();
+    hideVocabularyResultModal();
     
     console.log(`📊 Tipo de jogo: ${gameType}`);
     console.log(`📊 Usando ${activeData.length} verbos para este jogo`);
@@ -2721,9 +2955,15 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     if (gameType === 'past') {
         if (vocabLeftHeading) vocabLeftHeading.textContent = 'SIMPLE PRESENT';
         if (vocabRightHeading) vocabRightHeading.textContent = 'SIMPLE PAST';
+        if (vocabInstructionText) vocabInstructionText.textContent = 'Drag each present verb to its simple past form.';
+        if (vocabStartDescription) vocabStartDescription.textContent = 'Match each present verb with its simple past form. The timer starts when you press START.';
+        if (vocabGameContainer) vocabGameContainer.dataset.vocabMode = 'past';
     } else {
         if (vocabLeftHeading) vocabLeftHeading.textContent = 'ENGLISH';
         if (vocabRightHeading) vocabRightHeading.textContent = 'PORTUGUÊS';
+        if (vocabInstructionText) vocabInstructionText.textContent = 'Drag each English verb to its matching Portuguese meaning.';
+        if (vocabStartDescription) vocabStartDescription.textContent = 'Match every English verb with its Portuguese meaning. The timer starts when you press START.';
+        if (vocabGameContainer) vocabGameContainer.dataset.vocabMode = 'present';
     }
     
     renderVocabularyLists();
@@ -2813,18 +3053,11 @@ function handleDrop(e) {
     // o par, pronuncia automaticamente a forma no passado antes do rerender.
     playMatchedPastPronunciation(portugueseId);
 
-    showVocabMessage('✓ Correct match!', 'success');
     renderVocabularyLists();
-
-    if (matchesCount === currentEnglishWords.length) {
-        playSound('win');
-        showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
-    } else {
-        playSound('correct');
-    }
+    handleVocabularyCorrectMatchFeedback();
 } else {
     playSound('wrong');
-    showVocabMessage('✗ Wrong match! Try again!', 'error');
+    showVocabMessage('Try again', 'error');
 }
     
     if (draggedElement) draggedElement.style.opacity = '1';
@@ -2844,14 +3077,14 @@ function handleDrop(e) {
 
 function showVocabMessage(message, type) {
     if (!vocabMessage) return;
-    vocabMessage.innerHTML = message;
+    vocabMessage.textContent = message;
     vocabMessage.className = `vocab-message ${type}`;
     setTimeout(() => {
-        if (vocabMessage.innerHTML === message) {
-            vocabMessage.innerHTML = '';
+        if (vocabMessage.textContent === message) {
+            vocabMessage.textContent = '';
             vocabMessage.className = 'vocab-message';
         }
-    }, 2000);
+    }, type === 'win' ? 900 : 1400);
 }
 
 
@@ -2876,7 +3109,7 @@ function checkAndLockMatches() {
     
     if (anyMatch) {
         if (vocabMatchesSpan) vocabMatchesSpan.textContent = matchesCount;
-        showVocabMessage('✓ Correct match! Pair locked!', 'success');
+        showVocabMessage('Correct match', 'success');
         renderVocabularyLists();
     }
 }
@@ -3211,18 +3444,11 @@ function handleTouchEnd(e) {
         // presente sobre a resposta correta.
         playMatchedPastPronunciation(portugueseId);
 
-        showVocabMessage('✓ Correct match!', 'success');
         renderVocabularyLists();
-
-        if (matchesCount === currentEnglishWords.length) {
-            playSound('win');
-            showVocabMessage('🎉 PERFECT! You matched all verbs! 🎉', 'win');
-        } else {
-            playSound('correct');
-        }
+        handleVocabularyCorrectMatchFeedback();
     } else {
         playSound('wrong');
-        showVocabMessage('✗ Wrong match! Try again!', 'error');
+        showVocabMessage('Try again', 'error');
     }
     
     // Limpa todos os estilos visuais
@@ -3788,6 +4014,7 @@ function showNumbersMenu() {
     currentScreen = 'numbersMenu';  
     if (DOMcat.categoryContainer) DOMcat.categoryContainer.style.display = 'none';
     if (DOMcat.numbersMenuContainer) DOMcat.numbersMenuContainer.style.display = 'block';
+    syncNumbersMenuBestScores();
 }
 
 // ============================================
