@@ -1,0 +1,168 @@
+/* ============================================
+   PHASE 6B — MOBILE BOTTOM NAVIGATION
+   Top-level destinations: Home / Progress / Settings.
+   Hidden during gameplay to preserve the full play area.
+   ============================================ */
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  body[data-screen="categories"] .mobile-bottom-nav,
+  body[data-screen="profile"] .mobile-bottom-nav,
+  body[data-screen="numbersMenu"] .mobile-bottom-nav,
+  body[data-screen="wordsMenu"] .mobile-bottom-nav,
+  body[data-screen="wordsSubmenu"] .mobile-bottom-nav,
+  body[data-screen="wordsSubmenuPast"] .mobile-bottom-nav,
+  body[data-screen="topicsMenu"] .mobile-bottom-nav,
+  body[data-screen="topicLevel"] .mobile-bottom-nav,
+  body[data-screen="topicGameMenu"] .mobile-bottom-nav {
+    display: grid;
+  }
+
+  .mobile-bottom-nav {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 2400;
+    width: 100%;
+    min-height: 70px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 4px;
+    padding: 7px max(10px, env(safe-area-inset-right))
+             calc(7px + env(safe-area-inset-bottom))
+             max(10px, env(safe-area-inset-left));
+    border: 0;
+    border-top: 1px solid rgba(210, 164, 61, 0.38);
+    border-radius: 0;
+    background: rgba(20, 40, 74, 0.985);
+    box-shadow: 0 -10px 28px rgba(12, 30, 55, 0.18), inset 0 1px 0 rgba(255,255,255,0.055);
+    transform: none;
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+  }
+
+  .mobile-bottom-nav-button {
+    appearance: none;
+    -webkit-appearance: none;
+    min-width: 0;
+    min-height: 54px;
+    padding: 6px 4px 5px;
+    border: 1px solid transparent;
+    border-radius: 17px;
+    background: transparent;
+    color: rgba(239, 244, 251, 0.72);
+    font: inherit;
+    font-size: 0.67rem;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    -webkit-tap-highlight-color: transparent;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  }
+
+  .mobile-bottom-nav-button svg {
+    width: 22px;
+    height: 22px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .mobile-bottom-nav-button.is-active {
+    background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.075));
+    border-color: rgba(242, 200, 94, 0.14);
+    color: #f2c85e;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.055);
+  }
+
+  .mobile-bottom-nav-button:active {
+    transform: scale(0.96);
+  }
+
+  .mobile-bottom-nav-button:focus-visible {
+    outline: 2px solid #f2c85e;
+    outline-offset: -2px;
+  }
+
+  /* Reserve enough scroll room so the fixed navigation never covers the
+     final menu card or footer. Gameplay screens are intentionally excluded. */
+  body[data-screen="categories"],
+  body[data-screen="profile"],
+  body[data-screen="numbersMenu"],
+  body[data-screen="wordsMenu"],
+  body[data-screen="wordsSubmenu"],
+  body[data-screen="wordsSubmenuPast"],
+  body[data-screen="topicsMenu"],
+  body[data-screen="topicLevel"],
+  body[data-screen="topicGameMenu"] {
+    padding-bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  /* Home mobile actions now live in the bottom navigation. Keep only logout
+     in the header, avoiding duplicate Settings/Profile controls. */
+  body[data-screen="categories"] #category-settings-btn,
+  body[data-screen="categories"] #category-profile-btn,
+  body[data-screen="categories"] .category-home-account-divider {
+    display: none !important;
+  }
+
+  body[data-screen="categories"] .category-home-account {
+    gap: 0 !important;
+  }
+
+  body[data-screen="categories"] .category-home-logout {
+    margin: 0 !important;
+  }
+
+  /* Contextual menu bars keep their right-hand slot so titles remain exactly
+     centered, but Settings is provided by the bottom navigation on mobile. */
+  body[data-screen="numbersMenu"] #numbers-menu-settings-btn,
+  body[data-screen="wordsMenu"] #words-menu-settings-btn,
+  body[data-screen="wordsSubmenu"] #words-menu-settings-btn,
+  body[data-screen="wordsSubmenuPast"] #words-menu-settings-btn,
+  body[data-screen="topicsMenu"] #topics-menu-settings-btn,
+  body[data-screen="topicLevel"] #topic-level-settings-btn,
+  body[data-screen="topicGameMenu"] #topic-game-menu-settings-btn {
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+}
+
+@media (max-width: 360px) {
+  .mobile-bottom-nav {
+    width: 100%;
+    min-height: 66px;
+    gap: 2px;
+    padding: 6px max(7px, env(safe-area-inset-right))
+             calc(6px + env(safe-area-inset-bottom))
+             max(7px, env(safe-area-inset-left));
+    border-radius: 0;
+  }
+
+  .mobile-bottom-nav-button {
+    min-height: 50px;
+    font-size: 0.63rem;
+    border-radius: 15px;
+  }
+
+  .mobile-bottom-nav-button svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mobile-bottom-nav-button {
+    transition: none;
+  }
+}

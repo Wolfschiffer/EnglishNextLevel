@@ -1,0 +1,658 @@
+/* ============================================
+   PHASE 6A — PROFILE / PROGRESS
+   ============================================ */
+
+.category-home-profile-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.category-home-profile-btn .user-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.category-home-profile-btn:focus-visible {
+  outline: 2px solid #D2A43D;
+  outline-offset: 5px;
+  border-radius: 8px;
+}
+
+.progress-profile-screen {
+  width: min(1040px, calc(100% - 28px));
+  margin: 24px auto;
+  border: 2px solid rgba(210, 164, 61, 0.78);
+  border-radius: 24px;
+  background: #f8fafc;
+  box-shadow: 0 22px 60px rgba(20, 40, 74, 0.22);
+  overflow: hidden;
+}
+
+.progress-profile-screen .phase2-app-nav {
+  margin: 18px 18px 0;
+  /* Profile uses a text sync badge on the right, not a square settings button. */
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+}
+
+.progress-sync-status {
+  min-width: 104px;
+  max-width: 180px;
+  padding: 8px 11px;
+  border: 1px solid rgba(255,255,255,.20);
+  border-radius: 999px;
+  background: rgba(255,255,255,.10);
+  color: #eef4ff;
+  font-size: .72rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+  text-align: center;
+  white-space: nowrap;
+  line-height: 1.15;
+}
+
+.progress-sync-status[data-state="synced"] {
+  color: #f5d67b;
+}
+
+.progress-main {
+  padding: 18px;
+}
+
+.progress-identity {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(210px, 280px);
+  align-items: center;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid #d7e0eb;
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 10px 24px rgba(20, 40, 74, 0.06);
+}
+
+.progress-avatar {
+  width: 68px;
+  height: 68px;
+  border-radius: 20px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(145deg, #466FA8, #2F4E7D);
+  color: #f8d774;
+  font-size: 1.8rem;
+  font-weight: 900;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.15), 0 8px 18px rgba(47,78,125,.18);
+}
+
+.progress-eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  color: #B3892E;
+  font-size: .70rem;
+  font-weight: 900;
+  letter-spacing: .12em;
+}
+
+.progress-identity-copy h1 {
+  margin: 0;
+  color: #14284A;
+  font-size: clamp(1.45rem, 3vw, 2rem);
+  line-height: 1.05;
+}
+
+.progress-identity-copy p {
+  margin: 6px 0 0;
+  color: #6e7f91;
+  font-size: .84rem;
+  overflow-wrap: anywhere;
+}
+
+.progress-overall {
+  padding: 15px 16px;
+  border: 1px solid #dbe3ed;
+  border-radius: 16px;
+  background: #f7f9fc;
+}
+
+.progress-overall > span {
+  display: block;
+  color: #738295;
+  font-size: .72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+.progress-overall > strong {
+  display: block;
+  margin-top: 3px;
+  color: #14284A;
+  font-size: 1.45rem;
+}
+
+.progress-overall-track {
+  height: 7px;
+  margin-top: 9px;
+  border-radius: 999px;
+  background: #dfe6ef;
+  overflow: hidden;
+}
+
+.progress-overall-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #D2A43D, #e0bd63);
+  transition: width .25s ease;
+}
+
+.progress-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.progress-summary-card {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 16px;
+  border: 1px solid #d8e1ec;
+  border-radius: 18px;
+  background: #fff;
+}
+
+.progress-summary-icon {
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  background: #edf3fa;
+  color: #3B5F95;
+}
+
+.progress-summary-icon svg {
+  width: 23px;
+  height: 23px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.progress-summary-card div > span {
+  display: block;
+  color: #8a98a7;
+  font-size: .65rem;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.progress-summary-card div > strong {
+  display: block;
+  margin-top: 1px;
+  color: #14284A;
+  font-size: 1.18rem;
+}
+
+.progress-summary-card div > small {
+  display: block;
+  margin-top: 2px;
+  color: #748496;
+  font-size: .72rem;
+}
+
+.progress-section {
+  margin-top: 16px;
+  padding: 18px;
+  border: 1px solid #d8e1ec;
+  border-radius: 20px;
+  background: #fff;
+}
+
+.progress-section-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.progress-section-heading h2 {
+  margin: 0;
+  color: #14284A;
+  font-size: 1.2rem;
+}
+
+.progress-section-meta {
+  color: #7a8998;
+  font-size: .74rem;
+  font-weight: 800;
+}
+
+.progress-numbers-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.progress-number-item {
+  min-width: 0;
+  padding: 12px 10px;
+  border: 1px solid #dce4ee;
+  border-radius: 14px;
+  background: #f8fafc;
+  text-align: center;
+}
+
+.progress-number-item span,
+.progress-number-item strong {
+  display: block;
+}
+
+.progress-number-item span {
+  color: #748496;
+  font-size: .70rem;
+  font-weight: 800;
+}
+
+.progress-number-item strong {
+  margin-top: 3px;
+  color: #8b99a8;
+  font-size: .92rem;
+}
+
+.progress-number-item.is-complete {
+  border-color: rgba(210, 164, 61, .48);
+  background: #fffbf2;
+}
+
+.progress-number-item.is-complete strong {
+  color: #14284A;
+}
+
+.progress-words-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.progress-word-card {
+  padding: 16px;
+  border: 1px solid #dce4ee;
+  border-radius: 16px;
+  background: #f8fafc;
+}
+
+.progress-word-card.is-complete {
+  border-color: rgba(210, 164, 61, .48);
+  background: #fffcf5;
+}
+
+.progress-word-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.progress-word-card-heading div > span {
+  display: block;
+  color: #8a98a7;
+  font-size: .64rem;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+.progress-word-card-heading div > strong {
+  display: block;
+  margin-top: 2px;
+  color: #14284A;
+  font-size: .98rem;
+}
+
+.progress-complete-badge {
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: #edf1f6;
+  color: #788898;
+  font-size: .67rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.progress-word-card.is-complete .progress-complete-badge {
+  background: #f8edcf;
+  color: #8e6c1d;
+}
+
+.progress-word-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 13px;
+}
+
+.progress-word-stats div {
+  padding: 10px 11px;
+  border: 1px solid #e0e6ee;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.progress-word-stats span,
+.progress-word-stats strong {
+  display: block;
+}
+
+.progress-word-stats span {
+  color: #8593a2;
+  font-size: .66rem;
+  font-weight: 700;
+}
+
+.progress-word-stats strong {
+  margin-top: 2px;
+  color: #14284A;
+  font-size: .90rem;
+}
+
+.progress-topics-list {
+  display: grid;
+  gap: 12px;
+}
+
+.progress-topic-card {
+  border: 1px solid #dce4ee;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fbfcfe;
+}
+
+.progress-topic-heading {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 13px 14px;
+  background: #f3f6fa;
+  border-bottom: 1px solid #dfe6ef;
+}
+
+.progress-topic-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: #fff;
+  font-size: 1.15rem;
+}
+
+.progress-topic-heading div > span {
+  display: block;
+  color: #9b7a2b;
+  font-size: .62rem;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.progress-topic-heading div > strong {
+  display: block;
+  margin-top: 2px;
+  color: #14284A;
+  font-size: .95rem;
+}
+
+.progress-topic-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.progress-topic-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid #e5eaf1;
+}
+
+.progress-topic-row:nth-child(odd) {
+  border-right: 1px solid #e5eaf1;
+}
+
+.progress-topic-row-copy strong,
+.progress-topic-row-copy span {
+  display: block;
+}
+
+.progress-topic-row-copy strong {
+  color: #223b5e;
+  font-size: .80rem;
+}
+
+.progress-topic-row-copy span {
+  margin-top: 2px;
+  color: #82909f;
+  font-size: .69rem;
+}
+
+.progress-topic-games {
+  display: flex;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.progress-topic-games span {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: #edf1f5;
+  color: #8a97a4;
+  font-size: .64rem;
+  font-weight: 800;
+}
+
+.progress-topic-games span.is-done {
+  background: #eef6e9;
+  color: #527746;
+}
+
+.progress-empty {
+  margin: 0;
+  color: #788898;
+  font-size: .82rem;
+}
+
+@media (max-width: 780px) {
+  .progress-profile-screen {
+    width: min(100% - 18px, 720px);
+    margin: 10px auto 18px;
+    border-radius: 20px;
+  }
+
+  .progress-profile-screen .phase2-app-nav {
+    margin: 10px 10px 0;
+  }
+
+  .progress-main {
+    padding: 10px;
+  }
+
+  .progress-identity {
+    grid-template-columns: auto minmax(0, 1fr);
+    padding: 16px;
+  }
+
+  .progress-overall {
+    grid-column: 1 / -1;
+  }
+
+  .progress-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .progress-summary-card {
+    padding: 12px 13px;
+  }
+
+  .progress-section {
+    padding: 14px;
+    margin-top: 10px;
+  }
+
+  .progress-numbers-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .progress-topic-rows {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-topic-row:nth-child(odd) {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 520px) {
+  .category-home-profile-btn .user-name {
+    max-width: 90px;
+  }
+
+  .progress-sync-status {
+    display: none;
+  }
+
+  .progress-avatar {
+    width: 54px;
+    height: 54px;
+    border-radius: 16px;
+    font-size: 1.4rem;
+  }
+
+  .progress-identity {
+    gap: 12px;
+  }
+
+  .progress-identity-copy h1 {
+    font-size: 1.3rem;
+  }
+
+  .progress-identity-copy p {
+    font-size: .74rem;
+  }
+
+  .progress-section-heading {
+    align-items: flex-start;
+  }
+
+  .progress-section-meta {
+    text-align: right;
+    font-size: .66rem;
+  }
+
+  .progress-numbers-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .progress-number-item {
+    padding: 10px 5px;
+  }
+
+  .progress-number-item strong {
+    font-size: .78rem;
+  }
+
+  .progress-words-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .progress-topic-row {
+    padding: 11px 10px;
+  }
+
+  .progress-topic-games span {
+    padding: 4px 6px;
+    font-size: .60rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progress-overall-track span {
+    transition: none;
+  }
+}
+
+/* Phase 6A: until the dedicated mobile bottom nav ships in 6B, keep Profile
+   reachable from Home as its own compact icon beside Settings and Logout. */
+@media (max-width: 760px) {
+  #category-container.category-home-active .category-home-account {
+    min-width: auto;
+    display: flex;
+    gap: 7px;
+  }
+
+  #category-container.category-home-active .category-home-profile-btn {
+    width: 38px;
+    height: 38px;
+    flex: 0 0 38px;
+    display: grid;
+    place-items: center;
+    border: 1px solid rgba(255,255,255,.20);
+    border-radius: 12px;
+    background: rgba(255,255,255,.10);
+    color: rgba(248,251,255,.90);
+    box-shadow: 0 8px 18px rgba(14,32,61,.15), inset 0 1px 0 rgba(255,255,255,.08);
+  }
+
+  #category-container.category-home-active .category-home-profile-btn .category-home-user-icon {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    border-radius: inherit;
+    background: transparent;
+    color: inherit;
+  }
+
+  #category-container.category-home-active .category-home-profile-btn .category-home-user-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  #category-container.category-home-active .category-home-profile-btn .user-name {
+    display: none;
+  }
+}
+
+@media (max-width: 390px) {
+  #category-container.category-home-active .category-home-account {
+    gap: 6px;
+  }
+
+  #category-container.category-home-active .category-home-profile-btn {
+    width: 35px;
+    height: 35px;
+    flex-basis: 35px;
+    border-radius: 11px;
+  }
+}
