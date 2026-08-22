@@ -6,6 +6,7 @@
   <title>ENL - English Next Level</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/topics.css">
+  <link rel="stylesheet" href="css/topic-icons.css">
 
   <style>
     /* ============================================ */
@@ -1243,23 +1244,83 @@ if (!window.navigation) {
 
     <div class="topics-grid" id="topics-grid">
       <button class="topic-card topic-card-active" type="button" data-topic-id="kitchen">
-        <span class="topic-card-icon">🍽️</span>
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/kitchen.png" alt=""></span>
         <span class="topic-card-title">Kitchen Objects</span>
-        <span class="topic-card-description">Common objects you use in the kitchen</span>
+        <span class="topic-card-description">Common objects and tools you use in the kitchen</span>
         <span class="topic-card-badge">Available</span>
       </button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">✨</span><span class="topic-card-title">Adjectives</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">😊</span><span class="topic-card-title">Feelings</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🏠</span><span class="topic-card-title">Parts of the House</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🛁</span><span class="topic-card-title">Bathroom Objects</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🛏️</span><span class="topic-card-title">Bedroom Objects</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🛋️</span><span class="topic-card-title">Living Room Objects</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🧍</span><span class="topic-card-title">Body Parts</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">☀️</span><span class="topic-card-title">Summer Clothes</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">❄️</span><span class="topic-card-title">Winter Clothes</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🍂</span><span class="topic-card-title">Spring / Autumn Clothes</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">✈️</span><span class="topic-card-title">Airport Vocabulary</span><span class="topic-card-badge">Coming soon</span></button>
-      <button class="topic-card topic-card-coming" type="button" disabled><span class="topic-card-icon">🔗</span><span class="topic-card-title">Linking Words</span><span class="topic-card-badge">Coming soon</span></button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="adjectives">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/adjectives.png" alt=""></span>
+        <span class="topic-card-title">Adjectives</span>
+        <span class="topic-card-description">Words that describe people, objects and situations</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="feelings">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/feelings.png" alt=""></span>
+        <span class="topic-card-title">Feelings</span>
+        <span class="topic-card-description">Common emotions and ways to describe how you feel</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="house">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/house.png" alt=""></span>
+        <span class="topic-card-title">Parts of the House</span>
+        <span class="topic-card-description">Rooms and areas found around a home</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="bathroom">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/bathroom.png" alt=""></span>
+        <span class="topic-card-title">Bathroom Objects</span>
+        <span class="topic-card-description">Everyday objects commonly found in the bathroom</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="bedroom">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/bedroom.png" alt=""></span>
+        <span class="topic-card-title">Bedroom Objects</span>
+        <span class="topic-card-description">Furniture and objects commonly found in a bedroom</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="livingRoom">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/living-room.png" alt=""></span>
+        <span class="topic-card-title">Living Room Objects</span>
+        <span class="topic-card-description">Furniture and objects used in the living room</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="body">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/body.png" alt=""></span>
+        <span class="topic-card-title">Body Parts</span>
+        <span class="topic-card-description">Basic and useful vocabulary for parts of the body</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="summerClothes">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/summer-clothes.png" alt=""></span>
+        <span class="topic-card-title">Summer Clothes</span>
+        <span class="topic-card-description">Clothes and accessories commonly worn in hot weather</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="winterClothes">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/winter-clothes.png" alt=""></span>
+        <span class="topic-card-title">Winter Clothes</span>
+        <span class="topic-card-description">Clothes and accessories used to stay warm in cold weather</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="transitionalClothes">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/spring-autumn-clothes.png" alt=""></span>
+        <span class="topic-card-title">Spring / Autumn Clothes</span>
+        <span class="topic-card-description">Light layers for mild and changing weather</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="airport">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/airport.png" alt=""></span>
+        <span class="topic-card-title">Airport Vocabulary</span>
+        <span class="topic-card-description">Essential words for navigating an airport and taking a flight</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
+      <button class="topic-card topic-card-active" type="button" data-topic-id="linkingWords">
+        <span class="topic-card-icon"><img class="app-topic-icon" src="images/topics/linking-words.png" alt=""></span>
+        <span class="topic-card-title">Linking Words</span>
+        <span class="topic-card-description">Connect ideas and make sentences flow more naturally</span>
+        <span class="topic-card-badge">Available</span>
+      </button>
     </div>
   </div>
 
@@ -1287,7 +1348,7 @@ if (!window.navigation) {
   </div>
 
   <div class="topic-selection-heading">
-    <div class="topic-selection-icon" id="selected-topic-icon">🍽️</div>
+    <div class="topic-selection-icon" id="selected-topic-icon"><img class="app-topic-icon" src="images/topics/kitchen.png" alt=""></div>
     <div>
       <p class="topic-selection-kicker">TOPIC</p>
       <h2 id="selected-topic-title">Kitchen Objects</h2>
@@ -1298,13 +1359,13 @@ if (!window.navigation) {
   <h3 class="topics-step-title">Choose a Level</h3>
   <div class="topic-choice-grid">
     <button class="topic-choice-card" type="button" data-topic-level="common">
-      <span class="topic-choice-icon">🌱</span>
+      <span class="topic-choice-icon"><img class="app-level-icon" src="images/topics/level-common-book.png" alt=""></span>
       <span class="topic-choice-title">COMMON</span>
       <span class="topic-choice-description">Easy and frequently used vocabulary</span>
       <span class="topic-choice-badge">2 volumes · 20 words</span>
     </button>
     <button class="topic-choice-card" type="button" data-topic-level="advanced">
-      <span class="topic-choice-icon">⭐</span>
+      <span class="topic-choice-icon"><img class="app-level-icon" src="images/topics/level-advanced-cap.png" alt=""></span>
       <span class="topic-choice-title">ADVANCED</span>
       <span class="topic-choice-description">Less common and more challenging vocabulary</span>
       <span class="topic-choice-badge">2 volumes · 12 words</span>
@@ -1335,7 +1396,7 @@ if (!window.navigation) {
   </div>
 
   <div class="topic-selection-heading compact">
-    <div class="topic-selection-icon" id="game-menu-topic-icon">🍽️</div>
+    <div class="topic-selection-icon" id="game-menu-topic-icon"><img class="app-topic-icon" src="images/topics/kitchen.png" alt=""></div>
     <div>
       <p class="topic-selection-kicker" id="game-menu-level-label">COMMON · 10 WORDS</p>
       <h2 id="game-menu-topic-title">Kitchen Objects</h2>
