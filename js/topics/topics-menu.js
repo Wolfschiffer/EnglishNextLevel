@@ -11,6 +11,23 @@
     gameType: null
   };
 
+
+  function renderIcon(element, source, altText = '') {
+    if (!element) return;
+
+    if (typeof source === 'string' && /\.(png|jpe?g|webp)$/i.test(source)) {
+      element.innerHTML = '';
+      const image = document.createElement('img');
+      image.className = 'app-topic-icon';
+      image.src = source;
+      image.alt = altText;
+      element.appendChild(image);
+      return;
+    }
+
+    element.textContent = source || '';
+  }
+
   function getTopic() {
     return window.TOPICS_DATA?.[state.topicId] || null;
   }
@@ -54,6 +71,45 @@
     };
   }
 
+  function enforceTopicsGridLayout() {
+    const grid = document.getElementById('topics-grid');
+    if (!grid) return;
+
+    const width = window.innerWidth || document.documentElement.clientWidth || 1200;
+    const columns = width >= 1200 ? 4 : width >= 821 ? 3 : width >= 351 ? 2 : 1;
+    const gap = width <= 820 ? '12px' : '18px';
+
+    // Inline !important intentionally wins over legacy layout rules in style.css/topics.css.
+    grid.style.setProperty('display', 'grid', 'important');
+    grid.style.setProperty('grid-template-columns', `repeat(${columns}, minmax(0, 1fr))`, 'important');
+    grid.style.setProperty('grid-auto-flow', 'row', 'important');
+    grid.style.setProperty('width', '100%', 'important');
+    grid.style.setProperty('max-width', '1080px', 'important');
+    grid.style.setProperty('gap', gap, 'important');
+    grid.style.setProperty('margin-left', 'auto', 'important');
+    grid.style.setProperty('margin-right', 'auto', 'important');
+
+    Array.from(grid.children).forEach((card) => {
+      if (!card.classList.contains('topic-card')) return;
+      card.style.setProperty('grid-column', 'auto', 'important');
+      card.style.setProperty('grid-row', 'auto', 'important');
+      card.style.setProperty('grid-area', 'auto', 'important');
+      card.style.setProperty('width', '100%', 'important');
+      card.style.setProperty('max-width', 'none', 'important');
+      card.style.setProperty('min-width', '0', 'important');
+      card.style.setProperty('margin', '0', 'important');
+    });
+  }
+
+  let gridResizeFrame = null;
+  function scheduleTopicsGridLayout() {
+    if (gridResizeFrame) cancelAnimationFrame(gridResizeFrame);
+    gridResizeFrame = requestAnimationFrame(() => {
+      gridResizeFrame = null;
+      enforceTopicsGridLayout();
+    });
+  }
+
   function navigate(screen) {
     if (typeof window.navigateTo === 'function') {
       window.navigateTo(screen);
@@ -91,7 +147,7 @@
     const title = document.getElementById('selected-topic-title');
     const description = document.getElementById('selected-topic-description');
 
-    if (icon) icon.textContent = topic.icon;
+    renderIcon(icon, topic.icon, '');
     if (title) title.textContent = topic.title;
     if (description) description.textContent = topic.description;
 
@@ -143,7 +199,7 @@
     const volumeTitle = document.getElementById('topic-volume-step-title');
     const message = document.getElementById('topic-phase-message');
 
-    if (icon) icon.textContent = topic.icon;
+    renderIcon(icon, topic.icon, '');
     if (title) title.textContent = topic.title;
     if (levelLabel) {
       levelLabel.textContent = `${playableLevel.baseLabel.toUpperCase()} · ${playableLevel.volumeLabel.toUpperCase()} · ${playableLevel.wordCount} WORDS`;
@@ -218,7 +274,9 @@
     }
   }
 
-  document.querySelector('[data-topic-id="kitchen"]')?.addEventListener('click', () => selectTopic('kitchen'));
+  document.querySelectorAll('[data-topic-id]').forEach((button) => {
+    button.addEventListener('click', () => selectTopic(button.dataset.topicId));
+  });
 
   document.querySelectorAll('[data-topic-level]').forEach((button) => {
     button.addEventListener('click', () => selectLevel(button.dataset.topicLevel));
@@ -231,6 +289,10 @@
   document.getElementById('back-to-category-from-topics')?.addEventListener('click', back);
   document.getElementById('back-to-topics-from-level')?.addEventListener('click', back);
   document.getElementById('back-to-level-from-game-menu')?.addEventListener('click', back);
+
+  // Lock the Topics menu into the intended responsive card grid.
+  enforceTopicsGridLayout();
+  window.addEventListener('resize', scheduleTopicsGridLayout);
 
   // Initialize counts in case the screen is opened by restored browser history.
   renderTopicLevelScreen();
