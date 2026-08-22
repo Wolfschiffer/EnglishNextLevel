@@ -785,7 +785,11 @@ body[data-screen="wordsGame"] #vocab-message.win {
     font-size: .76rem;
   }
 
-  .vocab-start-overlay,
+  .vocab-start-overlay {
+    padding: 12px;
+    align-items: center;
+  }
+
   .vocab-result-overlay {
     padding: 12px;
     align-items: flex-end;
