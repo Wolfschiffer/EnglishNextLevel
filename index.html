@@ -628,6 +628,97 @@
     .guest-btn { background: #f0f4fa; border: 3px solid #c9a13b; color: #1e3c5c; padding: 0.8rem; border-radius: 15px; font-size: 1rem; font-weight: bold; cursor: pointer; width: 100%; }
     .guest-option { margin-top: 1.5rem; text-align: center; padding-top: 1rem; border-top: 1px solid #eef2f6; }
 
+    /* Email verification */
+    .email-verification-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.9rem;
+        text-align: center;
+        color: #1e3c5c;
+    }
+    .email-verification-panel[hidden] { display: none !important; }
+    .email-verification-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 0.15rem;
+        border-radius: 50%;
+        background: #fff7dc;
+        border: 2px solid #c9a13b;
+        display: grid;
+        place-items: center;
+        color: #1e3c5c;
+    }
+    .email-verification-icon svg { width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .email-verification-panel h2 { margin: 0; color: #1e3c5c; font-size: 1.35rem; }
+    .email-verification-panel p { margin: 0; line-height: 1.5; color: #5a6d7e; }
+    .email-verification-panel strong { color: #1e3c5c; overflow-wrap: anywhere; }
+    .email-verification-hint { font-size: 0.86rem; }
+    .auth-secondary-btn {
+        background: #f8fafc;
+        border: 2px solid #c9a13b;
+        color: #1e3c5c;
+        padding: 0.75rem;
+        border-radius: 13px;
+        font-size: 0.95rem;
+        font-weight: 700;
+        cursor: pointer;
+        width: 100%;
+    }
+    .auth-text-btn {
+        border: 0;
+        background: transparent;
+        color: #5a6d7e;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 0.45rem;
+    }
+    .auth-btn:disabled, .auth-secondary-btn:disabled { opacity: 0.62; cursor: wait; }
+    .verification-message { min-height: 1.2rem; font-size: 0.84rem; line-height: 1.35; }
+    .verification-message.is-success { color: #18864b; }
+    .verification-message.is-error { color: #c0392b; }
+
+    /* Password reset */
+    .auth-forgot-btn {
+        align-self: flex-end;
+        border: 0;
+        background: transparent;
+        color: #5a6d7e;
+        font-size: 0.86rem;
+        font-weight: 700;
+        cursor: pointer;
+        padding: 0 0.15rem 0.1rem;
+        margin-top: -0.35rem;
+    }
+    .auth-forgot-btn:hover, .auth-forgot-btn:focus-visible { color: #b38f32; }
+    .password-reset-panel {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.9rem;
+        text-align: center;
+        color: #1e3c5c;
+    }
+    .password-reset-panel[hidden] { display: none !important; }
+    .password-reset-icon {
+        width: 64px;
+        height: 64px;
+        margin: 0 auto 0.15rem;
+        border-radius: 50%;
+        background: #fff7dc;
+        border: 2px solid #c9a13b;
+        display: grid;
+        place-items: center;
+        color: #1e3c5c;
+    }
+    .password-reset-icon svg { width: 31px; height: 31px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .password-reset-panel h2 { margin: 0; color: #1e3c5c; font-size: 1.35rem; }
+    .password-reset-panel p { margin: 0; line-height: 1.5; color: #5a6d7e; }
+    .password-reset-hint { font-size: 0.86rem; }
+    .password-reset-message { min-height: 1.2rem; font-size: 0.84rem; line-height: 1.35; }
+    .password-reset-message.is-success { color: #18864b; }
+    .password-reset-message.is-error { color: #c0392b; }
+
     .logout-btn {
         background: none;
         border: 2px solid #e53e3e;
@@ -905,6 +996,7 @@ if (!window.navigation) {
   <div id="login-form" class="auth-form active">
     <input type="email" id="login-email" placeholder="Email" class="auth-input" autocomplete="email" aria-label="Email">
     <input type="password" id="login-password" placeholder="Password" class="auth-input" autocomplete="current-password" aria-label="Password">
+    <button id="forgot-password-btn" class="auth-forgot-btn" type="button">Forgot password?</button>
     <button id="login-btn" class="auth-btn" type="button">Login</button>
   </div>
 
@@ -914,6 +1006,40 @@ if (!window.navigation) {
     <input type="password" id="register-password" placeholder="Password (min 6 characters)" class="auth-input" autocomplete="new-password" aria-label="Password">
     <button id="register-btn" class="auth-btn" type="button">Create account</button>
   </div>
+
+  <section id="password-reset-panel" class="password-reset-panel" hidden aria-live="polite">
+    <div class="password-reset-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <rect x="4" y="10" width="16" height="10" rx="2"></rect>
+        <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
+        <path d="M12 14v2"></path>
+      </svg>
+    </div>
+    <h2>Reset your password</h2>
+    <p>Enter the email address connected to your English Next Level account.</p>
+    <input type="email" id="password-reset-email" placeholder="Email" class="auth-input" autocomplete="email" aria-label="Account email">
+    <button id="password-reset-send-btn" class="auth-btn" type="button">Send reset link</button>
+    <button id="password-reset-back-btn" class="auth-text-btn" type="button">Back to login</button>
+    <p class="password-reset-hint">The reset message is sent by Firebase. If you do not see it, check your spam folder.</p>
+    <div id="password-reset-message" class="password-reset-message" role="status"></div>
+  </section>
+
+  <section id="email-verification-panel" class="email-verification-panel" hidden aria-live="polite">
+    <div class="email-verification-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" focusable="false">
+        <rect x="3" y="5" width="18" height="14" rx="2"></rect>
+        <path d="m4 7 8 6 8-6"></path>
+        <path d="m16.5 4.5 1.4 1.4 2.6-2.6"></path>
+      </svg>
+    </div>
+    <h2>Verify your email</h2>
+    <p>We sent a verification link to <strong id="verification-email"></strong>.</p>
+    <p class="email-verification-hint">Open the email, tap the verification link, then return here. Check your spam folder if you do not see it.</p>
+    <button id="verification-check-btn" class="auth-btn" type="button">I've verified — Continue</button>
+    <button id="verification-resend-btn" class="auth-secondary-btn" type="button">Resend verification email</button>
+    <button id="verification-other-account-btn" class="auth-text-btn" type="button">Use another account</button>
+    <div id="verification-message" class="verification-message" role="status"></div>
+  </section>
 
   <div class="guest-option">
     <span class="auth-divider-label">or</span>
@@ -1348,7 +1474,7 @@ if (!window.navigation) {
   </div>
 
   <div class="topic-selection-heading">
-    <div class="topic-selection-icon" id="selected-topic-icon"><img class="app-topic-icon" src="images/topics/kitchen.png" alt=""></div>
+    <div class="topic-selection-icon" id="selected-topic-icon">🍽️</div>
     <div>
       <p class="topic-selection-kicker">TOPIC</p>
       <h2 id="selected-topic-title">Kitchen Objects</h2>
@@ -1359,13 +1485,13 @@ if (!window.navigation) {
   <h3 class="topics-step-title">Choose a Level</h3>
   <div class="topic-choice-grid">
     <button class="topic-choice-card" type="button" data-topic-level="common">
-      <span class="topic-choice-icon"><img class="app-level-icon" src="images/topics/level-common-book.png" alt=""></span>
+      <span class="topic-choice-icon">🌱</span>
       <span class="topic-choice-title">COMMON</span>
       <span class="topic-choice-description">Easy and frequently used vocabulary</span>
       <span class="topic-choice-badge">2 volumes · 20 words</span>
     </button>
     <button class="topic-choice-card" type="button" data-topic-level="advanced">
-      <span class="topic-choice-icon"><img class="app-level-icon" src="images/topics/level-advanced-cap.png" alt=""></span>
+      <span class="topic-choice-icon">⭐</span>
       <span class="topic-choice-title">ADVANCED</span>
       <span class="topic-choice-description">Less common and more challenging vocabulary</span>
       <span class="topic-choice-badge">2 volumes · 12 words</span>
@@ -1396,7 +1522,7 @@ if (!window.navigation) {
   </div>
 
   <div class="topic-selection-heading compact">
-    <div class="topic-selection-icon" id="game-menu-topic-icon"><img class="app-topic-icon" src="images/topics/kitchen.png" alt=""></div>
+    <div class="topic-selection-icon" id="game-menu-topic-icon">🍽️</div>
     <div>
       <p class="topic-selection-kicker" id="game-menu-level-label">COMMON · 10 WORDS</p>
       <h2 id="game-menu-topic-title">Kitchen Objects</h2>
@@ -1461,9 +1587,19 @@ if (!window.navigation) {
       <h2 id="topic-match-title">Kitchen Objects</h2>
       <p class="topic-match-instruction">Tap two cards to find each English–Portuguese pair.</p>
     </div>
-    <div class="topic-match-progress" aria-live="polite">
-      <span>Matches</span>
-      <strong><span id="topic-match-count">0</span>/<span id="topic-match-total">10</span></strong>
+    <div class="topic-heading-stats" aria-live="polite">
+      <div class="topic-match-progress">
+        <span>Matches</span>
+        <strong><span id="topic-match-count">0</span>/<span id="topic-match-total">10</span></strong>
+      </div>
+      <div class="topic-round-stat">
+        <span>Points</span>
+        <strong id="topic-match-score">0</strong>
+      </div>
+      <div class="topic-round-stat">
+        <span>Time</span>
+        <strong id="topic-match-time">00:00</strong>
+      </div>
     </div>
   </div>
 
@@ -1477,6 +1613,11 @@ if (!window.navigation) {
           <strong>All pairs matched!</strong>
           <p>Review the words from this round and listen to the American English pronunciation.</p>
         </div>
+      </div>
+
+      <div class="topic-round-summary" aria-label="Round results">
+        <div><span>Points</span><strong id="topic-match-final-score">0</strong></div>
+        <div><span>Time</span><strong id="topic-match-final-time">00:00</strong></div>
       </div>
 
       <div class="topic-review-heading">
@@ -1503,7 +1644,7 @@ if (!window.navigation) {
   <div id="topic-match-start-overlay" class="topic-match-start-overlay" aria-hidden="true">
     <div class="topic-match-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-match-start-title">
       <h2 id="topic-match-start-title">Ready?</h2>
-      <p>Find every English word and its matching Portuguese card.</p>
+      <p>Find every English word and its matching Portuguese card. The timer starts when you press START.</p>
       <button id="topic-match-start-btn" class="topic-match-start-btn" type="button">START</button>
     </div>
   </div>
@@ -1537,13 +1678,23 @@ if (!window.navigation) {
       <h2 id="topic-speak-title">Kitchen Objects</h2>
       <p class="topic-speak-instruction">Read the Portuguese word and say it in English.</p>
     </div>
-    <div class="topic-speak-progress" aria-live="polite">
-      <div class="topic-speak-progress-copy">
-        <span>Word</span>
-        <strong><span id="topic-speak-current">1</span>/<span id="topic-speak-total">10</span></strong>
+    <div class="topic-heading-stats topic-heading-stats--speak" aria-live="polite">
+      <div class="topic-speak-progress">
+        <div class="topic-speak-progress-copy">
+          <span>Word</span>
+          <strong><span id="topic-speak-current">1</span>/<span id="topic-speak-total">10</span></strong>
+        </div>
+        <div class="topic-speak-progress-track" aria-hidden="true">
+          <span id="topic-speak-progress-fill"></span>
+        </div>
       </div>
-      <div class="topic-speak-progress-track" aria-hidden="true">
-        <span id="topic-speak-progress-fill"></span>
+      <div class="topic-round-stat">
+        <span>Points</span>
+        <strong id="topic-speak-score">0</strong>
+      </div>
+      <div class="topic-round-stat">
+        <span>Time</span>
+        <strong id="topic-speak-time">00:00</strong>
       </div>
     </div>
   </div>
@@ -1600,6 +1751,11 @@ if (!window.navigation) {
         <strong>Round complete!</strong>
         <p>Review the words and listen to the American English pronunciation.</p>
       </div>
+    </div>
+
+    <div class="topic-round-summary" aria-label="Round results">
+      <div><span>Points</span><strong id="topic-speak-final-score">0</strong></div>
+      <div><span>Time</span><strong id="topic-speak-final-time">00:00</strong></div>
     </div>
 
     <div class="topic-review-heading">
@@ -1678,7 +1834,7 @@ if (!window.navigation) {
   <div id="topic-speak-start-overlay" class="topic-match-start-overlay" aria-hidden="true">
     <div class="topic-match-start-modal topic-speak-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-speak-start-title">
       <h2 id="topic-speak-start-title">Ready?</h2>
-      <p>Read each Portuguese word, tap the microphone and say it in American English.</p>
+      <p>Read each Portuguese word, tap the microphone and say it in American English. The timer starts when you press START.</p>
       <button id="topic-speak-start-btn" class="topic-match-start-btn" type="button">START</button>
     </div>
   </div>
@@ -2115,6 +2271,7 @@ if (!window.navigation) {
 <script src="js/topics/speech-game.js"></script>
 <script src="js/topics/speech-ui.js"></script>
 <script src="js/topics/topics-menu.js"></script>
+<script src="js/topics/topic-stats.js"></script>
 <script>
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         document.body.style.width = "calc(100% + 1px)";
