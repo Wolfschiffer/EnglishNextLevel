@@ -2451,13 +2451,17 @@
 }
 
 /* ---------- Review ---------- */
-.topic-match-screen .topic-match-grid.is-reviewing,
-.topic-match-screen .topic-match-grid.is-reviewing + .topic-match-review {
+/* Phase 5C declares the board as display:grid later than the original Phase 3
+   review rule. Explicitly remove the solved board from layout here so its
+   invisible fixed slots cannot reserve a large blank area above the review. */
+.topic-match-screen .topic-match-grid.is-reviewing {
+  display: none;
   scroll-margin-top: 16px;
 }
 
 .topic-match-screen .topic-match-review.visible {
   display: block;
+  scroll-margin-top: 16px;
 }
 
 .topic-match-screen .topic-review-success {
@@ -3359,5 +3363,148 @@
 
   .topic-speak-screen .topic-speak-mic.is-listening {
     animation: none !important;
+  }
+}
+
+/* ============================================
+   UPDATE 04 — TOPICS ROUND STATS
+   Shared live Points + Time for Match and Speak.
+   ============================================ */
+
+.topic-heading-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(78px, 1fr));
+  gap: 8px;
+  min-width: 300px;
+}
+
+.topic-match-screen .topic-match-heading {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+}
+
+.topic-speak-screen .topic-speak-heading {
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 340px);
+}
+
+.topic-heading-stats .topic-match-progress,
+.topic-heading-stats .topic-speak-progress,
+.topic-round-stat {
+  min-width: 0;
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 9px 10px;
+  border: 1px solid rgba(59, 95, 149, 0.14);
+  border-radius: 13px;
+  background: #ffffff;
+  box-shadow: 0 5px 14px rgba(20, 40, 74, 0.045);
+}
+
+.topic-heading-stats .topic-speak-progress {
+  display: block;
+  background: #f7f9fc;
+}
+
+.topic-round-stat > span {
+  color: #708099;
+  font-size: 0.59rem;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  line-height: 1.15;
+  text-transform: uppercase;
+}
+
+.topic-round-stat > strong {
+  display: block;
+  margin-top: 4px;
+  color: #14284a;
+  font-size: 1rem;
+  font-weight: 900;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+#topic-match-score,
+#topic-speak-score {
+  color: #b48620;
+}
+
+#topic-match-time,
+#topic-speak-time {
+  letter-spacing: 0.025em;
+}
+
+.topic-round-summary {
+  width: min(100%, 360px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0 0 17px;
+}
+
+.topic-round-summary > div {
+  padding: 10px 13px;
+  border: 1px solid rgba(59, 95, 149, 0.13);
+  border-radius: 13px;
+  background: #ffffff;
+  box-shadow: 0 5px 14px rgba(20, 40, 74, 0.04);
+}
+
+.topic-round-summary span,
+.topic-round-summary strong {
+  display: block;
+}
+
+.topic-round-summary span {
+  color: #7b899c;
+  font-size: 0.61rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.topic-round-summary strong {
+  margin-top: 3px;
+  color: #14284a;
+  font-size: 1.03rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.topic-round-summary > div:first-child strong {
+  color: #b48620;
+}
+
+@media (max-width: 760px) {
+  .topic-match-screen .topic-match-heading,
+  .topic-speak-screen .topic-speak-heading {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .topic-heading-stats {
+    width: 100%;
+    min-width: 0;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .topic-heading-stats .topic-match-progress,
+  .topic-heading-stats .topic-speak-progress,
+  .topic-round-stat {
+    min-height: 56px;
+    padding: 8px 9px;
+  }
+}
+
+@media (max-width: 390px) {
+  .topic-heading-stats {
+    gap: 6px;
+  }
+
+  .topic-round-stat > strong,
+  .topic-match-screen .topic-match-progress strong,
+  .topic-speak-screen .topic-speak-progress-copy strong {
+    font-size: 0.9rem;
   }
 }

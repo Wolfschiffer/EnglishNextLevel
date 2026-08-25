@@ -4,7 +4,7 @@
 // ============================================
 
 (function () {
-  const PROGRESS_VERSION = 1;
+  const PROGRESS_VERSION = 3;
   const STORAGE_PREFIX = 'englishNextLevel.progress.v1';
   const NUMBERS_STORAGE_PREFIX = 'englishNextLevel.numbersHighScores.v1';
 
@@ -56,13 +56,229 @@
         present: { completed: false, bestScore: 0, bestTime: null },
         past: { completed: false, bestScore: 0, bestTime: null }
       },
-      topics: {}
+      topics: {},
+      topicStats: {},
+      // Daily snapshots are append-only by date. The UI still renders the
+      // cumulative fields above, while history prevents a new day/device from
+      // erasing older progress and gives later phases a safe place for stats.
+      history: { days: {} }
     };
+  }
+
+  function emptyDayProgress() {
+    return {
+      updatedAt: 0,
+      numbers: { bestScores: {} },
+      words: {
+        present: { completed: false, bestScore: 0, bestTime: null },
+        past: { completed: false, bestScore: 0, bestTime: null }
+      },
+      topics: {},
+      topicStats: {}
+    };
+  }
+
+  function localDateKey(date = new Date()) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   function safeNumber(value, fallback = 0) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : fallback;
+  }
+
+  function normalizeTopicTree(input) {
+    const topics = {};
+    if (!input || typeof input !== 'object') return topics;
+
+    Object.entries(input).forEach(([topicId, levels]) => {
+      if (!levels || typeof levels !== 'object') return;
+      topics[topicId] = {};
+      Object.entries(levels).forEach(([levelId, volumes]) => {
+        if (!volumes || typeof volumes !== 'object') return;
+        topics[topicId][levelId] = {};
+        Object.entries(volumes).forEach(([volumeId, games]) => {
+          if (!games || typeof games !== 'object') return;
+          topics[topicId][levelId][volumeId] = {
+            match: Boolean(games.match),
+            speak: Boolean(games.speak)
+          };
+        });
+      });
+    });
+
+    return topics;
+  }
+
+  function normalizeTopicStatsTree(input) {
+    const stats = {};
+    if (!input || typeof input !== 'object') return stats;
+
+    Object.entries(input).forEach(([topicId, levels]) => {
+      if (!levels || typeof levels !== 'object') return;
+      stats[topicId] = {};
+      Object.entries(levels).forEach(([levelId, volumes]) => {
+        if (!volumes || typeof volumes !== 'object') return;
+        stats[topicId][levelId] = {};
+        Object.entries(volumes).forEach(([volumeId, games]) => {
+          if (!games || typeof games !== 'object') return;
+          const normalizedGames = {};
+          ['match', 'speak'].forEach((gameType) => {
+            const source = games[gameType];
+            if (!source || typeof source !== 'object') return;
+            const score = Math.max(0, Math.min(1000, Math.floor(safeNumber(source.bestScore))));
+            const rawTime = source.bestTime == null ? null : Math.max(0, Math.floor(safeNumber(source.bestTime)));
+            normalizedGames[gameType] = {
+              bestScore: score,
+              bestTime: rawTime > 0 ? rawTime : null
+            };
+          });
+          if (Object.keys(normalizedGames).length) {
+            stats[topicId][levelId][volumeId] = normalizedGames;
+          }
+        });
+      });
+    });
+
+    return stats;
+  }
+
+  function normalizeDayProgress(input) {
+    const day = emptyDayProgress();
+    if (!input || typeof input !== 'object') return day;
+
+    day.updatedAt = Math.max(0, safeNumber(input.updatedAt));
+
+    const sourceScores = input.numbers?.bestScores || {};
+    NUMBER_MODES.forEach(([modeId]) => {
+      day.numbers.bestScores[modeId] = Math.max(0, Math.floor(safeNumber(sourceScores[modeId])));
+    });
+
+    Object.keys(WORD_MODES).forEach((mode) => {
+      const source = input.words?.[mode] || {};
+      const time = source.bestTime == null ? null : Math.max(0, Math.floor(safeNumber(source.bestTime)));
+      day.words[mode] = {
+        completed: Boolean(source.completed),
+        bestScore: Math.max(0, Math.floor(safeNumber(source.bestScore))),
+        bestTime: time > 0 ? time : null
+      };
+    });
+
+    day.topics = normalizeTopicTree(input.topics);
+    day.topicStats = normalizeTopicStatsTree(input.topicStats);
+    return day;
+  }
+
+  function mergeTopicTrees(leftTopics, rightTopics) {
+    const merged = {};
+    const topicIds = new Set([...Object.keys(leftTopics || {}), ...Object.keys(rightTopics || {})]);
+    topicIds.forEach((topicId) => {
+      merged[topicId] = {};
+      const levelIds = new Set([
+        ...Object.keys(leftTopics?.[topicId] || {}),
+        ...Object.keys(rightTopics?.[topicId] || {})
+      ]);
+      levelIds.forEach((levelId) => {
+        merged[topicId][levelId] = {};
+        const volumeIds = new Set([
+          ...Object.keys(leftTopics?.[topicId]?.[levelId] || {}),
+          ...Object.keys(rightTopics?.[topicId]?.[levelId] || {})
+        ]);
+        volumeIds.forEach((volumeId) => {
+          const l = leftTopics?.[topicId]?.[levelId]?.[volumeId] || {};
+          const r = rightTopics?.[topicId]?.[levelId]?.[volumeId] || {};
+          merged[topicId][levelId][volumeId] = {
+            match: Boolean(l.match || r.match),
+            speak: Boolean(l.speak || r.speak)
+          };
+        });
+      });
+    });
+    return merged;
+  }
+
+  function mergeTopicStatsTrees(leftStats, rightStats) {
+    const merged = {};
+    const topicIds = new Set([...Object.keys(leftStats || {}), ...Object.keys(rightStats || {})]);
+
+    topicIds.forEach((topicId) => {
+      const levelIds = new Set([
+        ...Object.keys(leftStats?.[topicId] || {}),
+        ...Object.keys(rightStats?.[topicId] || {})
+      ]);
+      levelIds.forEach((levelId) => {
+        const volumeIds = new Set([
+          ...Object.keys(leftStats?.[topicId]?.[levelId] || {}),
+          ...Object.keys(rightStats?.[topicId]?.[levelId] || {})
+        ]);
+        volumeIds.forEach((volumeId) => {
+          ['match', 'speak'].forEach((gameType) => {
+            const left = leftStats?.[topicId]?.[levelId]?.[volumeId]?.[gameType];
+            const right = rightStats?.[topicId]?.[levelId]?.[volumeId]?.[gameType];
+            if (!left && !right) return;
+
+            merged[topicId] ||= {};
+            merged[topicId][levelId] ||= {};
+            merged[topicId][levelId][volumeId] ||= {};
+            merged[topicId][levelId][volumeId][gameType] = {
+              bestScore: Math.max(left?.bestScore || 0, right?.bestScore || 0),
+              bestTime: bestTime(left?.bestTime, right?.bestTime)
+            };
+          });
+        });
+      });
+    });
+
+    return merged;
+  }
+
+  function mergeDayProgress(a, b) {
+    const left = normalizeDayProgress(a);
+    const right = normalizeDayProgress(b);
+    const merged = emptyDayProgress();
+
+    merged.updatedAt = Math.max(left.updatedAt, right.updatedAt);
+    NUMBER_MODES.forEach(([modeId]) => {
+      merged.numbers.bestScores[modeId] = Math.max(
+        left.numbers.bestScores[modeId] || 0,
+        right.numbers.bestScores[modeId] || 0
+      );
+    });
+
+    Object.keys(WORD_MODES).forEach((mode) => {
+      merged.words[mode] = {
+        completed: left.words[mode].completed || right.words[mode].completed,
+        bestScore: Math.max(left.words[mode].bestScore || 0, right.words[mode].bestScore || 0),
+        bestTime: bestTime(left.words[mode].bestTime, right.words[mode].bestTime)
+      };
+    });
+
+    merged.topics = mergeTopicTrees(left.topics, right.topics);
+    merged.topicStats = mergeTopicStatsTrees(left.topicStats, right.topicStats);
+    return merged;
+  }
+
+  function foldDayIntoCumulative(progress, day) {
+    NUMBER_MODES.forEach(([modeId]) => {
+      progress.numbers.bestScores[modeId] = Math.max(
+        progress.numbers.bestScores[modeId] || 0,
+        day.numbers?.bestScores?.[modeId] || 0
+      );
+    });
+
+    Object.keys(WORD_MODES).forEach((mode) => {
+      const current = progress.words[mode];
+      const daily = day.words?.[mode] || {};
+      current.completed = current.completed || Boolean(daily.completed);
+      current.bestScore = Math.max(current.bestScore || 0, daily.bestScore || 0);
+      current.bestTime = bestTime(current.bestTime, daily.bestTime);
+    });
+
+    progress.topics = mergeTopicTrees(progress.topics, day.topics);
+    progress.topicStats = mergeTopicStatsTrees(progress.topicStats, day.topicStats);
   }
 
   function normalizeProgress(input) {
@@ -86,23 +302,20 @@
       };
     });
 
-    if (input.topics && typeof input.topics === 'object') {
-      Object.entries(input.topics).forEach(([topicId, levels]) => {
-        if (!levels || typeof levels !== 'object') return;
-        base.topics[topicId] = {};
-        Object.entries(levels).forEach(([levelId, volumes]) => {
-          if (!volumes || typeof volumes !== 'object') return;
-          base.topics[topicId][levelId] = {};
-          Object.entries(volumes).forEach(([volumeId, games]) => {
-            if (!games || typeof games !== 'object') return;
-            base.topics[topicId][levelId][volumeId] = {
-              match: Boolean(games.match),
-              speak: Boolean(games.speak)
-            };
-          });
-        });
+    base.topics = normalizeTopicTree(input.topics);
+    base.topicStats = normalizeTopicStatsTree(input.topicStats);
+
+    const sourceDays = input.history?.days;
+    if (sourceDays && typeof sourceDays === 'object') {
+      Object.entries(sourceDays).forEach(([dateKey, dayValue]) => {
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+        base.history.days[dateKey] = normalizeDayProgress(dayValue);
       });
     }
+
+    // The cumulative view is rebuilt from every preserved day as a safety net.
+    // This makes an old "today-only" payload incapable of wiping yesterday.
+    Object.values(base.history.days).forEach((day) => foldDayIntoCumulative(base, day));
 
     return base;
   }
@@ -215,28 +428,19 @@
       };
     });
 
-    const topicIds = new Set([...Object.keys(left.topics), ...Object.keys(right.topics)]);
-    topicIds.forEach((topicId) => {
-      merged.topics[topicId] = {};
-      const levelIds = new Set([
-        ...Object.keys(left.topics[topicId] || {}),
-        ...Object.keys(right.topics[topicId] || {})
-      ]);
-      levelIds.forEach((levelId) => {
-        merged.topics[topicId][levelId] = {};
-        const volumeIds = new Set([
-          ...Object.keys(left.topics[topicId]?.[levelId] || {}),
-          ...Object.keys(right.topics[topicId]?.[levelId] || {})
-        ]);
-        volumeIds.forEach((volumeId) => {
-          const l = left.topics[topicId]?.[levelId]?.[volumeId] || {};
-          const r = right.topics[topicId]?.[levelId]?.[volumeId] || {};
-          merged.topics[topicId][levelId][volumeId] = {
-            match: Boolean(l.match || r.match),
-            speak: Boolean(l.speak || r.speak)
-          };
-        });
-      });
+    merged.topics = mergeTopicTrees(left.topics, right.topics);
+    merged.topicStats = mergeTopicStatsTrees(left.topicStats, right.topicStats);
+
+    const dates = new Set([
+      ...Object.keys(left.history?.days || {}),
+      ...Object.keys(right.history?.days || {})
+    ]);
+    dates.forEach((dateKey) => {
+      merged.history.days[dateKey] = mergeDayProgress(
+        left.history?.days?.[dateKey],
+        right.history?.days?.[dateKey]
+      );
+      foldDayIntoCumulative(merged, merged.history.days[dateKey]);
     });
 
     return merged;
@@ -315,15 +519,37 @@
       return;
     }
 
-    const progress = loadLocal();
+    const uid = window.currentUser.uid;
+    const local = loadLocal();
+    const docRef = db.collection('users').doc(uid);
     setSyncState('syncing');
+
     try {
-      await db.collection('users').doc(window.currentUser.uid).set({
-        progressV1: progress,
-        progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
-      cloudLoadedUid = window.currentUser.uid;
+      // Never push a stale local snapshot blindly. Read+merge inside a
+      // transaction so older days/completions already in Firestore survive.
+      const merged = await db.runTransaction(async (transaction) => {
+        const snapshot = await transaction.get(docRef);
+        const cloud = snapshot.exists ? snapshot.data()?.progressV1 : null;
+        const next = mergeProgress(local, cloud);
+        next.updatedAt = Math.max(next.updatedAt, Date.now());
+
+        transaction.set(docRef, {
+          progressV1: next,
+          progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+        return next;
+      });
+
+      cache = merged;
+      cacheKey = currentProfileKey();
+      try {
+        window.localStorage.setItem(cacheKey, JSON.stringify(merged));
+      } catch (error) {}
+      writeNumbersBack(merged);
+
+      cloudLoadedUid = uid;
       setSyncState('synced');
+      renderProfile();
     } catch (error) {
       console.warn('PROGRESS: could not sync to Firestore.', error);
       setSyncState('error');
@@ -342,12 +568,27 @@
     }, 450);
   }
 
+  function getToday(progress) {
+    progress.history ||= { days: {} };
+    progress.history.days ||= {};
+    const key = localDateKey();
+    progress.history.days[key] = normalizeDayProgress(progress.history.days[key]);
+    return progress.history.days[key];
+  }
+
+  function touchDay(day) {
+    day.updatedAt = Date.now();
+  }
+
   function recordNumbersBest(modeId, score) {
     if (!modeId) return;
     const progress = loadLocal();
+    const today = getToday(progress);
     const next = Math.max(0, Math.floor(safeNumber(score)));
     const previous = Math.max(0, progress.numbers.bestScores[modeId] || 0);
     progress.numbers.bestScores[modeId] = Math.max(previous, next);
+    today.numbers.bestScores[modeId] = Math.max(today.numbers.bestScores[modeId] || 0, next);
+    touchDay(today);
     // game.js only calls this hook when a new Best Score is confirmed. Save even
     // if the legacy Numbers storage was imported a millisecond earlier, so the
     // cloud profile receives that new best as well.
@@ -357,7 +598,9 @@
   function recordWordsResult({ mode, score, timeSeconds }) {
     if (!WORD_MODES[mode]) return;
     const progress = loadLocal();
+    const today = getToday(progress);
     const entry = progress.words[mode] || { completed: false, bestScore: 0, bestTime: null };
+    const dailyEntry = today.words[mode] || { completed: false, bestScore: 0, bestTime: null };
     const nextScore = Math.max(0, Math.floor(safeNumber(score)));
     const nextTime = Math.max(0, Math.floor(safeNumber(timeSeconds)));
 
@@ -365,18 +608,75 @@
     entry.bestScore = Math.max(entry.bestScore || 0, nextScore);
     if (nextTime > 0) entry.bestTime = bestTime(entry.bestTime, nextTime);
     progress.words[mode] = entry;
+
+    dailyEntry.completed = true;
+    dailyEntry.bestScore = Math.max(dailyEntry.bestScore || 0, nextScore);
+    if (nextTime > 0) dailyEntry.bestTime = bestTime(dailyEntry.bestTime, nextTime);
+    today.words[mode] = dailyEntry;
+    touchDay(today);
     saveLocal(progress);
   }
 
   function recordTopicCompletion({ topicId, levelId, volumeId, gameType }) {
     if (!topicId || !levelId || !volumeId || !['match', 'speak'].includes(gameType)) return;
     const progress = loadLocal();
+    const today = getToday(progress);
+
     progress.topics[topicId] ||= {};
     progress.topics[topicId][levelId] ||= {};
     progress.topics[topicId][levelId][volumeId] ||= { match: false, speak: false };
 
-    if (progress.topics[topicId][levelId][volumeId][gameType]) return;
+    today.topics[topicId] ||= {};
+    today.topics[topicId][levelId] ||= {};
+    today.topics[topicId][levelId][volumeId] ||= { match: false, speak: false };
+
+    const globalWasDone = Boolean(progress.topics[topicId][levelId][volumeId][gameType]);
+    const todayWasDone = Boolean(today.topics[topicId][levelId][volumeId][gameType]);
+    if (globalWasDone && todayWasDone) return;
+
     progress.topics[topicId][levelId][volumeId][gameType] = true;
+    today.topics[topicId][levelId][volumeId][gameType] = true;
+    touchDay(today);
+    saveLocal(progress);
+  }
+
+  function recordTopicResult({ topicId, levelId, volumeId, gameType, score, timeSeconds }) {
+    if (!topicId || !levelId || !volumeId || !['match', 'speak'].includes(gameType)) return;
+
+    const progress = loadLocal();
+    const today = getToday(progress);
+    const nextScore = Math.max(0, Math.min(1000, Math.floor(safeNumber(score))));
+    const nextTime = Math.max(0, Math.floor(safeNumber(timeSeconds)));
+
+    progress.topics[topicId] ||= {};
+    progress.topics[topicId][levelId] ||= {};
+    progress.topics[topicId][levelId][volumeId] ||= { match: false, speak: false };
+    progress.topics[topicId][levelId][volumeId][gameType] = true;
+
+    today.topics[topicId] ||= {};
+    today.topics[topicId][levelId] ||= {};
+    today.topics[topicId][levelId][volumeId] ||= { match: false, speak: false };
+    today.topics[topicId][levelId][volumeId][gameType] = true;
+
+    progress.topicStats ||= {};
+    progress.topicStats[topicId] ||= {};
+    progress.topicStats[topicId][levelId] ||= {};
+    progress.topicStats[topicId][levelId][volumeId] ||= {};
+    const current = progress.topicStats[topicId][levelId][volumeId][gameType] || { bestScore: 0, bestTime: null };
+    current.bestScore = Math.max(current.bestScore || 0, nextScore);
+    if (nextTime > 0) current.bestTime = bestTime(current.bestTime, nextTime);
+    progress.topicStats[topicId][levelId][volumeId][gameType] = current;
+
+    today.topicStats ||= {};
+    today.topicStats[topicId] ||= {};
+    today.topicStats[topicId][levelId] ||= {};
+    today.topicStats[topicId][levelId][volumeId] ||= {};
+    const daily = today.topicStats[topicId][levelId][volumeId][gameType] || { bestScore: 0, bestTime: null };
+    daily.bestScore = Math.max(daily.bestScore || 0, nextScore);
+    if (nextTime > 0) daily.bestTime = bestTime(daily.bestTime, nextTime);
+    today.topicStats[topicId][levelId][volumeId][gameType] = daily;
+
+    touchDay(today);
     saveLocal(progress);
   }
 
@@ -512,12 +812,21 @@
 
         volumes.forEach((volume) => {
           const games = progress.topics?.[topic.id]?.[level.id]?.[volume.id] || {};
+          const stats = progress.topicStats?.[topic.id]?.[level.id]?.[volume.id] || {};
+          const matchStats = stats.match || {};
+          const speakStats = stats.speak || {};
           rows.push(`
             <div class="progress-topic-row">
               <div class="progress-topic-row-copy"><strong>${level.label}</strong><span>${volume.label}</span></div>
               <div class="progress-topic-games">
-                <span class="${games.match ? 'is-done' : ''}">${games.match ? '✓ ' : ''}Match</span>
-                <span class="${games.speak ? 'is-done' : ''}">${games.speak ? '✓ ' : ''}Speak</span>
+                <div class="progress-topic-game ${games.match ? 'is-done' : ''}">
+                  <span>${games.match ? '✓ ' : ''}Match</span>
+                  ${games.match && matchStats.bestScore ? `<small>${formatScore(matchStats.bestScore)} pts · ${formatTime(matchStats.bestTime)}</small>` : ''}
+                </div>
+                <div class="progress-topic-game ${games.speak ? 'is-done' : ''}">
+                  <span>${games.speak ? '✓ ' : ''}Speak</span>
+                  ${games.speak && speakStats.bestScore ? `<small>${formatScore(speakStats.bestScore)} pts · ${formatTime(speakStats.bestTime)}</small>` : ''}
+                </div>
               </div>
             </div>
           `);
@@ -526,11 +835,33 @@
 
       topicCard.innerHTML = `
         <div class="progress-topic-heading">
-          <span class="progress-topic-icon" aria-hidden="true">${topic.icon || '•'}</span>
+          <span class="progress-topic-icon" aria-hidden="true"></span>
           <div><span>TOPIC</span><strong>${topic.title || topic.id}</strong></div>
         </div>
         <div class="progress-topic-rows">${rows.join('')}</div>
       `;
+
+      // Topics now use PNG assets for their menu icons. The Progress screen used
+      // to print the asset path as text (e.g. "images/topics/kitchen.png").
+      // Render file-backed icons as images while keeping support for legacy
+      // emoji/text icons in older topic data.
+      const iconHost = topicCard.querySelector('.progress-topic-icon');
+      const iconValue = typeof topic.icon === 'string' ? topic.icon.trim() : '';
+      const iconIsAsset = /^(?:\.?\.?\/|images\/|assets\/)|\.(?:png|jpe?g|webp|gif|svg)(?:[?#].*)?$/i.test(iconValue);
+
+      if (iconHost) {
+        if (iconValue && iconIsAsset) {
+          const image = document.createElement('img');
+          image.src = iconValue;
+          image.alt = '';
+          image.decoding = 'async';
+          image.loading = 'lazy';
+          iconHost.appendChild(image);
+        } else {
+          iconHost.textContent = iconValue || '•';
+        }
+      }
+
       container.appendChild(topicCard);
     });
   }
@@ -643,9 +974,13 @@
     recordNumbersBest,
     recordWordsResult,
     recordTopicCompletion,
+    recordTopicResult,
     refreshProfile,
     getProgress() {
       return normalizeProgress(loadLocal());
+    },
+    getHistory() {
+      return normalizeProgress(loadLocal()).history.days;
     }
   };
 

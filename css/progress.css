@@ -396,13 +396,24 @@
 }
 
 .progress-topic-icon {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
   display: grid;
   place-items: center;
-  border-radius: 11px;
+  overflow: hidden;
+  border: 1px solid rgba(210, 164, 61, .14);
+  border-radius: 12px;
   background: #fff;
   font-size: 1.15rem;
+}
+
+.progress-topic-icon img {
+  display: block;
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  object-position: center;
 }
 
 .progress-topic-heading div > span {
@@ -654,5 +665,58 @@
     height: 35px;
     flex-basis: 35px;
     border-radius: 11px;
+  }
+}
+
+/* ============================================
+   UPDATE 04 — TOPIC BEST SCORE / TIME
+   ============================================ */
+.progress-topic-games .progress-topic-game {
+  min-width: 92px;
+  padding: 6px 8px;
+  border-radius: 10px;
+  background: #edf1f5;
+  color: #8a97a4;
+  text-align: right;
+}
+
+.progress-topic-games .progress-topic-game.is-done {
+  background: #eef6e9;
+  color: #527746;
+}
+
+.progress-topic-games .progress-topic-game > span {
+  display: block;
+  padding: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: .64rem;
+  font-weight: 850;
+}
+
+.progress-topic-games .progress-topic-game > small {
+  display: block;
+  margin-top: 2px;
+  color: #748291;
+  font-size: .55rem;
+  font-weight: 750;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.progress-topic-games .progress-topic-game.is-done > small {
+  color: #698061;
+}
+
+@media (max-width: 640px) {
+  .progress-topic-games {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .progress-topic-games .progress-topic-game {
+    flex: 1 1 118px;
+    text-align: left;
   }
 }
