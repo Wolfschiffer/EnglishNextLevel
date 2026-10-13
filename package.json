@@ -1,0 +1,8 @@
+{
+  "name": "english-next-level",
+  "private": true,
+  "scripts": {
+    "check:js": "node scripts/check-js.cjs",
+    "test": "node --test"
+  }
+}

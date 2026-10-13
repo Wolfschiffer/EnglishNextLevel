@@ -6,7 +6,7 @@ const isMobileDevice = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera
 
 // Em file:// o Firebase Auth pode não funcionar corretamente. Mantém o fallback local já existente.
 if (isMobileDevice && window.location.protocol === 'file:') {
-    console.log('📱 Mobile detectado em file:// - usando modo guest automático');
+    window.enlDebug?.('📱 Mobile detectado em file:// - usando modo guest automático');
 
     window.forceGuestMode = true;
     window.isGuest = true;
@@ -65,7 +65,7 @@ const VERIFICATION_AUTO_SENT_PREFIX = 'enlVerificationAutoSent:';
 // ============================================
 
 function updateAllUserNames(name) {
-    console.log('🔄 updateAllUserNames chamado com:', name);
+    window.enlDebug?.('🔄 updateAllUserNames chamado com:', name);
 
     const elements = [
         'user-name-display', 'category-user-name', 'words-user-name',
@@ -442,15 +442,15 @@ function logout() {
 // ============================================
 
 auth.onAuthStateChanged(async (user) => {
-    console.log('Auth state changed:', user ? 'User logged in' : 'No user');
+    window.enlDebug?.('Auth state changed:', user ? 'User logged in' : 'No user');
 
     if (window.forceGuestMode === true) {
-        console.log('🔒 forceGuestMode ativo - ignorando onAuthStateChanged');
+        window.enlDebug?.('🔒 forceGuestMode ativo - ignorando onAuthStateChanged');
         return;
     }
 
     if (isGuest) {
-        console.log('Guest mode active, ignoring auth change');
+        window.enlDebug?.('Guest mode active, ignoring auth change');
         return;
     }
 
@@ -485,7 +485,7 @@ auth.onAuthStateChanged(async (user) => {
 // ============================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM carregado, configurando eventos de login...');
+    window.enlDebug?.('DOM carregado, configurando eventos de login...');
 
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('register-form');
@@ -775,7 +775,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (guestBtn) {
         guestBtn.addEventListener('click', () => {
-            console.log('Guest mode selected');
+            window.enlDebug?.('Guest mode selected');
             window.isGuest = true;
             isGuest = true;
             window.currentUser = null;

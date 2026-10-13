@@ -5,7 +5,7 @@
 const ScreenManager = {
   setScreen(screenName) {
     document.body.setAttribute('data-screen', screenName);
-    console.log(`🖥️ Tela alterada para: ${screenName}`);
+    window.enlDebug?.(`🖥️ Tela alterada para: ${screenName}`);
   }
 };
 
@@ -138,7 +138,7 @@ function showScreen(screen, options = {}) {
     const categoryHomeRoot = document.getElementById('category-container');
     categoryHomeRoot?.classList.remove('category-home-active');
 
-    console.log(`📱 Mostrando tela: ${screen}`);
+    window.enlDebug?.(`📱 Mostrando tela: ${screen}`);
     
     const auth = document.getElementById('auth-container');
     const category = document.getElementById('category-container');
@@ -233,7 +233,7 @@ function showScreen(screen, options = {}) {
                 vocab.style.display = 'block';
                 vocab.style.visibility = 'visible';
                 vocab.style.opacity = '1';
-                console.log("✅ vocab-container exibido pelo showScreen");
+                window.enlDebug?.("✅ vocab-container exibido pelo showScreen");
             }
             const btns = document.querySelector('.category-buttons');
             if (btns) btns.style.display = 'none';
@@ -273,7 +273,7 @@ function showScreen(screen, options = {}) {
 // Navegar para uma tela: atualiza a pilha interna e o histórico real do navegador.
 // Isso faz o botão/gesto VOLTAR do Android/iPhone percorrer as telas do jogo.
 function navigateTo(screen, options = {}) {
-    console.log(`📍 Navegando para: ${screen}`);
+    window.enlDebug?.(`📍 Navegando para: ${screen}`);
 
     // Firebase/Guest pode exibir Categories diretamente sem passar pelo navegador interno.
     // Normaliza esse caso antes de criar a próxima entrada do histórico.
@@ -289,13 +289,13 @@ function navigateTo(screen, options = {}) {
     }
     
     if (currentScreen === screen) {
-        console.log(`⚠️ Já está na tela ${screen}, ignorando`);
+        window.enlDebug?.(`⚠️ Já está na tela ${screen}, ignorando`);
         return;
     }
     
     if (currentScreen && currentScreen !== screen) {
         navigationStack.push(currentScreen);
-        console.log(`➕ Adicionado ao histórico: ${currentScreen}`);
+        window.enlDebug?.(`➕ Adicionado ao histórico: ${currentScreen}`);
     }
     
     showScreen(screen, options);
@@ -355,8 +355,8 @@ function cleanBeforeBack() {
 // Botões internos usam a MESMA pilha do botão físico/gesto do aparelho.
 function goBack(steps = 1) {
     const requestedSteps = Math.max(1, Number.parseInt(steps, 10) || 1);
-    console.log(`◀ goBack chamado (${requestedSteps})`);
-    console.log("📚 Pilha atual:", navigationStack);
+    window.enlDebug?.(`◀ goBack chamado (${requestedSteps})`);
+    window.enlDebug?.("📚 Pilha atual:", navigationStack);
 
     if (navigationStack.length === 0) {
         // Na raiz do jogo, deixa o navegador voltar normalmente para a página anterior.
@@ -397,7 +397,7 @@ window.addEventListener('popstate', (event) => {
         return;
     }
 
-    console.log('📱 Voltar do navegador/celular:', event.state.screen);
+    window.enlDebug?.('📱 Voltar do navegador/celular:', event.state.screen);
     cleanBeforeBack();
 
     navigationStack = Array.isArray(event.state.stack)
@@ -869,11 +869,11 @@ gameData.random101_999 = generateNumbers_101_999();
 gameData.random1001_9999 = generateNumbers_1001_9999();
 gameData.mixedAdvanced = generateMixedAdvanced();
 
-console.log('Game data loaded:');
-console.log('21-99:', gameData.random21_99.length, 'numbers');
-console.log('101-999:', gameData.random101_999.length, 'numbers');
-console.log('1001-9999:', gameData.random1001_9999.length, 'numbers');
-console.log('Mixed Advanced:', gameData.mixedAdvanced.length, 'numbers');
+window.enlDebug?.('Game data loaded:');
+window.enlDebug?.('21-99:', gameData.random21_99.length, 'numbers');
+window.enlDebug?.('101-999:', gameData.random101_999.length, 'numbers');
+window.enlDebug?.('1001-9999:', gameData.random1001_9999.length, 'numbers');
+window.enlDebug?.('Mixed Advanced:', gameData.mixedAdvanced.length, 'numbers');
 
 // ============================================
 // 3. VARIÁVEIS DE ESTADO
@@ -962,11 +962,11 @@ let menuEagleImage = null;
 let eagleSpritesLoaded = false;
 
 function loadMenuImages() {
-    console.log('Loading menu images...');
+    window.enlDebug?.('Loading menu images...');
 
     eagleImages.idle = new Image();
     eagleImages.idle.src = 'images/flap_01.png';
-    eagleImages.idle.onload = () => console.log('✅ Idle image loaded');
+    eagleImages.idle.onload = () => window.enlDebug?.('✅ Idle image loaded');
     eagleImages.idle.onerror = () => console.error('❌ Failed: images/flap_01.png');
 
     menuEagleImage = new Image();
@@ -995,7 +995,7 @@ function loadMenuImages() {
             wordsEagle.appendChild(img2);
         }
 
-        console.log('✅ Menu eagle images loaded');
+        window.enlDebug?.('✅ Menu eagle images loaded');
     };
 
     menuEagleImage.onerror = () => console.error('❌ Failed to load menu eagle');
@@ -1004,7 +1004,7 @@ function loadMenuImages() {
 function loadEagleSprites() {
     if (eagleSpritesLoaded) return;
 
-    console.log('Loading eagle sprites...');
+    window.enlDebug?.('Loading eagle sprites...');
 
     eagleImages.flap = [];
     eagleImages.celebrate = [];
@@ -1035,7 +1035,7 @@ function loadEagleSprites() {
     }
 
     eagleSpritesLoaded = true;
-    console.log('✅ Eagle sprites loading started');
+    window.enlDebug?.('✅ Eagle sprites loading started');
 }
 
 
@@ -1547,6 +1547,12 @@ async function showLeaderboardModal() {
         listContainer.innerHTML = '<div class="leaderboard-empty">Loading...</div>';
 
         let scores = [];
+        let localStorageReadFailed = false;
+        const useLocalScores = () => {
+            const result = readLocalLeaderboardResult(modeId);
+            scores = result.scores;
+            localStorageReadFailed = !result.ok;
+        };
 
         if (typeof firebase !== 'undefined' && firebase.firestore) {
             try {
@@ -1556,18 +1562,27 @@ async function showLeaderboardModal() {
                     .limit(20)
                     .get();
                 snapshot.forEach(doc => scores.push(doc.data()));
-                console.log(`✅ Loaded ${scores.length} scores from Firebase for ${modeId}`);
+                window.enlDebug?.(`✅ Loaded ${scores.length} scores from Firebase for ${modeId}`);
             } catch (err) {
                 console.error('❌ Error loading from Firebase:', err);
-                const leaderboardKey = `leaderboard_${modeId}`;
-                scores = JSON.parse(localStorage.getItem(leaderboardKey)) || [];
+                useLocalScores();
             }
         } else {
-            const leaderboardKey = `leaderboard_${modeId}`;
-            scores = JSON.parse(localStorage.getItem(leaderboardKey)) || [];
+            useLocalScores();
         }
 
         if (scores.length === 0) {
+            if (localStorageReadFailed) {
+                listContainer.innerHTML = `
+                    <div class="leaderboard-empty">
+                        ${trophyEmptyIcon}
+                        <h3>Scores are unavailable</h3>
+                        <p>Check your browser storage settings and try again.</p>
+                    </div>
+                `;
+                return;
+            }
+
             const safeModeName = escapeHtml(modeMap[modeId] || modeId);
             listContainer.innerHTML = `
                 <div class="leaderboard-empty">
@@ -1615,43 +1630,48 @@ function escapeHtml(text) {
     return div.innerHTML;
 }
 
-function saveToLeaderboard(gameMode, score, playerName) {
-    if (!playerName || playerName.trim() === "") return;
+function readLocalLeaderboardResult(gameMode) {
+    const storage = window.EnglishNextLevelLeaderboardStorage;
+    if (!storage) {
+        console.error('LEADERBOARD: local storage module is unavailable.');
+        return { scores: [], ok: false };
+    }
+    return storage.readLocalLeaderboardResult(gameMode);
+}
+
+async function saveToLeaderboard(gameMode, score, playerName) {
+    const numericScore = Number(score);
+    if (typeof playerName !== 'string' || !playerName.trim() || !Number.isFinite(numericScore) || numericScore < 0) return false;
     
-    console.log(`🏆 Saving to leaderboard: ${playerName} - ${score} points in ${gameMode}`);
+    window.enlDebug?.(`🏆 Saving to leaderboard: ${playerName} - ${score} points in ${gameMode}`);
     
     if (typeof firebase !== 'undefined' && firebase.firestore) {
-        const db = firebase.firestore();
-        const leaderboardRef = db.collection('leaderboards').doc(gameMode).collection('scores');
-        
-        leaderboardRef.add({
-            name: playerName.trim(),
-            score: score,
-            date: firebase.firestore.FieldValue.serverTimestamp()
-        }).then(() => {
-            console.log(`✅ Score saved to Firebase: ${gameMode}`);
-        }).catch(err => {
+        try {
+            const db = firebase.firestore();
+            const leaderboardRef = db.collection('leaderboards').doc(gameMode).collection('scores');
+            await leaderboardRef.add({
+                name: playerName.trim(),
+                score: numericScore,
+                date: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            window.enlDebug?.(`✅ Score saved to Firebase: ${gameMode}`);
+            return true;
+        } catch (err) {
             console.error("❌ Error saving to Firebase:", err);
-            saveToLocalLeaderboard(gameMode, score, playerName);
-        });
-    } else {
-        saveToLocalLeaderboard(gameMode, score, playerName);
+            return saveToLocalLeaderboard(gameMode, numericScore, playerName);
+        }
     }
+
+    return saveToLocalLeaderboard(gameMode, numericScore, playerName);
 }
 
 function saveToLocalLeaderboard(gameMode, score, playerName) {
-    const leaderboardKey = `leaderboard_${gameMode}`;
-    let leaderboard = JSON.parse(localStorage.getItem(leaderboardKey)) || [];
-    
-    leaderboard.push({
-        name: playerName,
-        score: score,
-        date: new Date().toISOString()
-    });
-    
-    leaderboard.sort((a, b) => b.score - a.score);
-    if (leaderboard.length > 50) leaderboard = leaderboard.slice(0, 50);
-    localStorage.setItem(leaderboardKey, JSON.stringify(leaderboard));
+    const storage = window.EnglishNextLevelLeaderboardStorage;
+    if (!storage) {
+        console.error('LEADERBOARD: local storage module is unavailable.');
+        return false;
+    }
+    return storage.saveLocalLeaderboard(gameMode, score, playerName);
 }
 
 // ============================================
@@ -1797,7 +1817,7 @@ function drawEagle() {
 }
 
 function startAnimation(type) { 
-    console.log('🎬 Starting animation:', type, 'frame:', animationFrame);
+    window.enlDebug?.('🎬 Starting animation:', type, 'frame:', animationFrame);
     currentAnimation = type; 
     animationFrame = 0; 
     isAnimating = true; 
@@ -2059,7 +2079,7 @@ function winGame() {
     };
 
     updateHighScore(completedResult.finalScore);
-    console.log('🏆 NUMBERS final result:', lastNumbersResult);
+    window.enlDebug?.('🏆 NUMBERS final result:', lastNumbersResult);
 
     playSound('win');
     DOM.platforms.forEach(p => p.disabled = true);
@@ -2284,13 +2304,28 @@ function showNumbersResultModal(result = lastNumbersResult, options = {}) {
         const saveButton = modal.querySelector('#numbers-result-save');
         const saveStatus = modal.querySelector('#numbers-result-save-status');
 
-        const submitScore = () => {
+        const submitScore = async () => {
             if (!saveButton || saveButton.disabled) return;
             const typedName = String(nameInput?.value || '').trim();
             const finalName = typedName || 'Anonymous';
 
-            saveToLeaderboard(modeForLeaderboard, result.finalScore, finalName);
             saveButton.disabled = true;
+            saveButton.textContent = 'Saving...';
+
+            let saved = false;
+            try {
+                saved = await saveToLeaderboard(modeForLeaderboard, result.finalScore, finalName);
+            } catch (error) {
+                console.error('LEADERBOARD: could not save score.', error);
+            }
+
+            if (!saved) {
+                saveButton.disabled = false;
+                saveButton.textContent = 'Try Again';
+                if (saveStatus) saveStatus.textContent = 'Could not save your score. Check your connection or local storage, then try again.';
+                return;
+            }
+
             saveButton.textContent = 'Saved';
             if (nameInput) nameInput.disabled = true;
             if (saveStatus) saveStatus.textContent = `Score saved as ${finalName}.`;
@@ -2374,11 +2409,11 @@ function resetGame() {
     const questionsCount = Math.min(10, shuffled.length);
     availableNumbers = shuffled.slice(0, questionsCount);
     
-    console.log(`🔄 Reset game: ${currentGame}`);
-    console.log(`   Total numbers available: ${currentNumbers.length}`);
-    console.log(`   Questions in this game: ${availableNumbers.length}`);
+    window.enlDebug?.(`🔄 Reset game: ${currentGame}`);
+    window.enlDebug?.(`   Total numbers available: ${currentNumbers.length}`);
+    window.enlDebug?.(`   Questions in this game: ${availableNumbers.length}`);
     if (availableNumbers.length > 0) {
-        console.log(`   First question: ${availableNumbers[0].value} - ${availableNumbers[0].word}`);
+        window.enlDebug?.(`   First question: ${availableNumbers[0].value} - ${availableNumbers[0].word}`);
     }
     
     score = 0;
@@ -2616,7 +2651,7 @@ window.selectGame = function(gameType) {
     
     currentNumbers = modeMap[gameType] || gameData.numbers;
     
-    console.log(`📊 Game mode: ${gameType} - ${currentNumbers.length} numbers available`);
+    window.enlDebug?.(`📊 Game mode: ${gameType} - ${currentNumbers.length} numbers available`);
     
     loadNumbersHighScoresForCurrentProfile();
     const currentHighScore = highScores[gameType] || 0;
@@ -2670,7 +2705,7 @@ window.selectGame = function(gameType) {
 // ============================================
 
 function initGame() {
-    console.log('Game starting...');
+    window.enlDebug?.('Game starting...');
     
     if (DOM.canvas) {
         DOM.canvas.width = 500;
@@ -2682,7 +2717,7 @@ function initGame() {
     if (DOM.menuButton) {
         DOM.menuButton.removeEventListener('click', showMenu);
         DOM.menuButton.addEventListener('click', () => {
-            console.log("🏠 Botão voltar clicado no jogo");
+            window.enlDebug?.("🏠 Botão voltar clicado no jogo");
             
             gameActive = false;
             EnglishSpeechEngine.stop();
@@ -2715,7 +2750,7 @@ function initGame() {
     const leaderboardBtn = document.getElementById('global-rankings-btn');
     if (leaderboardBtn) {
         leaderboardBtn.addEventListener('click', () => {
-            console.log("Botão Rankings clicado!");
+            window.enlDebug?.("Botão Rankings clicado!");
             showLeaderboardModal();
         });
     }
@@ -2980,7 +3015,7 @@ function shuffleArray(array) {
 }
 
 function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
-    console.log("🎮 Iniciando jogo de vocabulário");
+    window.enlDebug?.("🎮 Iniciando jogo de vocabulário");
     
     // Usar dados específicos do jogo ou o padrão
     const activeData = vocabularyDataParam || vocabularyDataVerbs1;
@@ -2988,8 +3023,8 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
     clearVocabularyResultTimeout();
     hideVocabularyResultModal();
     
-    console.log(`📊 Tipo de jogo: ${gameType}`);
-    console.log(`📊 Usando ${activeData.length} verbos para este jogo`);
+    window.enlDebug?.(`📊 Tipo de jogo: ${gameType}`);
+    window.enlDebug?.(`📊 Usando ${activeData.length} verbos para este jogo`);
     
     currentEnglishWords = activeData.map(item => ({
         id: item.id, text: item.english, matched: false, locked: false
@@ -3547,7 +3582,7 @@ const backToCategoryFromWords = document.getElementById('back-to-category-from-w
 
 
 window.selectWordGame = function(gameType) {
-    console.log(`📚 Word game selected: ${gameType}`);
+    window.enlDebug?.(`📚 Word game selected: ${gameType}`);
     
     const gameDataMap = {
         // Simple Verbs (presente)
@@ -3604,7 +3639,7 @@ window.selectWordGame = function(gameType) {
             vocabContainer.style.display = 'block';
             vocabContainer.style.visibility = 'visible';
             vocabContainer.style.opacity = '1';
-            console.log("✅ vocab-container exibido");
+            window.enlDebug?.("✅ vocab-container exibido");
         }
         
         // Adicionar ao histórico
@@ -3625,7 +3660,7 @@ window.selectWordGame = function(gameType) {
 
 
 function backToCategoryFromVocab() {
-    console.log("◀ Botão voltar do vocabulário clicado");
+    window.enlDebug?.("◀ Botão voltar do vocabulário clicado");
     
     const vocabContainer = document.getElementById('vocab-game-container');
     if (vocabContainer) vocabContainer.style.display = 'none';
@@ -3654,20 +3689,20 @@ function updateGameUserName() {
         gameUserNameSpan.textContent = window.currentUserName;
         gameUserInfo.style.display = 'flex';
         if (categoryUserName) categoryUserName.textContent = window.currentUserName;
-        console.log('✅ Nome do Firestore aplicado:', window.currentUserName);
+        window.enlDebug?.('✅ Nome do Firestore aplicado:', window.currentUserName);
     } 
     else if (window.isGuest === true) {
         gameUserNameSpan.textContent = 'Guest';
         gameUserInfo.style.display = 'flex';
         if (categoryUserName) categoryUserName.textContent = 'Guest';
-        console.log('✅ Guest name aplicado');
+        window.enlDebug?.('✅ Guest name aplicado');
     } 
     else if (window.currentUser && window.currentUser.email) {
         const name = window.currentUser.email.split('@')[0];
         gameUserNameSpan.textContent = name;
         gameUserInfo.style.display = 'flex';
         if (categoryUserName) categoryUserName.textContent = name;
-        console.log('⚠️ Fallback para email:', name);
+        window.enlDebug?.('⚠️ Fallback para email:', name);
     } 
     else {
         gameUserInfo.style.display = 'none';
@@ -3955,7 +3990,7 @@ if (simpleVerbsBtn) {
     newSimpleBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log("📚 SIMPLE VERBS clicado");
+        window.enlDebug?.("📚 SIMPLE VERBS clicado");
         navigateTo(SCREENS.WORDS_SUBMENU);
     });
 }
@@ -3969,7 +4004,7 @@ if (simpleVerbsPastBtn) {
     newPastBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log("📚 SIMPLE VERBS PAST clicado");
+        window.enlDebug?.("📚 SIMPLE VERBS PAST clicado");
         navigateTo(SCREENS.WORDS_SUBMENU_PAST);
     });
 }
@@ -3985,7 +4020,7 @@ if (backToWordsMenuBtn) {
     newBtn.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
-        console.log("◀ Botão VOLTAR do WORDS clicado");
+        window.enlDebug?.("◀ Botão VOLTAR do WORDS clicado");
         
         const pastSubmenu = document.getElementById('simple-verbs-past-submenu');
         const simpleSubmenu = document.getElementById('simple-verbs-submenu');

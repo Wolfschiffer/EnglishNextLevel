@@ -30,6 +30,8 @@
   let cloudSyncTimer = null;
   let cloudSyncState = 'local';
   let cloudLoadedUid = null;
+  const cloudSyncInFlight = new Map();
+  const cloudSyncPending = new Set();
 
   function currentProfileKey() {
     if (!window.isGuest && window.currentUser?.uid) {
@@ -471,7 +473,7 @@
     return Boolean(!window.isGuest && window.currentUser?.uid && typeof db !== 'undefined');
   }
 
-  async function syncFromCloud(force = false) {
+  async function syncFromCloud(force = false, queueIfInFlight = false) {
     if (!canUseCloud()) {
       cloudLoadedUid = null;
       setSyncState('local');
@@ -480,36 +482,69 @@
 
     const uid = window.currentUser.uid;
     if (!force && cloudLoadedUid === uid) return loadLocal();
+    if (cloudSyncInFlight.has(uid)) {
+      if (queueIfInFlight) cloudSyncPending.add(uid);
+      return cloudSyncInFlight.get(uid);
+    }
 
-    setSyncState('syncing');
-    try {
-      const snapshot = await db.collection('users').doc(uid).get();
-      const cloud = snapshot.exists ? snapshot.data()?.progressV1 : null;
-      const local = loadLocal(true);
-      importExistingNumbers(local);
-      const merged = mergeProgress(local, cloud);
-      cache = merged;
-      cacheKey = currentProfileKey();
+    const syncPromise = (async () => {
+      setSyncState('syncing');
       try {
-        window.localStorage.setItem(cacheKey, JSON.stringify(merged));
-      } catch (error) {}
-      writeNumbersBack(merged);
+        const docRef = db.collection('users').doc(uid);
+        const local = loadLocal(true);
+        importExistingNumbers(local);
+        const merged = await db.runTransaction(async (transaction) => {
+          const snapshot = await transaction.get(docRef);
+          const cloud = snapshot.exists ? snapshot.data()?.progressV1 : null;
+          const next = mergeProgress(local, cloud);
 
-      await db.collection('users').doc(uid).set({
-        progressV1: merged,
-        progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      }, { merge: true });
+          transaction.set(docRef, {
+            progressV1: next,
+            progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          return next;
+        });
 
-      cloudLoadedUid = uid;
-      setSyncState('synced');
-      renderProfile();
-      return merged;
-    } catch (error) {
-      console.warn('PROGRESS: Firestore sync unavailable; keeping local progress.', error);
-      cloudLoadedUid = uid;
-      setSyncState('error');
-      renderProfile();
-      return loadLocal();
+        if (window.isGuest || window.currentUser?.uid !== uid) return merged;
+
+        const latestLocal = loadLocal(true);
+        importExistingNumbers(latestLocal);
+        const mergedLatest = mergeProgress(latestLocal, merged);
+        if (JSON.stringify(mergedLatest) !== JSON.stringify(merged)) {
+          cloudSyncPending.add(uid);
+        }
+
+        cache = mergedLatest;
+        cacheKey = currentProfileKey();
+        try {
+          window.localStorage.setItem(cacheKey, JSON.stringify(mergedLatest));
+        } catch (error) {}
+        writeNumbersBack(mergedLatest);
+
+        cloudLoadedUid = uid;
+        setSyncState('synced');
+        renderProfile();
+        return mergedLatest;
+      } catch (error) {
+        console.warn('PROGRESS: Firestore sync unavailable; keeping local progress.', error);
+        if (!window.isGuest && window.currentUser?.uid === uid) {
+          cloudLoadedUid = null;
+          setSyncState('error');
+          renderProfile();
+        }
+        return loadLocal();
+      }
+    })();
+
+    cloudSyncInFlight.set(uid, syncPromise);
+    try {
+      return await syncPromise;
+    } finally {
+      const shouldSyncAgain = cloudSyncPending.delete(uid);
+      if (cloudSyncInFlight.get(uid) === syncPromise) cloudSyncInFlight.delete(uid);
+      if (shouldSyncAgain && !window.isGuest && window.currentUser?.uid === uid) {
+        await syncFromCloud(true);
+      }
     }
   }
 
@@ -518,42 +553,7 @@
       setSyncState('local');
       return;
     }
-
-    const uid = window.currentUser.uid;
-    const local = loadLocal();
-    const docRef = db.collection('users').doc(uid);
-    setSyncState('syncing');
-
-    try {
-      // Never push a stale local snapshot blindly. Read+merge inside a
-      // transaction so older days/completions already in Firestore survive.
-      const merged = await db.runTransaction(async (transaction) => {
-        const snapshot = await transaction.get(docRef);
-        const cloud = snapshot.exists ? snapshot.data()?.progressV1 : null;
-        const next = mergeProgress(local, cloud);
-        next.updatedAt = Math.max(next.updatedAt, Date.now());
-
-        transaction.set(docRef, {
-          progressV1: next,
-          progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-        return next;
-      });
-
-      cache = merged;
-      cacheKey = currentProfileKey();
-      try {
-        window.localStorage.setItem(cacheKey, JSON.stringify(merged));
-      } catch (error) {}
-      writeNumbersBack(merged);
-
-      cloudLoadedUid = uid;
-      setSyncState('synced');
-      renderProfile();
-    } catch (error) {
-      console.warn('PROGRESS: could not sync to Firestore.', error);
-      setSyncState('error');
-    }
+    return syncFromCloud(true, true);
   }
 
   function scheduleCloudSync() {
@@ -968,6 +968,10 @@
     } catch (error) {
       console.warn('PROGRESS: auth observer unavailable.', error);
     }
+
+    window.addEventListener('online', () => {
+      if (canUseCloud()) syncFromCloud(true, true);
+    });
   }
 
   window.EnglishNextLevelProgress = {
