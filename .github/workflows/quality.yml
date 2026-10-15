@@ -14,14 +14,26 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v7
 
+      - name: Set up Java for Firebase emulators
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: 24
+          node-version: 22
           package-manager-cache: false
+
+      - name: Install Functions dependencies
+        run: npm ci --prefix functions
 
       - name: Check JavaScript syntax
         run: node scripts/check-js.cjs
 
       - name: Run unit tests
-        run: node --test
+        run: npm test
+
+      - name: Run Firebase Emulator integration checks
+        run: npm run test:emulators

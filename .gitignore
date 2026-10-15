@@ -10,3 +10,10 @@
 /images/icon-numbers.png
 /images/icon-topics.png
 /images/icon-words.png
+
+# Firebase Local Emulator Suite output.
+/.firebase/
+/functions/node_modules/
+/firebase-debug.log
+/firestore-debug.log
+/ui-debug.log

@@ -17,6 +17,7 @@
     activeUtterance: null,
     feedbackTimeout: null
   };
+  let releaseStartFocusTrap = () => {};
 
   function $(id) {
     return document.getElementById(id);
@@ -160,10 +161,21 @@
     if (!overlay) return;
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden', 'false');
+
+    const dialog = overlay.querySelector('[role="dialog"]');
+    releaseStartFocusTrap = window.EnlKeyboardAccessibility?.trapDialogFocus?.(
+      dialog,
+      {
+        initialFocus: $('topic-match-start-btn'),
+        onEscape: returnToPreviousMenu
+      }
+    ) || (() => {});
   }
 
   function hideStartOverlay() {
     const overlay = $('topic-match-start-overlay');
+    releaseStartFocusTrap();
+    releaseStartFocusTrap = () => {};
     if (!overlay) return;
     overlay.classList.remove('visible');
     overlay.setAttribute('aria-hidden', 'true');
@@ -207,7 +219,7 @@
     const voice = getAmericanVoice(locale);
 
     utterance.lang = locale;
-    utterance.rate = 0.9;
+    utterance.rate = window.EnglishNextLevelAudio?.getVoiceRate?.() ?? 0.9;
     utterance.volume = Math.max(0, Math.min(1, (window.EnglishNextLevelAudio?.getVoiceVolume?.() ?? 100) / 100));
     if (voice) utterance.voice = voice;
 
@@ -301,6 +313,8 @@
         review.querySelector('.topic-review-audio')?.focus({ preventScroll: true });
       }, 60);
     }
+
+    window.EnglishNextLevelTopicStats?.finalizeRound('match');
   }
 
   function startRound() {
@@ -441,15 +455,43 @@
     prepare({ topic: state.topic, level: state.level });
   }
 
+  function returnToPreviousMenu() {
+    releaseStartFocusTrap();
+    releaseStartFocusTrap = () => {};
+    if (typeof window.goBack !== 'function') return;
+
+    const returnFocusTarget = $('topic-match-pairs-btn');
+    if (!returnFocusTarget || typeof window.addEventListener !== 'function') {
+      window.goBack();
+      return;
+    }
+
+    let focusRestored = false;
+    const restoreFocus = () => {
+      if (focusRestored) return;
+      if (returnFocusTarget.isConnected === false) return;
+      if (typeof returnFocusTarget.getClientRects === 'function' && returnFocusTarget.getClientRects().length === 0) return;
+
+      focusRestored = true;
+      window.removeEventListener?.('popstate', restoreFocus);
+      returnFocusTarget.focus?.({ preventScroll: true });
+    };
+
+    // The browser's popstate handler shows the previous menu before this listener restores focus.
+    window.addEventListener('popstate', restoreFocus);
+    window.goBack();
+    // The legacy navigation fallback changes screens synchronously and has no popstate event.
+    restoreFocus();
+  }
+
   function backToTopic() {
     stopSpeech();
     clearPendingTimeouts();
 
     // Current flow is Topic -> Level -> Game -> Match.
-    // Two back operations return to the selected topic's Common/Advanced screen.
+    // Skip the level and game menus to return to the selected topic's Common/Advanced screen.
     if (typeof window.goBack === 'function') {
-      window.goBack();
-      window.goBack();
+      window.goBack(2);
     }
   }
 
@@ -465,11 +507,10 @@
   }
 
   $('topic-match-start-btn')?.addEventListener('click', startRound);
+  $('topic-match-start-back-btn')?.addEventListener('click', returnToPreviousMenu);
   $('topic-match-play-again')?.addEventListener('click', playAgain);
   $('topic-match-back-topic')?.addEventListener('click', backToTopic);
-  $('back-from-topic-match')?.addEventListener('click', () => {
-    if (typeof window.goBack === 'function') window.goBack();
-  });
+  $('back-from-topic-match')?.addEventListener('click', returnToPreviousMenu);
 
   window.TopicMatchPairs = {
     prepare,

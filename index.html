@@ -3,7 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#101827">
   <title>ENL - English Next Level</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="images/brand/eagle-logo.png">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/topics.css">
   <link rel="stylesheet" href="css/topic-icons.css">
@@ -20,6 +23,8 @@
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/ts-fsrs@5.4.2/dist/index.umd.js" defer></script>
 </head>
 <body data-screen="words">
 
@@ -48,16 +53,21 @@
   </div>
 
   <div id="login-form" class="auth-form active">
-    <input type="email" id="login-email" placeholder="Email" class="auth-input" autocomplete="email" aria-label="Email">
-    <input type="password" id="login-password" placeholder="Password" class="auth-input" autocomplete="current-password" aria-label="Password">
+    <label class="sr-only" for="login-email">Email</label>
+    <input type="email" id="login-email" placeholder="Email" class="auth-input" autocomplete="email">
+    <label class="sr-only" for="login-password">Password</label>
+    <input type="password" id="login-password" placeholder="Password" class="auth-input" autocomplete="current-password">
     <button id="forgot-password-btn" class="auth-forgot-btn" type="button">Forgot password?</button>
     <button id="login-btn" class="auth-btn" type="button">Login</button>
   </div>
 
   <div id="register-form" class="auth-form">
-    <input type="text" id="register-name" placeholder="Your name" class="auth-input" autocomplete="name" aria-label="Your name">
-    <input type="email" id="register-email" placeholder="Email" class="auth-input" autocomplete="email" aria-label="Email">
-    <input type="password" id="register-password" placeholder="Password (min 6 characters)" class="auth-input" autocomplete="new-password" aria-label="Password">
+    <label class="sr-only" for="register-name">Your name</label>
+    <input type="text" id="register-name" placeholder="Your name" class="auth-input" autocomplete="name" maxlength="50">
+    <label class="sr-only" for="register-email">Email</label>
+    <input type="email" id="register-email" placeholder="Email" class="auth-input" autocomplete="email">
+    <label class="sr-only" for="register-password">Password (minimum 6 characters)</label>
+    <input type="password" id="register-password" placeholder="Password (min 6 characters)" class="auth-input" autocomplete="new-password">
     <button id="register-btn" class="auth-btn" type="button">Create account</button>
   </div>
 
@@ -71,7 +81,8 @@
     </div>
     <h2>Reset your password</h2>
     <p>Enter the email address connected to your English Next Level account.</p>
-    <input type="email" id="password-reset-email" placeholder="Email" class="auth-input" autocomplete="email" aria-label="Account email">
+    <label class="sr-only" for="password-reset-email">Account email</label>
+    <input type="email" id="password-reset-email" placeholder="Email" class="auth-input" autocomplete="email">
     <button id="password-reset-send-btn" class="auth-btn" type="button">Send reset link</button>
     <button id="password-reset-back-btn" class="auth-text-btn" type="button">Back to login</button>
     <p class="password-reset-hint">The reset message is sent by Firebase. If you do not see it, check your spam folder.</p>
@@ -699,7 +710,10 @@
     <div class="topic-match-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-match-start-title">
       <h2 id="topic-match-start-title">Ready?</h2>
       <p>Find every English word and its matching Portuguese card. The timer starts when you press START.</p>
-      <button id="topic-match-start-btn" class="topic-match-start-btn" type="button">START</button>
+      <div class="topic-match-start-actions">
+        <button id="topic-match-start-back-btn" class="topic-review-btn topic-review-btn-secondary" type="button">BACK</button>
+        <button id="topic-match-start-btn" class="topic-match-start-btn" type="button">START</button>
+      </div>
     </div>
   </div>
 
@@ -939,15 +953,15 @@
       <p>Select a range and train listening, recognition and pronunciation.</p>
     </div>
     <div class="game-cards">
-      <div class="game-card" data-numbers-mode="numbers" onclick="startNumberGame('numbers')"><div class="card-icon phase4-number-token">1–10</div><h3>Numbers 1-10</h3><p>one, two, three...</p><span class="card-badge easy">Easy</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="numbers11-20" onclick="startNumberGame('numbers11-20')"><div class="card-icon phase4-number-token">11–20</div><h3>Numbers 11-20</h3><p>eleven, twelve...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="tens" onclick="startNumberGame('tens')"><div class="card-icon phase4-number-token">20s</div><h3>Tens</h3><p>twenty, thirty, forty...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="random21_99" onclick="startNumberGame('random21_99')"><div class="card-icon phase4-number-token">21–99</div><h3>21 - 99</h3><p>twenty-one, thirty-two...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="hundreds" onclick="startNumberGame('hundreds')"><div class="card-icon phase4-number-token">100s</div><h3>Hundreds</h3><p>one hundred, two hundred...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="random101_999" onclick="startNumberGame('random101_999')"><div class="card-icon phase4-number-token">101–999</div><h3>101 - 999</h3><p>one hundred one, two hundred thirty...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="thousands" onclick="startNumberGame('thousands')"><div class="card-icon phase4-number-token">1K</div><h3>Thousands</h3><p>one thousand, two thousand...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="random1001_9999" onclick="startNumberGame('random1001_9999')"><div class="card-icon phase4-number-token">1K–9K</div><h3>1,001 - 9,999</h3><p>one thousand one, five thousand two hundred...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
-      <div class="game-card" data-numbers-mode="mixedAdvanced" onclick="startNumberGame('mixedAdvanced')"><div class="card-icon phase4-number-token">MIX</div><h3>Mixed Advanced</h3><p>21, 357, 4,821...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="numbers"><div class="card-icon phase4-number-token">1–10</div><h3>Numbers 1-10</h3><p>one, two, three...</p><span class="card-badge easy">Easy</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="numbers11-20"><div class="card-icon phase4-number-token">11–20</div><h3>Numbers 11-20</h3><p>eleven, twelve...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="tens"><div class="card-icon phase4-number-token">20s</div><h3>Tens</h3><p>twenty, thirty, forty...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="random21_99"><div class="card-icon phase4-number-token">21–99</div><h3>21 - 99</h3><p>twenty-one, thirty-two...</p><span class="card-badge medium">Medium</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="hundreds"><div class="card-icon phase4-number-token">100s</div><h3>Hundreds</h3><p>one hundred, two hundred...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="random101_999"><div class="card-icon phase4-number-token">101–999</div><h3>101 - 999</h3><p>one hundred one, two hundred thirty...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="thousands"><div class="card-icon phase4-number-token">1K</div><h3>Thousands</h3><p>one thousand, two thousand...</p><span class="card-badge hard">Hard</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="random1001_9999"><div class="card-icon phase4-number-token">1K–9K</div><h3>1,001 - 9,999</h3><p>one thousand one, five thousand two hundred...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
+      <div class="game-card" data-numbers-mode="mixedAdvanced"><div class="card-icon phase4-number-token">MIX</div><h3>Mixed Advanced</h3><p>21, 357, 4,821...</p><span class="card-badge expert">Expert</span><div class="best-score">Best: <span class="best-score-value">0</span></div></div>
     </div>
     <div class="menu-footer">
       <p>From the ebook <strong>“English Next Level”</strong> by Mylena Machado</p>
@@ -989,87 +1003,118 @@
     </div>
     
     <!-- Botão para Simple Verbs (mesmo estilo dos cards de categoria) -->
-<div class="category-card phase4-word-mode-card phase4-word-mode-card--present" id="simple-verbs-btn" data-words-only="true">
-      <div class="phase4-word-mode-icon" aria-hidden="true"><span>A</span><small>Z</small></div>
-      <div class="phase4-word-mode-copy"><span class="phase4-word-mode-kicker">PRESENT</span><h2>SIMPLE VERBS</h2><p>100 essential verbs in English</p></div>
+<button type="button" class="category-card phase4-word-mode-card phase4-word-mode-card--present" id="simple-verbs-btn" data-words-only="true">
+      <span class="phase4-word-mode-icon" aria-hidden="true"><span>A</span><small>Z</small></span>
+      <span class="phase4-word-mode-copy"><span class="phase4-word-mode-kicker">PRESENT</span><span class="phase4-word-mode-title">SIMPLE VERBS</span><span class="phase4-word-mode-description">100 essential verbs in English</span></span>
       <span class="phase4-word-mode-meta">10 games</span>
       <span class="phase4-word-mode-arrow" aria-hidden="true">›</span>
-    </div>
+    </button>
     
-<div class="category-card phase4-word-mode-card phase4-word-mode-card--past" id="simple-verbs-past-btn" data-words-only="true">
-      <div class="phase4-word-mode-icon phase4-word-mode-icon--past" aria-hidden="true"><span>ED</span><small>PAST</small></div>
-      <div class="phase4-word-mode-copy"><span class="phase4-word-mode-kicker">PAST TENSE</span><h2>SIMPLE VERBS PAST TENSE</h2><p>100 essential verbs in the past</p></div>
+<button type="button" class="category-card phase4-word-mode-card phase4-word-mode-card--past" id="simple-verbs-past-btn" data-words-only="true">
+      <span class="phase4-word-mode-icon phase4-word-mode-icon--past" aria-hidden="true"><span>ED</span><small>PAST</small></span>
+      <span class="phase4-word-mode-copy"><span class="phase4-word-mode-kicker">PAST TENSE</span><span class="phase4-word-mode-title">SIMPLE VERBS PAST TENSE</span><span class="phase4-word-mode-description">100 essential verbs in the past</span></span>
       <span class="phase4-word-mode-meta">10 games</span>
       <span class="phase4-word-mode-arrow" aria-hidden="true">›</span>
-    </div>
+    </button>
+
+    <button type="button" class="category-card phase4-word-mode-card phase4-spaced-review-button" id="spaced-review-open-btn" aria-controls="spaced-review-panel" aria-expanded="false">
+      <span class="phase4-word-mode-icon phase4-spaced-review-icon" aria-hidden="true"><span>↻</span><small>REVIEW</small></span>
+      <span class="phase4-word-mode-copy"><span class="phase4-word-mode-kicker">SMART PRACTICE</span><span class="phase4-word-mode-title">SPACED REVIEW</span><span class="phase4-word-mode-description">Review words at the right time</span></span>
+      <span class="phase4-word-mode-meta" id="spaced-review-due-count">0 due</span>
+      <span class="phase4-word-mode-arrow" aria-hidden="true">›</span>
+    </button>
+
+    <section class="phase4-spaced-review-panel" id="spaced-review-panel" aria-labelledby="spaced-review-title" hidden>
+      <div class="phase4-spaced-review-header">
+        <div>
+          <span class="phase4-section-kicker">VOCABULARY REVIEW</span>
+          <h2 id="spaced-review-title">Quick review</h2>
+        </div>
+        <button type="button" class="phase4-spaced-review-close" id="spaced-review-close-btn" aria-label="Close review">×</button>
+      </div>
+      <p id="spaced-review-status" class="phase4-spaced-review-status" role="status" aria-live="polite" tabindex="-1"></p>
+      <p id="spaced-review-empty" class="phase4-spaced-review-empty" hidden></p>
+      <article class="phase4-spaced-review-card" id="spaced-review-card" hidden>
+        <span id="spaced-review-question-label" class="phase4-spaced-review-label"></span>
+        <h3 id="spaced-review-question"></h3>
+        <p id="spaced-review-answer" hidden></p>
+        <button type="button" id="spaced-review-reveal-btn" class="phase4-spaced-review-primary">Show answer</button>
+        <div id="spaced-review-ratings" class="phase4-spaced-review-ratings" hidden>
+          <button type="button" data-rating="Again" aria-label="Again, I forgot">Again</button>
+          <button type="button" data-rating="Hard" aria-label="Hard to remember">Hard</button>
+          <button type="button" data-rating="Good" aria-label="Remembered">Good</button>
+          <button type="button" data-rating="Easy" aria-label="Very easy to remember">Easy</button>
+        </div>
+      </article>
+    </section>
 
     <!-- Submenu dos Simple Verbs (inicialmente escondido) -->
     <div id="simple-verbs-submenu" style="display: none;">
       <div class="game-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px;">
-    <div class="game-card" onclick="selectWordGame('verbs1')">
+    <div class="game-card" data-words-mode="verbs1">
         <div class="card-icon phase4-word-set-token">01</div>
         <h3>Simple Verbs 1</h3>
         <p>Everyday verbs</p>
         <span class="card-badge easy">Easy</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs2')">
+    <div class="game-card" data-words-mode="verbs2">
         <div class="card-icon phase4-word-set-token">02</div>
         <h3>Simple Verbs 2</h3>
         <p>Everyday verbs</p>
         <span class="card-badge easy">Easy</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs3')">
+    <div class="game-card" data-words-mode="verbs3">
         <div class="card-icon phase4-word-set-token">03</div>
         <h3>Simple Verbs 3</h3>
         <p>Common verbs</p>
         <span class="card-badge medium">Medium</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs4')">
+    <div class="game-card" data-words-mode="verbs4">
         <div class="card-icon phase4-word-set-token">04</div>
         <h3>Simple Verbs 4</h3>
         <p>Common verbs</p>
         <span class="card-badge easy">Easy</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs5')">
+    <div class="game-card" data-words-mode="verbs5">
         <div class="card-icon phase4-word-set-token">05</div>
         <h3>Simple Verbs 5</h3>
         <p>Common verbs</p>
         <span class="card-badge medium">Medium</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs6')">
+    <div class="game-card" data-words-mode="verbs6">
         <div class="card-icon phase4-word-set-token">06</div>
         <h3>Simple Verbs 6</h3>
         <p>Common verbs</p>
         <span class="card-badge medium">Medium</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs7')">
+    <div class="game-card" data-words-mode="verbs7">
         <div class="card-icon phase4-word-set-token">07</div>
         <h3>Simple Verbs 7</h3>
         <p>Core verbs</p>
         <span class="card-badge medium">Medium</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs8')">
+    <div class="game-card" data-words-mode="verbs8">
         <div class="card-icon phase4-word-set-token">08</div>
         <h3>Simple Verbs 8</h3>
         <p>Core verbs</p>
         <span class="card-badge medium">Medium</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs9')">
+    <div class="game-card" data-words-mode="verbs9">
         <div class="card-icon phase4-word-set-token">09</div>
         <h3>Simple Verbs 9</h3>
         <p>Core verbs</p>
         <span class="card-badge hard">Hard</span>
     </div>
 
-    <div class="game-card" onclick="selectWordGame('verbs10')">
+    <div class="game-card" data-words-mode="verbs10">
         <div class="card-icon phase4-word-set-token">10</div>
         <h3>Simple Verbs 10</h3>
         <p>Core verbs</p>
@@ -1081,70 +1126,70 @@
 
 <div id="simple-verbs-past-submenu" style="display: none;">
     <div class="game-cards" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px;">
-        <div class="game-card" onclick="selectWordGame('past1')">
+        <div class="game-card" data-words-mode="past1">
             <div class="card-icon phase4-word-set-token">01</div>
             <h3>Regular Verbs 1</h3>
             <p>Basic -ed</p>
             <span class="card-badge easy">Easy</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past2')">
+        <div class="game-card" data-words-mode="past2">
             <div class="card-icon phase4-word-set-token">02</div>
             <h3>Regular Verbs 2</h3>
             <p>Basic -ed</p>
             <span class="card-badge easy">Easy</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past3')">
+        <div class="game-card" data-words-mode="past3">
             <div class="card-icon phase4-word-set-token">03</div>
             <h3>Regular Verbs 3</h3>
             <p>Basic -ed</p>
             <span class="card-badge medium">Medium</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past4')">
+        <div class="game-card" data-words-mode="past4">
             <div class="card-icon phase4-word-set-token">04</div>
             <h3>Regular Verbs 4</h3>
             <p>Final -e</p>
             <span class="card-badge easy">Easy</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past5')">
+        <div class="game-card" data-words-mode="past5">
             <div class="card-icon phase4-word-set-token">05</div>
             <h3>Regular Verbs 5</h3>
             <p>Consonant + y</p>
             <span class="card-badge medium">Medium</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past6')">
+        <div class="game-card" data-words-mode="past6">
             <div class="card-icon phase4-word-set-token">06</div>
             <h3>Regular Verbs 6</h3>
             <p>Double Consonant</p>
             <span class="card-badge medium">Medium</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past7')">
+        <div class="game-card" data-words-mode="past7">
             <div class="card-icon phase4-word-set-token">07</div>
             <h3>Irregular Verbs 1</h3>
             <p>Core Set 1</p>
             <span class="card-badge medium">Medium</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past8')">
+        <div class="game-card" data-words-mode="past8">
             <div class="card-icon phase4-word-set-token">08</div>
             <h3>Irregular Verbs 2</h3>
             <p>Core Set 2</p>
             <span class="card-badge medium">Medium</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past9')">
+        <div class="game-card" data-words-mode="past9">
             <div class="card-icon phase4-word-set-token">09</div>
             <h3>Irregular Verbs 3</h3>
             <p>Core Set 3</p>
             <span class="card-badge hard">Hard</span>
         </div>
 
-        <div class="game-card" onclick="selectWordGame('past10')">
+        <div class="game-card" data-words-mode="past10">
             <div class="card-icon phase4-word-set-token">10</div>
             <h3>Irregular Verbs 4</h3>
             <p>Core Set 4</p>
@@ -1200,6 +1245,22 @@
           <input id="words-voice-volume" class="words-volume-slider" type="range" min="0" max="100" step="1" value="100" aria-valuemin="0" aria-valuemax="100" aria-valuenow="100">
         </label>
         <output id="words-voice-volume-value" class="words-volume-value" for="words-voice-volume">100%</output>
+      </div>
+    </div>
+
+    <div class="words-settings-control words-settings-control-separated">
+      <div class="words-settings-copy">
+        <strong>Speech speed</strong>
+        <small>Adjusts English pronunciation in every game. Changes apply to the next audio clip.</small>
+      </div>
+
+      <div class="words-volume-row">
+        <span class="words-volume-icon" aria-hidden="true">↔</span>
+        <label class="words-volume-slider-wrap" for="words-voice-rate">
+          <span class="sr-only">English speech speed</span>
+          <input id="words-voice-rate" class="words-volume-slider" type="range" min="50" max="150" step="5" value="90" aria-valuemin="50" aria-valuemax="150" aria-valuenow="90">
+        </label>
+        <output id="words-voice-rate-value" class="words-volume-value" for="words-voice-rate">90%</output>
       </div>
     </div>
   </div>
@@ -1317,18 +1378,66 @@
 </nav>
 
 <script src="js/debug.js"></script>
+<script src="js/firebase-environment.js"></script>
+<script src="js/password-reset.js"></script>
+<script src="js/email-verification.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/leaderboard-storage.js"></script>
+<script src="js/leaderboard-client.js"></script>
+<script src="js/numbers-run-client.js"></script>
 <script src="js/keyboard-accessibility.js"></script>
+<script src="js/leaderboard-dialog.js"></script>
+<script src="js/numbers-leaderboard.js"></script>
+<script src="js/numbers-result-dialog.js"></script>
+<script src="js/words-data.js"></script>
+<script src="js/numbers-data.js"></script>
+<script src="js/numbers-run-session.js"></script>
+<script src="js/numbers-scoring.js"></script>
+<script src="js/numbers-high-score-storage.js"></script>
+<script src="js/audio-engines.js"></script>
+<script src="js/audio-settings.js"></script>
+<script src="js/vocabulary-scoring.js"></script>
+<script src="js/words-speech.js"></script>
+<script src="js/vocabulary-result-dialog.js"></script>
+<script src="js/vocabulary-touch-input.js"></script>
+<script src="js/vocabulary-renderer.js"></script>
+  <script src="js/vocabulary-matching.js"></script>
+<script src="js/vocabulary-game.js"></script>
 <script src="js/game.js"></script>
+<script src="js/category-navigation.js"></script>
+<script src="js/numbers-eagle.js"></script>
+<script src="js/numbers-round-feedback.js"></script>
+<script src="js/numbers-game.js"></script>
+<script src="js/progress-profile-data.js"></script>
+<script src="js/progress-profile-summary.js"></script>
+<script src="js/progress-profile-renderer.js"></script>
 <script src="js/progress-profile.js"></script>
+<script src="js/spaced-review.js"></script>
 <script src="js/mobile-nav.js"></script>
+<script src="js/topics/data/kitchen.js"></script>
+<script src="js/topics/data/adjectives.js"></script>
+<script src="js/topics/data/feelings.js"></script>
+<script src="js/topics/data/house.js"></script>
+<script src="js/topics/data/bathroom.js"></script>
+<script src="js/topics/data/bedroom.js"></script>
+<script src="js/topics/data/livingRoom.js"></script>
+<script src="js/topics/data/body.js"></script>
+<script src="js/topics/data/summerClothes.js"></script>
+<script src="js/topics/data/winterClothes.js"></script>
+<script src="js/topics/data/transitionalClothes.js"></script>
+<script src="js/topics/data/airport.js"></script>
+<script src="js/topics/data/linkingWords.js"></script>
 <script src="js/topics/topics-data.js"></script>
 <script src="js/topics/match-pairs.js"></script>
+<script src="js/topics/speech-answer.js"></script>
+<script src="js/topics/speech-audio.js"></script>
+<script src="js/topics/speech-recognition.js"></script>
+<script src="js/topics/speech-page-lifecycle.js"></script>
 <script src="js/topics/speech-game.js"></script>
 <script src="js/topics/speech-ui.js"></script>
 <script src="js/topics/topics-menu.js"></script>
 <script src="js/topics/topic-stats.js"></script>
+<script src="js/pwa-register.js"></script>
 <script>
     if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
         document.body.style.width = "calc(100% + 1px)";

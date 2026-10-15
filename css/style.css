@@ -4629,6 +4629,8 @@ body[data-screen="words"] #words-menu-container #simple-verbs-past-btn {
 /* WORDS: two large practice-type cards, then compact set tiles. */
 #words-menu-container.phase4-menu-screen--words .phase4-word-mode-card {
   position: relative;
+  font: inherit;
+  color: inherit;
   width: calc(50% - 9px);
   max-width: 390px !important;
   min-height: 250px;
@@ -4716,14 +4718,16 @@ body[data-screen="words"] #words-menu-container #simple-verbs-past-btn {
   letter-spacing: .13em;
 }
 
-#words-menu-container.phase4-menu-screen--words .phase4-word-mode-copy h2 {
+#words-menu-container.phase4-menu-screen--words .phase4-word-mode-title {
+  display: block;
   margin: 0 0 7px !important;
   color: var(--phase4-navy) !important;
   font-size: 1.05rem !important;
   line-height: 1.18;
 }
 
-#words-menu-container.phase4-menu-screen--words .phase4-word-mode-copy p {
+#words-menu-container.phase4-menu-screen--words .phase4-word-mode-description {
+  display: block;
   margin: 0 auto !important;
   color: var(--phase4-muted) !important;
   font-size: .78rem !important;
@@ -4798,13 +4802,13 @@ body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .ph
 
 body[data-screen="wordsSubmenu"] #words-menu-container #simple-verbs-past-btn .phase4-word-mode-meta,
 body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .phase4-word-mode-meta,
-body[data-screen="wordsSubmenu"] #words-menu-container #simple-verbs-past-btn .phase4-word-mode-copy p,
-body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .phase4-word-mode-copy p {
+body[data-screen="wordsSubmenu"] #words-menu-container #simple-verbs-past-btn .phase4-word-mode-description,
+body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .phase4-word-mode-description {
   display: none;
 }
 
-body[data-screen="wordsSubmenu"] #words-menu-container #simple-verbs-past-btn .phase4-word-mode-copy h2,
-body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .phase4-word-mode-copy h2 {
+body[data-screen="wordsSubmenu"] #words-menu-container #simple-verbs-past-btn .phase4-word-mode-title,
+body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .phase4-word-mode-title {
   padding-top: 1px;
   font-size: .88rem !important;
 }
@@ -5197,6 +5201,41 @@ body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .ph
   font-weight: 700;
 }
 
+.leaderboard-source-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(228, 235, 243, 0.98);
+  color: #684f16;
+  background: #fff8e8;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.leaderboard-retry-btn {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 8px 14px;
+  border: 1px solid #c9a13b;
+  border-radius: 12px;
+  color: #14284a;
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.leaderboard-retry-btn:focus-visible {
+  outline: 3px solid #2f67a3;
+  outline-offset: 2px;
+}
+
+.leaderboard-empty .leaderboard-retry-btn {
+  margin-top: 4px;
+}
+
 .leaderboard-list {
   max-height: 380px;
   overflow-y: auto;
@@ -5376,6 +5415,11 @@ body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .ph
   .leaderboard-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 9px;
+  }
+
+  .leaderboard-source-note {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .tab-btn {
@@ -7157,5 +7201,153 @@ body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .ph
 
   #game-container.phase5-numbers-game .start-btn:active {
     transform: scale(0.985);
+  }
+}
+
+#words-menu-container.phase4-menu-screen--words .phase4-spaced-review-button {
+  border-color: #c7d8ec !important;
+  background: linear-gradient(110deg, #edf7ff, #f9fbff 58%, #fff) !important;
+}
+
+#words-menu-container.phase4-menu-screen--words .phase4-spaced-review-button:hover,
+#words-menu-container.phase4-menu-screen--words .phase4-spaced-review-button:focus-visible {
+  border-color: #79a9da !important;
+  box-shadow: 0 14px 30px rgba(36, 92, 151, .14);
+}
+
+#words-menu-container.phase4-menu-screen--words .phase4-spaced-review-icon {
+  background: #dcecff;
+  color: #285987;
+}
+
+#words-menu-container.phase4-menu-screen--words .phase4-spaced-review-icon > span {
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+body[data-screen="wordsSubmenu"] #spaced-review-open-btn,
+body[data-screen="wordsSubmenuPast"] #spaced-review-open-btn,
+body[data-screen="wordsSubmenu"] #spaced-review-panel,
+body[data-screen="wordsSubmenuPast"] #spaced-review-panel {
+  display: none !important;
+}
+
+#words-menu-container .phase4-spaced-review-panel {
+  width: min(620px, 100%);
+  margin: 14px auto 22px;
+  padding: clamp(16px, 4vw, 24px);
+  border: 1px solid #dce6f2;
+  border-radius: 20px;
+  background: #fff;
+  color: var(--phase4-navy);
+  box-shadow: 0 12px 30px rgba(35, 73, 125, .09);
+}
+
+#words-menu-container .phase4-spaced-review-panel[hidden],
+#words-menu-container .phase4-spaced-review-card[hidden],
+#words-menu-container .phase4-spaced-review-empty[hidden],
+#words-menu-container #spaced-review-answer[hidden],
+#words-menu-container #spaced-review-ratings[hidden],
+#words-menu-container #spaced-review-reveal-btn[hidden] {
+  display: none !important;
+}
+
+.phase4-spaced-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.phase4-spaced-review-header h2 {
+  margin: 0;
+  color: var(--phase4-navy);
+  font-size: 1.2rem;
+}
+
+.phase4-spaced-review-close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border: 1px solid #dce6f2;
+  border-radius: 12px;
+  background: #f7faff;
+  color: #36516c;
+  cursor: pointer;
+  font-size: 1.6rem;
+}
+
+.phase4-spaced-review-status,
+.phase4-spaced-review-empty {
+  color: var(--phase4-muted);
+  line-height: 1.5;
+}
+
+.phase4-spaced-review-card {
+  margin-top: 12px;
+  padding: clamp(16px, 4vw, 22px);
+  border-radius: 16px;
+  background: #f6f9fd;
+  text-align: center;
+}
+
+.phase4-spaced-review-label {
+  color: #60758c;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.phase4-spaced-review-card h3 {
+  margin: 10px 0;
+  color: var(--phase4-navy);
+  font-size: clamp(1.3rem, 4vw, 1.8rem);
+}
+
+.phase4-spaced-review-card > p:not(.phase4-spaced-review-label) {
+  margin: 10px 0 16px;
+  color: #244d76;
+  font-size: 1.1rem;
+  font-weight: 750;
+}
+
+.phase4-spaced-review-primary,
+.phase4-spaced-review-ratings button {
+  min-height: 42px;
+  padding: 9px 14px;
+  border: 1px solid #cbd8e7;
+  border-radius: 11px;
+  background: #fff;
+  color: #244d76;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 750;
+}
+
+.phase4-spaced-review-primary {
+  border-color: #2f6fae;
+  background: #2f6fae;
+  color: #fff;
+}
+
+.phase4-spaced-review-ratings {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.phase4-spaced-review-ratings button:focus-visible,
+.phase4-spaced-review-primary:focus-visible,
+.phase4-spaced-review-close:focus-visible {
+  outline: 3px solid #77afe3;
+  outline-offset: 2px;
+}
+
+@media (max-width: 480px) {
+  .phase4-spaced-review-ratings {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

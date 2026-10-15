@@ -6,6 +6,7 @@
 
 (function () {
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  const speechAnswer = window.TopicSpeakAnswer;
 
   const state = {
     topic: null,
@@ -37,6 +38,10 @@
     acceptRecognitionTimer: null,
     ignoreRecognitionUntil: 0
   };
+  let pageLifecycle = null;
+  let speechAudio = null;
+  let recognitionController = null;
+  let pendingPronunciationTimer = null;
 
   function $(id) {
     return document.getElementById(id);
@@ -176,7 +181,7 @@
 
   function openSettings() {
     state.acceptingRecognition = false;
-    clearAcceptRecognitionTimer();
+    recognitionController.clearAcceptRecognitionTimer();
     stopSpeech();
     const overlay = $('topic-speak-settings-overlay');
     if (!overlay) return;
@@ -194,8 +199,8 @@
     overlay.classList.remove('visible');
     overlay.setAttribute('aria-hidden', 'true');
     $('topic-speak-settings-btn')?.focus({ preventScroll: true });
-    if (state.started && !state.currentWordResolved && state.listening && !state.recognitionPaused && pageCanUseMicrophone()) {
-      armRecognitionForCurrentWord(250);
+    if (state.started && !state.currentWordResolved && state.listening && !state.recognitionPaused && recognitionController.pageCanUseMicrophone()) {
+      recognitionController.armRecognitionForCurrentWord(250);
     }
   }
 
@@ -208,46 +213,8 @@
     return result;
   }
 
-  function normalizeAnswer(value) {
-    return String(value || '')
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[’']/g, '')
-      .replace(/[^a-z0-9\s-]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
-  }
-
-  function removeLeadingArticle(value) {
-    return value.replace(/^(a|an|the)\s+/, '').trim();
-  }
-
   function currentWord() {
     return state.words[state.currentIndex] || null;
-  }
-
-  function acceptedAnswers(word) {
-    const source = Array.isArray(word?.accepted) && word.accepted.length
-      ? word.accepted
-      : [word?.english];
-    const recognitionAliases = Array.isArray(word?.recognitionAliases)
-      ? word.recognitionAliases
-      : [];
-
-    return [...source, ...recognitionAliases]
-      .filter(Boolean)
-      .map(normalizeAnswer)
-      .filter(Boolean);
-  }
-
-  function answerIsCorrect(transcript, word) {
-    const normalized = normalizeAnswer(transcript);
-    const withoutArticle = removeLeadingArticle(normalized);
-
-    return acceptedAnswers(word).some((accepted) => {
-      return normalized === accepted || withoutArticle === accepted;
-    });
   }
 
   function setStatus(message, type = '') {
@@ -273,149 +240,13 @@
     label.textContent = activelyListening ? 'LISTENING…' : 'SPEAK';
   }
 
-  function pageCanUseMicrophone() {
-    const visible = typeof document.visibilityState !== 'string' || document.visibilityState === 'visible';
-    return visible && state.pageFocused;
-  }
-
-  function clearRecognitionRestartTimer() {
-    if (state.recognitionRestartTimer) {
-      window.clearTimeout(state.recognitionRestartTimer);
-      state.recognitionRestartTimer = null;
-    }
-  }
-
-  function clearAcceptRecognitionTimer() {
-    if (state.acceptRecognitionTimer) {
-      window.clearTimeout(state.acceptRecognitionTimer);
-      state.acceptRecognitionTimer = null;
-    }
-  }
-
-  function armRecognitionForCurrentWord(delay = 0) {
-    clearAcceptRecognitionTimer();
-    state.acceptingRecognition = false;
-
-    const activate = () => {
-      state.acceptRecognitionTimer = null;
-      if (!state.inSpeakScreen || !state.started || state.currentWordResolved || state.recognitionPaused || !pageCanUseMicrophone()) return;
-      state.ignoreRecognitionUntil = Date.now() + 220;
-      state.acceptingRecognition = true;
-      if (state.listening) setStatus('Listening… say the English word now.', 'listening');
-    };
-
-    if (delay > 0) {
-      state.acceptRecognitionTimer = window.setTimeout(activate, delay);
-    } else {
-      activate();
-    }
-  }
-
-  function stopRecognition({ cancelPendingPronunciation = false, disableMic = false, endSession = true } = {}) {
-    state.recognitionStarting = false;
-    state.recognitionStartedAt = 0;
-    state.acceptingRecognition = false;
-    clearAcceptRecognitionTimer();
-    clearRecognitionRestartTimer();
-
-    if (endSession) {
-      state.recognitionSessionWanted = false;
-    }
-
-    if (cancelPendingPronunciation) {
-      state.pendingPronunciation = null;
-    }
-
-    if (state.recognition) {
-      try {
-        state.recognition.abort();
-      } catch (error) {
-        if (error?.name !== 'InvalidStateError') {
-          console.warn('TOPICS Speak: could not abort recognition.', error);
-        }
-      }
-    }
-
-    setMicState(false);
-
-    const mic = $('topic-speak-mic');
-    if (mic && disableMic) mic.disabled = true;
-  }
-
-  function suspendMicrophoneForPageLifecycle() {
-    const wasUsingMicrophone = state.listening || state.recognitionStarting;
-    if (wasUsingMicrophone) {
-      state.suspendedByPageLifecycle = true;
-      stopRecognition({
-        cancelPendingPronunciation: true,
-        disableMic: true,
-        endSession: false
-      });
-    } else {
-      // No recognition session is active; only keep the controls disabled while
-      // the page is genuinely outside the foreground/focus state.
-      state.pendingPronunciation = null;
-      const mic = $('topic-speak-mic');
-      if (mic && !pageCanUseMicrophone()) mic.disabled = true;
-    }
-    stopSpeech();
-  }
-
-  function resumeMicrophoneControlsAfterFocus() {
-    if (!pageCanUseMicrophone()) return;
-
-    const mic = $('topic-speak-mic');
-    if (mic && state.started && !state.currentWordResolved && !state.recognitionBlocked) {
-      mic.disabled = false;
-    }
-
-    if (state.suspendedByPageLifecycle) {
-      state.suspendedByPageLifecycle = false;
-    }
-
-    if (state.inSpeakScreen && state.recognitionSessionWanted && !state.recognitionPaused && !state.recognitionBlocked) {
-      startRecognitionSession();
-    }
-  }
-
   function stopSpeech() {
-    if ('speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-    }
-    state.activeUtterance = null;
-    document.querySelectorAll('#topic-speak-container .topic-review-audio.is-playing').forEach((button) => {
-      button.classList.remove('is-playing');
-    });
-  }
-
-  function getAmericanVoice(locale) {
-    if (!('speechSynthesis' in window)) return null;
-    const voices = window.speechSynthesis.getVoices();
-    const target = (locale || 'en-US').toLowerCase();
-
-    return voices.find((voice) => voice.lang?.toLowerCase() === target) ||
-      voices.find((voice) => voice.lang?.toLowerCase().startsWith('en-us')) ||
-      voices.find((voice) => voice.lang?.toLowerCase().startsWith('en')) ||
-      null;
+    clearPendingPronunciation();
+    speechAudio?.stop();
   }
 
   function primeSpeechOutput() {
-    if (state.speechOutputPrimed || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
-      return;
-    }
-
-    try {
-      const utterance = new SpeechSynthesisUtterance(' ');
-      utterance.lang = state.topic?.englishVariant || 'en-US';
-      utterance.volume = 0;
-      utterance.rate = 1;
-      window.speechSynthesis.cancel();
-      window.speechSynthesis.speak(utterance);
-      window.speechSynthesis.resume?.();
-      state.speechOutputPrimed = true;
-    } catch (error) {
-      console.warn('TOPICS Speak: could not prime speech output.', error);
-    }
+    speechAudio?.prime();
   }
 
   function clearAutoAdvance() {
@@ -423,6 +254,22 @@
       window.clearTimeout(state.autoAdvanceTimer);
       state.autoAdvanceTimer = null;
     }
+  }
+
+  function clearPendingPronunciation() {
+    if (pendingPronunciationTimer !== null) {
+      window.clearTimeout(pendingPronunciationTimer);
+      pendingPronunciationTimer = null;
+    }
+  }
+
+  function schedulePronunciation(word, button, onDone) {
+    clearPendingPronunciation();
+    pendingPronunciationTimer = window.setTimeout(() => {
+      pendingPronunciationTimer = null;
+      if (!state.inSpeakScreen || !state.started || !state.currentWordResolved || currentWord() !== word) return;
+      playPronunciation(word, button, onDone);
+    }, 180);
   }
 
   function scheduleAutoAdvance(delay = 700) {
@@ -435,55 +282,8 @@
   }
 
   function playPronunciation(word, button, onDone = null) {
-    let finished = false;
-    const finish = () => {
-      if (finished) return;
-      finished = true;
-      if (typeof onDone === 'function') onDone();
-    };
-
-    if (!word || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') {
-      if (button) {
-        button.disabled = true;
-        button.title = 'Audio is not supported in this browser.';
-      }
-      window.setTimeout(finish, 650);
-      return;
-    }
-
-    stopSpeech();
-
-    const voiceVolume = getVoiceVolume();
-    if (voiceVolume <= 0) {
-      window.setTimeout(finish, 650);
-      return;
-    }
-
-    const locale = state.topic?.englishVariant || 'en-US';
-    const utterance = new SpeechSynthesisUtterance(word.english);
-    const voice = getAmericanVoice(locale);
-
-    utterance.lang = locale;
-    utterance.rate = 0.9;
-    utterance.volume = voiceVolume / 100;
-    if (voice) utterance.voice = voice;
-
-    state.activeUtterance = utterance;
-    button?.classList.add('is-playing');
-
-    const cleanup = () => {
-      button?.classList.remove('is-playing');
-      if (state.activeUtterance === utterance) state.activeUtterance = null;
-      finish();
-    };
-
-    utterance.onend = cleanup;
-    utterance.onerror = cleanup;
-
-    // Some mobile browsers leave speech synthesis paused after microphone use.
-    window.speechSynthesis.resume?.();
-    window.speechSynthesis.speak(utterance);
-    window.speechSynthesis.resume?.();
+    clearPendingPronunciation();
+    speechAudio?.play(word, button, onDone);
   }
 
   function updateHeader() {
@@ -526,38 +326,10 @@
     if (mic) mic.hidden = true;
   }
 
-  function setRecognitionAvailability() {
-    const unsupported = $('topic-speak-unsupported');
-    const mic = $('topic-speak-mic');
-    if (!unsupported || !mic) return;
-
-    if (!SpeechRecognitionCtor) {
-      showFallback(
-        'Voice recognition is not available in this browser.',
-        'You can still study the word and listen to the American English pronunciation.'
-      );
-      setStatus('Voice recognition is unavailable here. Use Show Answer to keep studying.', 'error');
-      return;
-    }
-
-    if (state.recognitionBlocked) {
-      unsupported.hidden = false;
-      mic.hidden = true;
-      mic.disabled = true;
-      return;
-    }
-
-    unsupported.hidden = true;
-    mic.hidden = false;
-    // A new word/round must always restore the microphone button. A correct
-    // answer disables it temporarily, so without this reset the next level
-    // (for example Common -> Advanced) can inherit a disabled button.
-    mic.disabled = false;
-  }
-
   function renderCurrentWord({ resumeListeningDelay = 0 } = {}) {
     clearAutoAdvance();
-    clearAcceptRecognitionTimer();
+    clearPendingPronunciation();
+    recognitionController.clearAcceptRecognitionTimer();
     state.acceptingRecognition = false;
     stopSpeech();
 
@@ -581,13 +353,13 @@
     const reveal = $('topic-speak-reveal');
     if (reveal) reveal.disabled = false;
 
-    setRecognitionAvailability();
+    recognitionController.setRecognitionAvailability();
     if (SpeechRecognitionCtor) {
       if (state.started && state.recognitionSessionWanted) {
         if (state.recognitionPaused) {
           setStatus('Microphone paused. Tap Speak to continue.');
         } else if (state.listening) {
-          armRecognitionForCurrentWord(resumeListeningDelay);
+          recognitionController.armRecognitionForCurrentWord(resumeListeningDelay);
         } else {
           setStatus('Starting microphone…');
         }
@@ -639,7 +411,7 @@
     state.ignoreRecognitionUntil = Date.now() + 4000;
     scheduleAutoAdvance(3200);
     const afterPronunciation = () => scheduleAutoAdvance(420);
-    window.setTimeout(() => playPronunciation(word, audio, afterPronunciation), 180);
+    schedulePronunciation(word, audio, afterPronunciation);
   }
 
   function showWrongResult(transcript) {
@@ -653,7 +425,7 @@
     // pressed again.
     state.recognitionPaused = true;
     state.acceptingRecognition = false;
-    clearAcceptRecognitionTimer();
+    recognitionController.clearAcceptRecognitionTimer();
     setMicState(state.listening);
     setStatus('Not quite. Tap Speak to try again.', 'wrong');
 
@@ -666,7 +438,7 @@
     if (!word) return;
 
     state.acceptingRecognition = false;
-    clearAcceptRecognitionTimer();
+    recognitionController.clearAcceptRecognitionTimer();
     state.currentWordResolved = true;
     updatePreviewAudioVisibility();
     hideHeard();
@@ -693,189 +465,8 @@
 
     state.ignoreRecognitionUntil = Date.now() + 4200;
     scheduleAutoAdvance(3200);
-    window.setTimeout(() => {
-      playPronunciation(word, audio, () => scheduleAutoAdvance(700));
-    }, 180);
+    schedulePronunciation(word, audio, () => scheduleAutoAdvance(700));
   }
-
-  function createRecognition() {
-    if (!SpeechRecognitionCtor) return null;
-
-    const recognition = new SpeechRecognitionCtor();
-    recognition.lang = state.topic?.englishVariant || 'en-US';
-    recognition.continuous = true;
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 5;
-
-    recognition.onstart = () => {
-      state.recognitionStarting = false;
-      state.recognitionStartedAt = Date.now();
-      state.recognitionBlocked = false;
-
-      // A hidden page must never keep the microphone. For a visible page,
-      // allow the browser a moment to return focus after closing its native
-      // permission prompt before deciding that focus was genuinely lost.
-      if (document.visibilityState === 'hidden' || !state.inSpeakScreen || !state.recognitionSessionWanted) {
-        try { recognition.abort(); } catch (error) {}
-        setMicState(false);
-        return;
-      }
-
-      setMicState(true);
-      const mic = $('topic-speak-mic');
-      if (mic && state.started && !state.recognitionBlocked) mic.disabled = false;
-      hideHeard();
-      if (state.started && !state.currentWordResolved && !state.recognitionPaused) {
-        armRecognitionForCurrentWord(180);
-      } else {
-        state.acceptingRecognition = false;
-        setStatus(state.recognitionPaused ? 'Microphone paused. Tap Speak to continue.' : 'Microphone ready.');
-      }
-    };
-
-    recognition.onresult = (event) => {
-      if (state.recognitionPaused || !state.acceptingRecognition || Date.now() < state.ignoreRecognitionUntil) return;
-
-      const word = currentWord();
-      if (!word || state.currentWordResolved || !state.started) return;
-
-      const results = event.results?.[event.resultIndex || 0];
-      if (!results) return;
-
-      const alternatives = [];
-      for (let i = 0; i < results.length; i += 1) {
-        const transcript = String(results[i]?.transcript || '').trim();
-        if (transcript) alternatives.push(transcript);
-      }
-
-      const bestTranscript = alternatives[0] || '';
-
-      // Validate only the transcript we actually show to the learner.
-      // Previously, a lower-ranked hidden alternative could mark the answer
-      // as correct while "I heard" displayed a different word, which was
-      // confusing (for example: showing "gratitude" but accepting because
-      // another hidden alternative was "grater").
-      if (answerIsCorrect(bestTranscript, word)) {
-        showCorrectResult(word, bestTranscript);
-      } else {
-        showWrongResult(bestTranscript);
-      }
-    };
-
-    recognition.onerror = (event) => {
-      const code = event?.error || 'unknown';
-      const messages = {
-        'not-allowed': 'Microphone permission was denied. Allow microphone access and try again.',
-        'service-not-allowed': 'Voice recognition is blocked in this browser.',
-        'audio-capture': 'No microphone was detected.',
-        'no-speech': 'I did not hear a word. Try again.',
-        'network': 'Voice recognition could not connect. Check your connection and try again.'
-      };
-
-
-      if (['not-allowed', 'service-not-allowed', 'audio-capture'].includes(code)) {
-        state.recognitionBlocked = true;
-        const fallbackTitle = code === 'audio-capture'
-          ? 'No microphone is available.'
-          : 'Microphone access is blocked.';
-        showFallback(
-          fallbackTitle,
-          'You can continue with Show Answer, then listen to the American English pronunciation.'
-        );
-      }
-
-      setStatus(messages[code] || 'Voice recognition stopped. Try again.', 'error');
-    };
-
-    recognition.onend = () => {
-      state.recognitionStarting = false;
-      state.recognitionStartedAt = 0;
-      state.acceptingRecognition = false;
-      setMicState(false);
-
-      if (state.recognitionSessionWanted && !state.recognitionPaused && state.inSpeakScreen && !state.recognitionBlocked && pageCanUseMicrophone()) {
-        clearRecognitionRestartTimer();
-        state.recognitionRestartTimer = window.setTimeout(() => {
-          state.recognitionRestartTimer = null;
-          startRecognitionSession();
-        }, 260);
-      }
-    };
-
-
-    return recognition;
-  }
-
-  function startRecognitionSession() {
-    if (!state.inSpeakScreen || !state.recognitionSessionWanted || state.recognitionPaused || state.listening || state.recognitionStarting || !SpeechRecognitionCtor) return;
-    if (!pageCanUseMicrophone()) return;
-
-    if (!state.recognition) {
-      state.recognition = createRecognition();
-    }
-    if (!state.recognition) return;
-
-    state.recognition.lang = state.topic?.englishVariant || 'en-US';
-
-    const mic = $('topic-speak-mic');
-    if (mic) mic.disabled = true;
-
-    state.recognitionStarting = true;
-    state.recognitionStartedAt = 0;
-    setStatus('Starting microphone…');
-
-    try {
-      state.recognition.start();
-    } catch (error) {
-      state.recognitionStarting = false;
-      if (mic && pageCanUseMicrophone()) mic.disabled = false;
-      setMicState(false);
-      setStatus('Could not start the microphone yet. Tap Speak to retry.', 'error');
-      console.warn('TOPICS Speak: recognition start failed.', error);
-    }
-  }
-
-  function toggleListening() {
-    if (!state.inSpeakScreen || !state.started || state.recognitionBlocked) return;
-
-    // SPEAK while soft-paused: resume the SAME continuous recognition session.
-    // If the browser session is still alive, this does not call start() again.
-    if (state.recognitionPaused) {
-      state.recognitionPaused = false;
-      state.recognitionSessionWanted = true;
-      setMicState(state.listening);
-
-      if (state.listening) {
-        armRecognitionForCurrentWord(120);
-      } else if (!state.recognitionStarting) {
-        // The session may have ended for a browser/lifecycle reason while paused.
-        // Only in that case is a new browser session required.
-        startRecognitionSession();
-      }
-      return;
-    }
-
-    // LISTENING -> SPEAK: soft-pause only. Do NOT abort/stop the underlying
-    // continuous browser recognition session, otherwise Chromium may treat the
-    // next start as a new microphone permission session (especially file://).
-    if (state.listening || state.recognitionStarting || state.recognitionSessionWanted) {
-      state.recognitionPaused = true;
-      state.acceptingRecognition = false;
-      clearAcceptRecognitionTimer();
-      setMicState(state.listening);
-
-      const mic = $('topic-speak-mic');
-      if (mic && pageCanUseMicrophone()) mic.disabled = false;
-      setStatus('Microphone paused. Tap Speak to continue.');
-      return;
-    }
-
-    // No browser session exists yet. Start the first one.
-    state.recognitionPaused = false;
-    state.recognitionSessionWanted = true;
-    startRecognitionSession();
-  }
-
 
   function showStartOverlay() {
     const overlay = $('topic-speak-start-overlay');
@@ -939,9 +530,10 @@
   }
 
   function showReview() {
+    clearPendingPronunciation();
     state.recognitionPaused = true;
     state.acceptingRecognition = false;
-    clearAcceptRecognitionTimer();
+    recognitionController.clearAcceptRecognitionTimer();
     setMicState(state.listening);
     stopSpeech();
     state.started = false;
@@ -961,6 +553,8 @@
         block: 'start'
       });
     }
+
+    window.EnglishNextLevelTopicStats?.finalizeRound('speak');
   }
 
   function nextWord() {
@@ -998,9 +592,9 @@
       // it for the new round instead of requesting a new browser session.
       if (state.listening) {
         setMicState(true);
-        armRecognitionForCurrentWord(180);
+        recognitionController.armRecognitionForCurrentWord(180);
       } else {
-        startRecognitionSession();
+        recognitionController.startRecognitionSession();
       }
       mic?.focus({ preventScroll: true });
     } else {
@@ -1033,9 +627,9 @@
     state.recognitionPaused = false;
     state.acceptingRecognition = false;
     state.ignoreRecognitionUntil = 0;
-    clearRecognitionRestartTimer();
-    clearAcceptRecognitionTimer();
-    clearBlurLifecycleTimer();
+    recognitionController.clearRecognitionRestartTimer();
+    recognitionController.clearAcceptRecognitionTimer();
+    pageLifecycle?.clearBlurLifecycleTimer();
     clearAutoAdvance();
 
     const mic = $('topic-speak-mic');
@@ -1056,7 +650,8 @@
     if (!state.topic || !state.level) return;
 
     clearAutoAdvance();
-    clearAcceptRecognitionTimer();
+    clearPendingPronunciation();
+    recognitionController.clearAcceptRecognitionTimer();
     stopSpeech();
     state.words = shuffle(state.level.words);
     state.currentIndex = 0;
@@ -1084,16 +679,17 @@
 
   function leaveGame() {
     clearAutoAdvance();
-    clearAcceptRecognitionTimer();
+    clearPendingPronunciation();
+    recognitionController.clearAcceptRecognitionTimer();
     state.inSpeakScreen = false;
     state.recognitionSessionWanted = false;
-    stopRecognition({ endSession: true });
+    recognitionController.stopRecognition({ endSession: true });
     state.recognitionPaused = false;
     stopSpeech();
     state.started = false;
     state.currentWordResolved = false;
     state.pendingPronunciation = null;
-    clearBlurLifecycleTimer();
+    pageLifecycle?.clearBlurLifecycleTimer();
     hideStartOverlay();
     updatePreviewAudioVisibility();
     const settingsOverlay = $('topic-speak-settings-overlay');
@@ -1104,7 +700,7 @@
   }
 
   $('topic-speak-start-btn')?.addEventListener('click', startRound);
-  $('topic-speak-mic')?.addEventListener('click', toggleListening);
+  $('topic-speak-mic')?.addEventListener('click', () => recognitionController.toggleListening());
   $('topic-speak-reveal')?.addEventListener('click', revealAnswer);
   $('topic-speak-audio')?.addEventListener('click', () => {
     const word = currentWord();
@@ -1147,92 +743,38 @@
     syncSfxVolumeUI();
   });
 
-  // Privacy/lifecycle guard. The SpeechRecognition permission UI itself can
-  // temporarily blur the page, so blur is handled with a deferred check.
-  // Hidden/pagehide/freeze events remain immediate and always stop recognition.
-  function clearBlurLifecycleTimer() {
-    if (state.blurLifecycleTimer) {
-      window.clearTimeout(state.blurLifecycleTimer);
-      state.blurLifecycleTimer = null;
-    }
-  }
-
-  function scheduleBlurLifecycleCheck(delay = 350) {
-    clearBlurLifecycleTimer();
-    state.blurLifecycleTimer = window.setTimeout(() => {
-      state.blurLifecycleTimer = null;
-
-      if (document.visibilityState === 'hidden') {
-        state.pageFocused = false;
-        suspendMicrophoneForPageLifecycle();
-        return;
-      }
-
-      if (typeof document.hasFocus === 'function' && document.hasFocus()) {
-        state.pageFocused = true;
-        return;
-      }
-
-      // While Chromium is still resolving the native microphone permission
-      // prompt, recognition.start() is pending and the page may legitimately
-      // have no focus. Wait for that browser-owned flow to finish instead of
-      // aborting it and forcing another permission request.
-      if (state.recognitionStarting && !state.listening) {
-        scheduleBlurLifecycleCheck(350);
-        return;
-      }
-
-      // Give focus a brief moment to return after onstart fires and the native
-      // permission UI closes. A genuine desktop/app focus loss remains unfocused
-      // and will be stopped on the next check.
-      if (state.listening && state.recognitionStartedAt && Date.now() - state.recognitionStartedAt < 900) {
-        scheduleBlurLifecycleCheck(350);
-        return;
-      }
-
-      state.pageFocused = false;
-      suspendMicrophoneForPageLifecycle();
-    }, delay);
-  }
-
-  window.addEventListener('blur', () => {
-    scheduleBlurLifecycleCheck();
+  // Permission prompts can blur the page; hidden and unloading pages suspend immediately.
+  speechAudio = window.TopicSpeakAudio.create({
+    state,
+    window,
+    document,
+    getVoiceVolume,
+    getVoiceRate: () => window.EnglishNextLevelAudio?.getVoiceRate?.() ?? 0.9
   });
-
-  window.addEventListener('focus', () => {
-    clearBlurLifecycleTimer();
-    state.pageFocused = true;
-    resumeMicrophoneControlsAfterFocus();
+  recognitionController = window.TopicSpeakRecognition.create({
+    state,
+    window,
+    document,
+    SpeechRecognitionCtor,
+    getElement: $,
+    currentWord,
+    isCorrectAnswer: (transcript, word) => speechAnswer.isCorrect(transcript, word),
+    setStatus,
+    setMicState,
+    stopSpeech,
+    hideHeard,
+    showFallback,
+    showCorrectResult,
+    showWrongResult
   });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') {
-      clearBlurLifecycleTimer();
-      state.pageFocused = false;
-      suspendMicrophoneForPageLifecycle();
-    } else {
-      state.pageFocused = typeof document.hasFocus === 'function' ? document.hasFocus() : true;
-      if (state.pageFocused) resumeMicrophoneControlsAfterFocus();
-    }
+  pageLifecycle = window.TopicSpeakPageLifecycle.create({
+    state,
+    window,
+    document,
+    suspendMicrophoneForPageLifecycle: recognitionController.suspendMicrophoneForPageLifecycle,
+    resumeMicrophoneControlsAfterFocus: recognitionController.resumeMicrophoneControlsAfterFocus
   });
-
-  window.addEventListener('pagehide', () => {
-    clearBlurLifecycleTimer();
-    state.pageFocused = false;
-    suspendMicrophoneForPageLifecycle();
-  });
-
-  window.addEventListener('beforeunload', () => {
-    clearBlurLifecycleTimer();
-    state.pageFocused = false;
-    suspendMicrophoneForPageLifecycle();
-  });
-
-  document.addEventListener('freeze', () => {
-    clearBlurLifecycleTimer();
-    state.pageFocused = false;
-    suspendMicrophoneForPageLifecycle();
-  });
+  pageLifecycle.attach();
 
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && $('topic-speak-settings-overlay')?.classList.contains('visible')) {
@@ -1247,6 +789,6 @@
     prepare,
     playAgain,
     leaveGame,
-    isVoiceRecognitionSupported: Boolean(SpeechRecognitionCtor)
+    isVoiceRecognitionSupported: recognitionController.isSupported
   };
 })();

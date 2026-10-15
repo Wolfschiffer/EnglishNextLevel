@@ -196,22 +196,6 @@
     saveResult(round);
   }
 
-  function isReviewVisible(id) {
-    const review = byId(id);
-    if (!review) return false;
-    return review.classList.contains('visible') && review.getAttribute('aria-hidden') !== 'true';
-  }
-
-  function observeReview(type, id) {
-    const review = byId(id);
-    if (!review || typeof MutationObserver === 'undefined') return;
-
-    const observer = new MutationObserver(() => {
-      if (isReviewVisible(id)) finalizeRound(type);
-    });
-    observer.observe(review, { attributes: true, attributeFilter: ['class', 'aria-hidden'] });
-  }
-
   function observeMatchProgress() {
     const count = byId('topic-match-count');
     if (!count || typeof MutationObserver === 'undefined') return;
@@ -285,8 +269,6 @@
     bindButtons();
     observeMatchProgress();
     observeSpeakResults();
-    observeReview('match', 'topic-match-review');
-    observeReview('speak', 'topic-speak-review');
     observeGameContainer('match', 'topic-match-container');
     observeGameContainer('speak', 'topic-speak-container');
   }
@@ -294,6 +276,7 @@
   window.EnglishNextLevelTopicStats = {
     resetRound,
     beginRound,
+    finalizeRound,
     getRound(type) {
       const round = rounds[type];
       return round ? { ...round, timerId: null } : null;

@@ -1,0 +1,60 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function ownsUser(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function validProfileCreate() {
+      return request.resource.data.keys().hasAll(['name', 'email', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['name', 'email', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 50
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 254
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function validProgressPayload() {
+      return request.resource.data.keys().hasAll(['progressV1', 'progressUpdatedAt'])
+        && request.resource.data.progressV1 is map
+        && request.resource.data.progressUpdatedAt == request.time;
+    }
+
+    function validProgressCreate() {
+      return request.resource.data.keys().hasOnly(['progressV1', 'progressUpdatedAt'])
+        && validProgressPayload();
+    }
+
+    match /users/{userId} {
+      allow get: if ownsUser(userId);
+      allow list: if false;
+      allow create: if ownsUser(userId)
+        && (validProfileCreate() || validProgressCreate());
+      allow update: if ownsUser(userId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['progressV1', 'progressUpdatedAt'])
+        && validProgressPayload();
+      allow delete: if false;
+    }
+
+    match /leaderboards/{mode}/scores/{scoreId} {
+      allow get, list: if true;
+      // Clients cannot submit public scores directly. Trusted server code can
+      // write through the Admin SDK after validating a submission.
+      allow create, update, delete: if false;
+    }
+
+    match /numbersRuns/{runId} {
+      // Number sessions contain server-side answer keys and score state.
+      allow read, write: if false;
+    }
+
+    match /numbersRunLimits/{userId} {
+      // Run creation counters are managed only by trusted server code.
+      allow read, write: if false;
+    }
+  }
+}

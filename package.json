@@ -3,6 +3,10 @@
   "private": true,
   "scripts": {
     "check:js": "node scripts/check-js.cjs",
-    "test": "node --test"
+    "test": "node --test tests/*.test.cjs",
+    "test:firestore-rules": "node scripts/test-firestore-rules.cjs",
+    "test:submit-score": "node scripts/test-submit-score.cjs",
+    "test:emulators": "npm exec --yes --package=firebase-tools@15.33.0 -- firebase emulators:exec --only auth,firestore,functions --project demo-english-next-level \"node scripts/test-firestore-rules.cjs && node scripts/test-submit-score.cjs\"",
+    "firebase:emulators": "npm exec --yes --package=firebase-tools@15.33.0 -- firebase emulators:start --only auth,firestore,functions --project demo-english-next-level"
   }
 }
