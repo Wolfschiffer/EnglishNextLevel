@@ -5,7 +5,7 @@ English Next Level is a browser game for practicing English numbers, vocabulary,
 ## Stack
 
 - Static HTML, CSS, and JavaScript; the site has no build step.
-- Firebase Web SDK compat 10.7 for Authentication, Cloud Firestore, and callable Cloud Functions.
+- Firebase Web SDK compat 13.0.0 for Authentication, Cloud Firestore, and callable Cloud Functions.
 - GitHub Pages for static hosting.
 
 ## Run locally
@@ -45,8 +45,12 @@ If the Firebase SDK cannot load from its CDN, the page keeps the local guest opt
 - `js/numbers-run-session.js`: verified server-run questions and answer coordination for Numbers.
 - `js/numbers-scoring.js`: pure round and final score calculations for the Numbers game.
 - `js/numbers-high-score-storage.js`: local high-score loading and saving for the Numbers game.
+- `js/numbers-high-score-profile.js`: selects and caches high scores by local, guest, or signed-in profile.
 - `js/numbers-eagle.js`: canvas movement and animation for the Numbers game eagle.
+- `js/numbers-image-loader.js`: loads the Numbers idle image and lazy-loads gameplay eagle sprites.
 - `js/numbers-round-feedback.js`: short-lived correct and incorrect answer feedback for Numbers.
+- `js/numbers-answer-options.js`: correct-answer position and distractor selection for Numbers.
+- `js/numbers-fallback-questions.js`: fills verified-run fallback questions without repeating seen values.
 - `js/numbers-game.js`: Numbers scoring and round flow.
 - `js/progress-profile-data.js`: pure normalization and merging for saved progress.
 - `js/progress-profile-summary.js`: pure formatting and completion summaries for the progress screen.
@@ -66,6 +70,7 @@ If the Firebase SDK cannot load from its CDN, the page keeps the local guest opt
 - `js/firebase-offline-fallback.js`: preserves guest play when the Firebase Auth or Firestore SDK cannot load.
 - `js/password-reset.js`: password reset form, generic account-safe responses, and resend cooldown.
 - `js/email-verification.js`: email-verification screen, resend flow, and verification cooldown.
+- `js/auth-ui.js`: login, registration, guest entry, and sign-out interface handlers.
 - `js/firebase-config.js`: Firebase initialization, sign-in, registration, and session state.
 - `js/leaderboard-storage.js`: local leaderboard persistence and validation.
 - `js/leaderboard-dialog.js`: Numbers leaderboard window and its tabs, loading, and fallback display.
@@ -74,7 +79,7 @@ If the Firebase SDK cannot load from its CDN, the page keeps the local guest opt
 - `js/progress-profile.js`: local/cloud progress synchronization and profile render orchestration.
 - `js/topics/data/`: one vocabulary file per topic, so a topic can be edited without navigating the full catalog.
 - `js/topics/topics-data.js`: checks and assembles the topic files into the frozen catalog used by the game.
-- `js/topics/`: topic matching, speech, menu, and statistics. `speech-answer.js` checks recognized answers; `speech-audio.js` handles speech synthesis; `speech-recognition.js` owns browser microphone recognition and retry behavior; `speech-page-lifecycle.js` suspends and resumes microphone use as the page loses or regains focus.
+- `js/topics/`: topic matching, speech, menu, and statistics. `speech-answer.js` checks recognized answers; `speech-audio.js` handles speech synthesis; `speech-settings.js` owns Speak audio preferences and controls; `speech-recognition.js` owns browser microphone recognition and retry behavior; `speech-page-lifecycle.js` suspends and resumes microphone use as the page loses or regains focus.
 - `images/`: assets served by the site.
 - `tests/` and `scripts/`: automated checks.
 - `Testing/`: local artwork sources and review exports; image and media files are excluded from Git.
@@ -118,4 +123,8 @@ Verbose diagnostic messages are off by default. Add `?debug=1` to the page URL t
 
 The server starts each question timer before returning its prompt. Network and rendering delay can therefore make the global speed bonus lower than the in-game estimate.
 
-The published GitHub Pages URL still points to the existing production Firebase project. These local rules have not been deployed, and the production rules have not been inspected or changed. The `qa` alias and `?enlFirebase=qa` mode point to the separate `englishnextlevel-qa` project; its Firestore and Authentication services still need configuration, and its Functions and Firestore rules have not been deployed or validated there. Local automated tests use only the `demo-` emulators.
+The run-start limit is per account, but the other callable functions do not yet have a separate per-call rate limit or App Check enforcement. Repeated calls from authenticated, verified accounts could increase function invocations and Firestore reads. They do not let clients write an arbitrary score directly to the leaderboard. Before deploying the Functions broadly, consider App Check or broader request throttling and test it against the QA project.
+
+Each callable function now has a maximum of 10 instances to limit automatic scaling during traffic spikes. This is a per-function capacity setting, not a per-account request limit or a hard spending cap. If a function reaches that ceiling and no instance becomes available within 30 seconds, new requests may be rejected with HTTP 429. Verify expected traffic in QA before deployment.
+
+The published GitHub Pages URL still points to the existing production Firebase project. These local rules have not been deployed, and the production rules have not been inspected or changed. The `qa` alias and `?enlFirebase=qa` mode point to the separate `englishnextlevel-qa` project. Email/password sign-in is enabled there, but no QA users have been created. Cloud Firestore still needs initial setup and a permanent region choice; its rules and the callable Functions have not been deployed or validated there. The QA project remains on the Spark plan; deploying callable Functions would require enabling billing (Blaze), which has not been done. Local automated tests use only the `demo-` emulators.

@@ -55,7 +55,7 @@
       }
     }
 
-    function stopRecognition({ cancelPendingPronunciation = false, disableMic = false, endSession = true } = {}) {
+    function stopRecognition({ disableMic = false, endSession = true } = {}) {
       state.recognitionStarting = false;
       state.recognitionStartedAt = 0;
       state.acceptingRecognition = false;
@@ -64,10 +64,6 @@
 
       if (endSession) {
         state.recognitionSessionWanted = false;
-      }
-
-      if (cancelPendingPronunciation) {
-        state.pendingPronunciation = null;
       }
 
       if (state.recognition) {
@@ -91,12 +87,10 @@
       if (wasUsingMicrophone) {
         state.suspendedByPageLifecycle = true;
         stopRecognition({
-          cancelPendingPronunciation: true,
           disableMic: true,
           endSession: false
         });
       } else {
-        state.pendingPronunciation = null;
         const mic = $('topic-speak-mic');
         if (mic && !pageCanUseMicrophone()) mic.disabled = true;
       }

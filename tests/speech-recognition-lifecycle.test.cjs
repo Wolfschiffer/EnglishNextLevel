@@ -171,16 +171,19 @@ function createSpeechHarness() {
         SpeechSynthesisUtterance: window.SpeechSynthesisUtterance,
         TopicSpeakAnswer: null,
         TopicSpeakAudio: null,
+        TopicSpeakSettings: null,
         TopicSpeakRecognition: null,
         console: { warn() {}, error() {} }
     };
     const answerSource = fs.readFileSync(path.join(ROOT, 'js/topics/speech-answer.js'), 'utf8');
     const audioSource = fs.readFileSync(path.join(ROOT, 'js/topics/speech-audio.js'), 'utf8');
+    const settingsSource = fs.readFileSync(path.join(ROOT, 'js/topics/speech-settings.js'), 'utf8');
     const recognitionSource = fs.readFileSync(path.join(ROOT, 'js/topics/speech-recognition.js'), 'utf8');
     const lifecycleSource = fs.readFileSync(path.join(ROOT, 'js/topics/speech-page-lifecycle.js'), 'utf8');
     const gameSource = fs.readFileSync(path.join(ROOT, 'js/topics/speech-game.js'), 'utf8');
     vm.runInNewContext(answerSource, context, { filename: 'js/topics/speech-answer.js' });
     vm.runInNewContext(audioSource, context, { filename: 'js/topics/speech-audio.js' });
+    vm.runInNewContext(settingsSource, context, { filename: 'js/topics/speech-settings.js' });
     vm.runInNewContext(recognitionSource, context, { filename: 'js/topics/speech-recognition.js' });
     vm.runInNewContext(lifecycleSource, context, { filename: 'js/topics/speech-page-lifecycle.js' });
     vm.runInNewContext(gameSource, context, { filename: 'js/topics/speech-game.js' });
@@ -290,21 +293,38 @@ test('Speak cancels a delayed revealed-answer pronunciation when Settings opens'
     assert.equal(harness.spokenTexts.length, spokenBeforeReveal);
 });
 
+test('Speak resumes accepting answers after Settings closes during an active round', () => {
+    const harness = createSpeechHarness();
+    const recognition = startOneWordRound(harness);
+
+    harness.elements.get('topic-speak-settings-btn').dispatch('click');
+    harness.elements.get('topic-speak-settings-close').dispatch('click');
+    harness.advanceBy(250);
+    harness.advanceBy(221);
+    recognition.emitResult(['grater']);
+
+    assert.equal(harness.elements.get('topic-speak-result').hidden, false);
+    assert.match(harness.elements.get('topic-speak-status').textContent, /Correct/);
+});
+
 test('index loads Speak dependencies before the Speak game', () => {
     const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
     const answerScript = html.indexOf('<script src="js/topics/speech-answer.js"></script>');
     const audioScript = html.indexOf('<script src="js/topics/speech-audio.js"></script>');
+    const settingsScript = html.indexOf('<script src="js/topics/speech-settings.js"></script>');
     const recognitionScript = html.indexOf('<script src="js/topics/speech-recognition.js"></script>');
     const lifecycleScript = html.indexOf('<script src="js/topics/speech-page-lifecycle.js"></script>');
     const speechGameScript = html.indexOf('<script src="js/topics/speech-game.js"></script>');
 
     assert.notEqual(answerScript, -1);
     assert.notEqual(audioScript, -1);
+    assert.notEqual(settingsScript, -1);
     assert.notEqual(recognitionScript, -1);
     assert.notEqual(lifecycleScript, -1);
     assert.notEqual(speechGameScript, -1);
     assert.ok(answerScript < speechGameScript);
     assert.ok(audioScript < speechGameScript);
+    assert.ok(settingsScript < speechGameScript);
     assert.ok(recognitionScript < speechGameScript);
     assert.ok(lifecycleScript < speechGameScript);
 });

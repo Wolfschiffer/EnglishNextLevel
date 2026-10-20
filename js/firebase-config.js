@@ -37,6 +37,7 @@ if (isMobileDevice && window.location.protocol === 'file:') {
 const firebaseEnvironment = window.EnlFirebaseEnvironment.current;
 const USE_LOCAL_FIREBASE_EMULATORS = firebaseEnvironment.useLocalEmulators;
 window.enlFirebaseEnvironment = firebaseEnvironment.name;
+window.document?.body?.setAttribute('data-firebase-environment', firebaseEnvironment.name);
 const firebaseConfig = firebaseEnvironment.firebaseConfig;
 
 firebase.initializeApp(firebaseConfig);
@@ -118,6 +119,7 @@ function showAuthScreen(screenName) {
 
 function showLoginScreen() {
     showAuthScreen('auth-container');
+    document.body.setAttribute('data-screen', 'login');
 }
 
 const passwordResetModule = window.EnglishNextLevelPasswordReset;
@@ -270,206 +272,49 @@ auth.onAuthStateChanged(async (user) => {
 // EVENTOS DA TELA DE LOGIN
 // ============================================
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.enlDebug?.('DOM carregado, configurando eventos de login...');
+function enterGuestMode() {
+    window.isGuest = true;
+    isGuest = true;
+    window.currentUser = null;
+    currentUser = null;
+    currentUserName = 'Guest';
+    window.currentUserName = 'Guest';
+    updateAllUserNames('Guest');
+}
 
-    const loginForm = document.getElementById('login-form');
-    const registerForm = document.getElementById('register-form');
-    const loginBtn = document.getElementById('login-btn');
-    const registerBtn = document.getElementById('register-btn');
-    const guestBtn = document.getElementById('guest-btn');
-    const categoryLogoutBtn = document.getElementById('category-logout-btn');
-    const wordsLogoutBtn = document.getElementById('words-logout-btn');
-    const authContainer = document.getElementById('auth-container');
-    const categoryContainer = document.getElementById('category-container');
-    const numbersMenu = document.getElementById('numbers-menu-container');
-    const gameContainer = document.getElementById('game-container');
-    const vocabContainer = document.getElementById('vocab-game-container');
-    const wordsMenu = document.getElementById('words-menu-container');
-
-    passwordResetUI.initialize();
-    verificationUI.initialize();
-
-    if (authContainer) authContainer.style.display = 'block';
-    if (categoryContainer) categoryContainer.style.display = 'none';
-    if (numbersMenu) numbersMenu.style.display = 'none';
-    if (gameContainer) gameContainer.style.display = 'none';
-    if (vocabContainer) vocabContainer.style.display = 'none';
-    if (wordsMenu) wordsMenu.style.display = 'none';
-
-    if (window.enlFirebaseUnavailable) {
-        const authIntro = document.getElementById('auth-intro');
-        const authTabs = document.querySelector('.auth-tabs');
-        if (authIntro) {
-            authIntro.textContent = 'Account services are unavailable. Continue as Guest to practice; progress stays on this device.';
-        }
-        if (authTabs) authTabs.style.display = 'none';
-        if (loginForm) {
-            loginForm.classList.remove('active');
-            loginForm.style.display = 'none';
-        }
-        if (registerForm) {
-            registerForm.classList.remove('active');
-            registerForm.style.display = 'none';
-        }
+async function handleLogout() {
+    if (isGuest) {
+        isGuest = false;
+        window.isGuest = false;
+        currentUser = null;
+        window.currentUser = null;
+        verificationUI.setMode(false);
+        showLoginScreen();
+        return;
     }
 
-    const tabs = document.querySelectorAll('.auth-tab');
-    tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-            if (passwordResetUI.isActive()) passwordResetUI.setMode(false);
-            tabs.forEach(t => t.classList.remove('active'));
-            tab.classList.add('active');
-            const isLogin = tab.dataset.tab === 'login';
-            if (loginForm) loginForm.classList.toggle('active', isLogin);
-            if (registerForm) registerForm.classList.toggle('active', !isLogin);
-        });
-    });
+    await logout();
+    verificationUI.setMode(false);
+    showLoginScreen();
+}
 
-    const showMessage = (btn, msg, isError = true, timeout = 4000) => {
-        const oldMsg = document.querySelector('.error-message, .success-message');
-        if (oldMsg) oldMsg.remove();
+const authUIModule = window.EnglishNextLevelAuthUI;
+if (!authUIModule?.create) {
+    throw new Error('auth-ui.js must load before firebase-config.js');
+}
 
-        const div = document.createElement('div');
-        div.className = isError ? 'error-message' : 'success-message';
-        div.textContent = msg;
-        div.style.cssText = isError
-            ? 'color:#e53e3e;font-size:0.85rem;margin-top:0.5rem;text-align:center'
-            : 'color:#18864b;font-size:0.85rem;margin-top:0.5rem;text-align:center';
-
-        btn.parentNode.appendChild(div);
-        if (timeout > 0) setTimeout(() => div.remove(), timeout);
-    };
-
-    if (loginBtn) {
-        loginBtn.addEventListener('click', async () => {
-            const email = document.getElementById('login-email')?.value;
-            const password = document.getElementById('login-password')?.value;
-
-            if (!email?.trim()) return showMessage(loginBtn, 'Please enter your email');
-            if (!password?.trim()) return showMessage(loginBtn, 'Please enter your password');
-
-            loginBtn.disabled = true;
-            loginBtn.textContent = 'Logging in...';
-
-            try {
-                const credential = await login(email.trim(), password);
-
-                document.getElementById('login-email').value = '';
-                document.getElementById('login-password').value = '';
-
-                if (!credential.user.emailVerified) {
-                    const verificationPanel = document.getElementById('email-verification-panel');
-                    if (!verificationPanel || verificationPanel.hidden) {
-                        verificationUI.show(credential.user);
-                    }
-                }
-            } catch (error) {
-                const messages = {
-                    'auth/user-not-found': 'No account found with this email',
-                    'auth/wrong-password': 'Incorrect password',
-                    'auth/invalid-credential': 'Incorrect email or password',
-                    'auth/invalid-login-credentials': 'Incorrect email or password',
-                    'auth/invalid-email': 'Invalid email format',
-                    'auth/too-many-requests': 'Too many attempts. Please wait and try again.'
-                };
-                showMessage(loginBtn, messages[error.code] || 'Login failed');
-            } finally {
-                loginBtn.disabled = false;
-                loginBtn.textContent = 'Login';
-            }
-        });
+const authUI = authUIModule.create({
+    document,
+    window,
+    passwordResetUI,
+    verificationUI,
+    login,
+    register,
+    onGuestModeSelected: enterGuestMode,
+    onLogout: handleLogout,
+    updateGameUserName: () => {
+        if (typeof updateGameUserName === 'function') updateGameUserName();
     }
-
-    if (registerBtn) {
-        registerBtn.addEventListener('click', async () => {
-            const name = document.getElementById('register-name')?.value;
-            const email = document.getElementById('register-email')?.value;
-            const password = document.getElementById('register-password')?.value;
-
-            if (!name?.trim()) return showMessage(registerBtn, 'Please enter your name');
-            if (name.trim().length > 50) return showMessage(registerBtn, 'Your name must be 50 characters or fewer');
-            if (!email?.trim()) return showMessage(registerBtn, 'Please enter your email');
-            if (!password?.trim()) return showMessage(registerBtn, 'Please enter a password');
-            if (password.length < 6) return showMessage(registerBtn, 'Password must be at least 6 characters');
-
-            registerBtn.disabled = true;
-            registerBtn.textContent = 'Creating account...';
-
-            try {
-                const result = await register(name.trim(), email.trim(), password);
-
-                document.getElementById('register-name').value = '';
-                document.getElementById('register-email').value = '';
-                document.getElementById('register-password').value = '';
-
-                verificationUI.show(
-                    result.userCredential.user,
-                    result.verificationSent
-                        ? 'Verification email sent. Check your inbox.'
-                        : verificationUI.getSendErrorMessage(result.verificationError, false)
-                );
-
-                if (result.verificationSent) verificationUI.startCooldown(30);
-            } catch (error) {
-                const messages = {
-                    'auth/email-already-in-use': 'Email already registered',
-                    'auth/invalid-email': 'Invalid email format',
-                    'auth/weak-password': 'Password too weak (min 6 chars)',
-                    'auth/operation-not-allowed': 'Email registration is not enabled.'
-                };
-                showMessage(registerBtn, messages[error.code] || 'Registration failed');
-            } finally {
-                registerBtn.disabled = false;
-                registerBtn.textContent = 'Create account';
-            }
-        });
-    }
-
-    if (guestBtn) {
-        guestBtn.addEventListener('click', () => {
-            window.enlDebug?.('Guest mode selected');
-            window.isGuest = true;
-            isGuest = true;
-            window.currentUser = null;
-            currentUser = null;
-            currentUserName = 'Guest';
-            window.currentUserName = 'Guest';
-            updateAllUserNames('Guest');
-
-            const authContainer = document.getElementById('auth-container');
-            const categoryContainer = document.getElementById('category-container');
-
-            if (authContainer) authContainer.style.display = 'none';
-            if (categoryContainer) {
-                categoryContainer.style.display = 'block';
-                categoryContainer.classList.add('category-home-active');
-            }
-
-            const categoryButtons = document.querySelector('.category-buttons');
-            if (categoryButtons) categoryButtons.style.display = 'grid';
-
-            document.body.setAttribute('data-screen', 'categories');
-            if (typeof updateGameUserName === 'function') updateGameUserName();
-        });
-    }
-
-    const handleLogout = () => {
-        if (isGuest) {
-            isGuest = false;
-            window.isGuest = false;
-            currentUser = null;
-            window.currentUser = null;
-            verificationUI.setMode(false);
-            showLoginScreen();
-        } else {
-            logout().finally(() => {
-                verificationUI.setMode(false);
-                showLoginScreen();
-            });
-        }
-    };
-
-    if (categoryLogoutBtn) categoryLogoutBtn.addEventListener('click', handleLogout);
-    if (wordsLogoutBtn) wordsLogoutBtn.addEventListener('click', handleLogout);
 });
+
+document.addEventListener('DOMContentLoaded', () => authUI.initialize());

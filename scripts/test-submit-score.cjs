@@ -251,6 +251,36 @@ async function main() {
         assert.equal((await runRef.get()).data().roundStartedAtMs, firstStartAt);
 
         await expectCallableError(
+            await callFunction('startNumbersQuestion', otherVerifiedAccount.idToken, {
+                runId,
+                questionIndex: 0
+            }),
+            'PERMISSION_DENIED',
+            'Another account cannot read a question from this run'
+        );
+        await expectCallableError(
+            await callFunction('recordNumbersAnswer', otherVerifiedAccount.idToken, {
+                runId,
+                questionIndex: 0,
+                answerValue: firstQuestion.options[0],
+                attemptId: randomUUID()
+            }),
+            'PERMISSION_DENIED',
+            'Another account cannot answer a question in this run'
+        );
+        await expectCallableError(
+            await callFunction('finishNumbersRun', otherVerifiedAccount.idToken, { runId }),
+            'PERMISSION_DENIED',
+            'Another account cannot finish this run'
+        );
+        await expectCallableError(
+            await callFunction('submitScore', otherVerifiedAccount.idToken, { runId }),
+            'PERMISSION_DENIED',
+            'Another account cannot submit this run result'
+        );
+        console.log('PASS Numbers run operations reject a different account');
+
+        await expectCallableError(
             await callFunction('startNumbersQuestion', account.idToken, { runId, questionIndex: 1 }),
             'FAILED_PRECONDITION',
             'A later question cannot start before the current answer'

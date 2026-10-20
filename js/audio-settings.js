@@ -11,6 +11,8 @@ const VOICE_RATE_STORAGE_KEY = 'englishNextLevel.voiceRate';
 let globalSfxVolume = 100;
 let globalVoiceVolume = 100;
 let globalVoiceRate = 90;
+let wordsSettingsReturnFocus = null;
+let releaseWordsSettingsFocusTrap = null;
 
 function clampAudioVolume(value) {
     const numeric = Number(value);
@@ -180,6 +182,9 @@ function getAudioSettingsLabel() {
 function openWordsSettings() {
     const overlay = document.getElementById('words-settings-overlay');
     if (!overlay) return;
+    if (overlay.classList.contains('visible')) return;
+
+    wordsSettingsReturnFocus = document.activeElement;
 
     loadGlobalAudioVolumes();
     updateGlobalAudioSettingsUI();
@@ -190,15 +195,46 @@ function openWordsSettings() {
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden', 'false');
     document.body.classList.add('words-settings-open');
-    requestAnimationFrame(() => document.getElementById('words-sfx-volume')?.focus({ preventScroll: true }));
+
+    const dialog = overlay.querySelector?.('[role="dialog"]');
+    const initialFocus = document.getElementById('words-sfx-volume');
+    releaseWordsSettingsFocusTrap = dialog
+        ? window.EnlKeyboardAccessibility?.trapDialogFocus?.(dialog, {
+            initialFocus,
+            onEscape: closeWordsSettings
+        }) || null
+        : null;
+
+    if (!releaseWordsSettingsFocusTrap) {
+        requestAnimationFrame(() => initialFocus?.focus({ preventScroll: true }));
+    }
 }
 
-function closeWordsSettings() {
+function closeWordsSettings(options = {}) {
     const overlay = document.getElementById('words-settings-overlay');
     if (!overlay) return;
+    const wasVisible = overlay.classList.contains('visible');
+    const dialog = overlay.querySelector?.('[role="dialog"]');
+
     overlay.classList.remove('visible');
     overlay.setAttribute('aria-hidden', 'true');
     document.body.classList.remove('words-settings-open');
+
+    releaseWordsSettingsFocusTrap?.();
+    releaseWordsSettingsFocusTrap = null;
+
+    const returnFocus = wordsSettingsReturnFocus;
+    wordsSettingsReturnFocus = null;
+    const canRestoreFocus = options.restoreFocus !== false && wasVisible && returnFocus &&
+        returnFocus.isConnected !== false && !returnFocus.disabled &&
+        !(typeof returnFocus.getClientRects === 'function' && returnFocus.getClientRects().length === 0);
+
+    if (!canRestoreFocus) {
+        if (dialog?.contains(document.activeElement)) document.activeElement.blur?.();
+        return;
+    }
+
+    returnFocus.focus?.({ preventScroll: true });
 }
 
 function initWordsSettings() {

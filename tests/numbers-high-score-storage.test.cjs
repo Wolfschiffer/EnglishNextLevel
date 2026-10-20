@@ -11,10 +11,13 @@ function loadStorage() {
     const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
     const scriptPaths = [...html.matchAll(/<script src="([^"]+)"/g)].map(match => match[1]);
     const storageIndex = scriptPaths.indexOf('js/numbers-high-score-storage.js');
+    const profileIndex = scriptPaths.indexOf('js/numbers-high-score-profile.js');
     const gameIndex = scriptPaths.indexOf('js/numbers-game.js');
 
     assert.notEqual(storageIndex, -1, 'index should load the Numbers high-score storage module');
-    assert.ok(storageIndex < gameIndex, 'high-score storage must load before the Numbers game');
+    assert.notEqual(profileIndex, -1, 'index should load the Numbers high-score profile module');
+    assert.ok(storageIndex < profileIndex, 'high-score storage must load before profile selection');
+    assert.ok(profileIndex < gameIndex, 'high-score profile must load before the Numbers game');
 
     const context = vm.createContext({ window: {}, console });
     const source = fs.readFileSync(path.join(root, 'js/numbers-high-score-storage.js'), 'utf8');

@@ -18,6 +18,7 @@ const CORE_SCRIPTS = [
     'js/numbers-run-session.js',
     'js/numbers-scoring.js',
     'js/numbers-high-score-storage.js',
+    'js/numbers-high-score-profile.js',
     'js/audio-engines.js',
     'js/audio-settings.js',
     'js/vocabulary-scoring.js',
@@ -30,7 +31,10 @@ const CORE_SCRIPTS = [
     'js/game.js',
     'js/category-navigation.js',
     'js/numbers-eagle.js',
+    'js/numbers-image-loader.js',
     'js/numbers-round-feedback.js',
+    'js/numbers-answer-options.js',
+    'js/numbers-fallback-questions.js',
     'js/numbers-game.js',
     'js/progress-profile-data.js',
     'js/progress-profile-summary.js',
@@ -141,6 +145,84 @@ function createBrowserContext(storageValues = new Map(), { failWrites = false } 
     };
 }
 
+function createNumbersClickHarness() {
+    const harness = createBrowserContext();
+    for (const script of CORE_SCRIPTS) harness.loadScript(script);
+
+    const classes = [new Set(), new Set(), new Set()];
+    const clickButtons = [1, 3, 2].map((value, index) => ({
+        dataset: { index: String(index), value: String(value) },
+        disabled: false,
+        classList: {
+            add(name) { classes[index].add(name); },
+            remove(name) { classes[index].delete(name); },
+            contains(name) { return classes[index].has(name); }
+        }
+    }));
+    const calls = { sounds: [], animations: [], jumps: [], scores: [], wrongPopups: 0 };
+    harness.context.clickPlatformButtons = clickButtons;
+    harness.context.numbersClickCalls = calls;
+    vm.runInContext(`
+        gameActive = true;
+        answered = false;
+        isWaiting = false;
+        currentNumber = { value: 2, word: 'two' };
+        score = 0;
+        streak = 0;
+        multiplier = 1;
+        lives = 3;
+        DOM.platforms = clickPlatformButtons;
+        calculateRoundScore = () => ({ total: 75, timeBonus: 1 });
+        updateScore = () => {};
+        updateMultiplier = () => {};
+        updateLives = () => {};
+        playSound = (type) => numbersClickCalls.sounds.push(type);
+        showScorePopup = (...values) => numbersClickCalls.scores.push(values);
+        showWrongPopup = () => { numbersClickCalls.wrongPopups++; };
+        startAnimation = (type) => numbersClickCalls.animations.push(type);
+        jumpToPlatform = (index) => numbersClickCalls.jumps.push(index);
+    `, harness.context);
+
+    return { ...harness, calls, clickButtons, classes };
+}
+
+function createNumbersRunFallbackHarness({ recordAnswer = async () => {
+    throw new Error('Simulated network failure');
+} } = {}) {
+    const harness = createNumbersClickHarness();
+    harness.calls.wins = 0;
+    harness.context.window.EnglishNextLevelNumbersRunClient = {
+        createAttemptId: () => 'attempt-1',
+        recordAnswer
+    };
+    vm.runInContext(`
+        currentGame = 'numbers';
+        currentNumbers = gameData.numbers;
+        availableNumbers = [
+            gameData.numbers.find(number => number.value === 1),
+            gameData.numbers.find(number => number.value === 3)
+        ];
+        currentNumber = gameData.numbers.find(number => number.value === 2);
+        DOM.wordDisplay = { textContent: 'two' };
+        startTime = 0;
+        activeNumbersRun = {
+            runId: 'verified-run',
+            mode: 'numbers',
+            questionCount: 2,
+            questions: [null, null],
+            questionIndex: 0,
+            pendingAnswers: Promise.resolve(),
+            pendingQuestionStart: Promise.resolve(),
+            shownQuestionValues: new Set([2]),
+            valid: true
+        };
+        Math.random = () => 0;
+        winGame = () => { numbersClickCalls.wins++; };
+    `, harness.context);
+
+    return harness;
+}
+
 function loadProgressWithCloud(harness, { failCloud = false } = {}) {
     const context = harness.context;
     let cloudUserData = null;
@@ -231,7 +313,9 @@ function createNavigationBrowserContext() {
         'mobile-nav-home', 'mobile-nav-progress', 'mobile-nav-settings',
         'words-settings-overlay', 'audio-settings-kicker',
         'category-numbers', 'category-words', 'category-topics',
-        'numbers-menu-container', 'back-to-category-btn', 'back-to-category-from-vocab'
+        'numbers-menu-container', 'words-menu-container', 'vocab-game-container',
+        'simple-verbs-submenu', 'simple-verbs-past-submenu',
+        'back-to-category-btn', 'back-to-category-from-vocab'
     ]) {
         elements.set(id, createElement());
     }
@@ -342,12 +426,12 @@ test('Words modal cleanup hooks remain available to shared navigation', () => {
     assert.doesNotThrow(() => vm.runInContext('clearVocabularyResultTimeout()', harness.context));
 });
 
-test('category sign-out has one owner in the Firebase account flow', () => {
+test('category sign-out has one owner in the authentication UI flow', () => {
     const gameSource = fs.readFileSync(path.join(ROOT, 'js/game.js'), 'utf8');
-    const firebaseSource = fs.readFileSync(path.join(ROOT, 'js/firebase-config.js'), 'utf8');
+    const authUiSource = fs.readFileSync(path.join(ROOT, 'js/auth-ui.js'), 'utf8');
 
     assert.doesNotMatch(gameSource, /categoryLogoutBtn\.addEventListener/);
-    assert.match(firebaseSource, /if \(categoryLogoutBtn\) categoryLogoutBtn\.addEventListener\('click', handleLogout\)/);
+    assert.match(authUiSource, /if \(categoryLogoutButton\) \{\s*categoryLogoutButton\.addEventListener\('click', \(\) => handleLogout\(categoryLogoutButton\)\);\s*\}/);
 });
 
 test('long profile names are shortened to the leaderboard limit', () => {
@@ -399,6 +483,253 @@ test('Numbers 11–20 best score survives a local profile reload', () => {
 
     const reloadedSession = loadGuestProfile();
     assert.equal(reloadedSession.context.updateHighScore(), 1250);
+});
+
+test('Numbers high scores stay separate while switching between local, guest, and signed-in profiles', () => {
+    const storageValues = new Map();
+    const harness = createBrowserContext(storageValues);
+    for (const script of CORE_SCRIPTS) harness.loadScript(script);
+
+    function loadProfile({ isGuest = false, user = null } = {}) {
+        harness.context.window.isGuest = isGuest;
+        harness.context.window.currentUser = user;
+        return vm.runInContext('loadNumbersHighScoresForCurrentProfile()', harness.context);
+    }
+
+    assert.equal(loadProfile()['numbers11-20'], 0);
+    assert.equal(harness.context.updateHighScore(1500, 'numbers11-20'), 1500);
+
+    assert.equal(loadProfile({ isGuest: true })['numbers11-20'], 0);
+    assert.equal(harness.context.updateHighScore(500, 'numbers11-20'), 500);
+
+    assert.equal(loadProfile({ user: { uid: 'account-a' } })['numbers11-20'], 0);
+    assert.equal(harness.context.updateHighScore(2500, 'numbers11-20'), 2500);
+
+    assert.equal(loadProfile({ user: { uid: 'account-b' } })['numbers11-20'], 0);
+    assert.equal(loadProfile({ user: { uid: 'account-a' } })['numbers11-20'], 2500);
+    assert.equal(loadProfile({ isGuest: true })['numbers11-20'], 500);
+    assert.equal(loadProfile()['numbers11-20'], 1500);
+});
+
+test('local Numbers wrong answer costs one life and a later correct answer scores the same question', () => {
+    const harness = createNumbersClickHarness();
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[1] })', harness.context);
+
+    assert.equal(vm.runInContext('score', harness.context), 0);
+    assert.equal(vm.runInContext('lives', harness.context), 2);
+    assert.equal(vm.runInContext('answered', harness.context), false);
+    assert.equal(harness.classes[1].has('wrong'), true);
+    assert.deepEqual(harness.calls.sounds, ['wrong']);
+    assert.equal(harness.calls.wrongPopups, 1);
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+
+    assert.equal(vm.runInContext('score', harness.context), 75);
+    assert.equal(vm.runInContext('lives', harness.context), 2);
+    assert.equal(vm.runInContext('streak', harness.context), 1);
+    assert.equal(vm.runInContext('answered', harness.context), true);
+    assert.deepEqual(harness.calls.jumps, [2]);
+    assert.deepEqual(harness.clickButtons.map(button => button.disabled), [true, true, true]);
+    assert.equal(harness.classes[2].has('correct'), true);
+});
+
+test('verified Numbers wrong attempt keeps its index and a correct retry advances it', async () => {
+    const harness = createNumbersClickHarness();
+    const attempts = [];
+    harness.context.window.EnglishNextLevelNumbersRunClient = {
+        createAttemptId: () => `attempt-${attempts.length + 1}`,
+        async recordAnswer(runId, questionIndex, answerValue, attemptId) {
+            attempts.push({ runId, questionIndex, answerValue, attemptId });
+            const correct = answerValue === 2;
+            return { correct, questionIndex: correct ? questionIndex + 1 : questionIndex };
+        }
+    };
+    vm.runInContext(`activeNumbersRun = {
+        runId: 'verified-run',
+        valid: true,
+        questionIndex: 0,
+        pendingAnswers: Promise.resolve(),
+        pendingQuestionStart: Promise.resolve()
+    }`, harness.context);
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[1] })', harness.context);
+    await vm.runInContext('activeNumbersRun.pendingAnswers', harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 0);
+    assert.equal(vm.runInContext('answered', harness.context), false);
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+    await vm.runInContext('activeNumbersRun.pendingAnswers', harness.context);
+
+    assert.deepEqual(attempts, [
+        { runId: 'verified-run', questionIndex: 0, answerValue: 3, attemptId: 'attempt-1' },
+        { runId: 'verified-run', questionIndex: 0, answerValue: 2, attemptId: 'attempt-2' }
+    ]);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+    assert.equal(vm.runInContext('score', harness.context), 75);
+    assert.equal(vm.runInContext('lives', harness.context), 2);
+    assert.equal(vm.runInContext('answered', harness.context), true);
+});
+
+test('verified Numbers queues a correct retry while a wrong-answer request is pending', async () => {
+    const harness = createNumbersClickHarness();
+    const attempts = [];
+    let resolveWrongAnswer;
+    let markWrongAnswerStarted;
+    const wrongAnswerStarted = new Promise(resolve => { markWrongAnswerStarted = resolve; });
+    harness.context.window.EnglishNextLevelNumbersRunClient = {
+        createAttemptId: () => `attempt-${attempts.length + 1}`,
+        recordAnswer(runId, questionIndex, answerValue, attemptId) {
+            attempts.push({ runId, questionIndex, answerValue, attemptId });
+            if (attempts.length === 1) {
+                markWrongAnswerStarted();
+                return new Promise(resolve => { resolveWrongAnswer = resolve; });
+            }
+            return Promise.resolve({ correct: true, questionIndex: questionIndex + 1 });
+        }
+    };
+    vm.runInContext(`activeNumbersRun = {
+        runId: 'verified-run',
+        valid: true,
+        questionIndex: 0,
+        pendingAnswers: Promise.resolve(),
+        pendingQuestionStart: Promise.resolve()
+    }`, harness.context);
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[1] })', harness.context);
+    await wrongAnswerStarted;
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+
+    assert.equal(attempts.length, 1, 'the correct retry should wait behind the pending wrong answer');
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+    resolveWrongAnswer({ correct: false, questionIndex: 0 });
+    await vm.runInContext('activeNumbersRun.pendingAnswers', harness.context);
+
+    assert.deepEqual(attempts, [
+        { runId: 'verified-run', questionIndex: 0, answerValue: 3, attemptId: 'attempt-1' },
+        { runId: 'verified-run', questionIndex: 0, answerValue: 2, attemptId: 'attempt-2' }
+    ]);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+    assert.equal(vm.runInContext('score', harness.context), 75);
+    assert.equal(vm.runInContext('lives', harness.context), 2);
+});
+
+test('Numbers skips a queued correct retry after a pending wrong answer fails and keeps the fallback limit', async () => {
+    let rejectWrongAnswer;
+    let markWrongAnswerStarted;
+    const wrongAnswerStarted = new Promise(resolve => { markWrongAnswerStarted = resolve; });
+    const attempts = [];
+    const harness = createNumbersRunFallbackHarness({
+        recordAnswer(runId, questionIndex, answerValue, attemptId) {
+            attempts.push({ runId, questionIndex, answerValue, attemptId });
+            if (attempts.length > 1) {
+                return Promise.resolve({ correct: true, questionIndex: questionIndex + 1 });
+            }
+            markWrongAnswerStarted();
+            return new Promise((resolve, reject) => { rejectWrongAnswer = reject; });
+        }
+    });
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[1] })', harness.context);
+    await wrongAnswerStarted;
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+
+    assert.equal(attempts.length, 1, 'the correct retry should wait behind the pending wrong answer');
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+
+    const pendingRound = vm.runInContext('nextRound()', harness.context);
+    rejectWrongAnswer(new Error('Simulated connection loss'));
+    await pendingRound;
+    await vm.runInContext('activeNumbersRun.pendingAnswers', harness.context);
+
+    assert.equal(vm.runInContext('activeNumbersRun.valid', harness.context), false);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+    assert.deepEqual(attempts, [
+        { runId: 'verified-run', questionIndex: 0, answerValue: 3, attemptId: 'attempt-1' }
+    ], 'the queued correct retry must not be sent after the run is invalidated');
+    assert.notEqual(vm.runInContext('currentNumber.value', harness.context), 2);
+    assert.equal(vm.runInContext('availableNumbers.length', harness.context), 0);
+    assert.equal(vm.runInContext('activeNumbersRun.shownQuestionValues.has(currentNumber.value)', harness.context), true);
+
+    vm.runInContext(`handlePlatformClick({ currentTarget: DOM.platforms.find(button => Number(button.dataset.value) === currentNumber.value) })`, harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 2);
+    await vm.runInContext('nextRound()', harness.context);
+
+    assert.equal(harness.calls.wins, 1);
+    assert.equal(attempts.length, 1);
+});
+
+test('Numbers keeps the question limit when a correct server answer cannot be validated', async () => {
+    const harness = createNumbersRunFallbackHarness();
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+    await vm.runInContext('activeNumbersRun.pendingAnswers', harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.valid', harness.context), false);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+
+    await vm.runInContext('nextRound()', harness.context);
+    assert.notEqual(vm.runInContext('currentNumber.value', harness.context), 2);
+    assert.equal(vm.runInContext('availableNumbers.length', harness.context), 0);
+    assert.equal(vm.runInContext('activeNumbersRun.shownQuestionValues.has(currentNumber.value)', harness.context), true);
+
+    vm.runInContext(`handlePlatformClick({ currentTarget: DOM.platforms.find(button => Number(button.dataset.value) === currentNumber.value) })`, harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 2);
+    await vm.runInContext('nextRound()', harness.context);
+
+    assert.equal(harness.calls.wins, 1);
+    assert.equal(vm.runInContext('availableNumbers.length', harness.context), 0);
+});
+
+test('Numbers advances the local fallback after an unvalidated wrong attempt is corrected', async () => {
+    const harness = createNumbersRunFallbackHarness();
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[1] })', harness.context);
+    await vm.runInContext('activeNumbersRun.pendingAnswers', harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.valid', harness.context), false);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 0);
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+    await vm.runInContext('nextRound()', harness.context);
+    assert.notEqual(vm.runInContext('currentNumber.value', harness.context), 2);
+    assert.equal(vm.runInContext('availableNumbers.length', harness.context), 0);
+
+    vm.runInContext(`handlePlatformClick({ currentTarget: DOM.platforms.find(button => Number(button.dataset.value) === currentNumber.value) })`, harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 2);
+    await vm.runInContext('nextRound()', harness.context);
+
+    assert.equal(harness.calls.wins, 1);
+    assert.equal(vm.runInContext('availableNumbers.length', harness.context), 0);
+});
+
+test('Numbers falls back within the question limit when answer validation fails during round transition', async () => {
+    let rejectAnswer;
+    let markAnswerStarted;
+    const answerStarted = new Promise(resolve => { markAnswerStarted = resolve; });
+    const harness = createNumbersRunFallbackHarness({
+        recordAnswer() {
+            markAnswerStarted();
+            return new Promise((resolve, reject) => { rejectAnswer = reject; });
+        }
+    });
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+    await answerStarted;
+    const pendingRound = vm.runInContext('nextRound()', harness.context);
+    rejectAnswer(new Error('Simulated connection loss'));
+    await pendingRound;
+
+    assert.equal(vm.runInContext('activeNumbersRun.valid', harness.context), false);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
+    assert.notEqual(vm.runInContext('currentNumber.value', harness.context), 2);
+    assert.equal(vm.runInContext('availableNumbers.length', harness.context), 0);
+    assert.equal(vm.runInContext('activeNumbersRun.shownQuestionValues.has(currentNumber.value)', harness.context), true);
+
+    vm.runInContext(`handlePlatformClick({ currentTarget: DOM.platforms.find(button => Number(button.dataset.value) === currentNumber.value) })`, harness.context);
+    assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 2);
+    await vm.runInContext('nextRound()', harness.context);
+
+    assert.equal(harness.calls.wins, 1);
 });
 
 test('Numbers continues when the browser localStorage getter is blocked', () => {
@@ -974,6 +1305,41 @@ test('Numbers run captures the profile that started it', async () => {
         vm.runInContext('activeNumbersRun.profileStorageKey', harness.context),
         'englishNextLevel.numbersHighScores.v1.user.source-user'
     );
+    assert.equal(
+        vm.runInContext('activeNumbersRunProfileStorageKey', harness.context),
+        'englishNextLevel.numbersHighScores.v1.user.source-user'
+    );
+});
+
+test('local Numbers round saves its best score to the profile that started it', async () => {
+    const storageValues = new Map();
+    const harness = createBrowserContext(storageValues);
+    for (const script of CORE_SCRIPTS) harness.loadScript(script);
+    harness.context.window.currentUser = { uid: 'local-round-owner' };
+    harness.context.window.isGuest = false;
+    harness.context.window.EnglishNextLevelNumbersRunClient = {
+        canSubmitGlobally: () => false
+    };
+    vm.runInContext(`
+        DOM.game = { classList: { add() {}, remove() {} } };
+        DOM.startButton = { style: {}, classList: { add() {}, remove() {} }, disabled: false };
+        DOM.instructions = { textContent: '' };
+        DOM.gameStats = { style: {} };
+        ProgrammaticSfxEngine.primeFromUserGesture = () => {};
+        resetGame = () => {};
+        playSound = () => {};
+    `, harness.context);
+
+    await vm.runInContext('startGame()', harness.context);
+    harness.context.window.currentUser = { uid: 'different-account' };
+    vm.runInContext('score = 1200;', harness.context);
+    await vm.runInContext('winGame()', harness.context);
+
+    const ownerScores = JSON.parse(storageValues.get(
+        'englishNextLevel.numbersHighScores.v1.user.local-round-owner'
+    ));
+    assert.ok(ownerScores.numbers > 0);
+    assert.equal(storageValues.has('englishNextLevel.numbersHighScores.v1.user.different-account'), false);
 });
 
 test('screen navigation has no legacy bypass helpers', () => {
@@ -1018,6 +1384,8 @@ test('category cards navigate through the shared screen manager and support keyb
 
     assert.equal(prevented, true);
     assert.equal(keyboardHarness.history.state.screen, 'wordsMenu');
+    assert.equal(keyboardHarness.context.document.body.getAttribute('data-screen'), 'words');
+    assert.equal(keyboardHarness.elements.get('words-menu-container').style.display, 'block');
 
     const spaceHarness = createNavigationBrowserContext();
     spaceHarness.context.closeWordsSettings = () => {};
@@ -1056,7 +1424,31 @@ test('category back buttons share browser-history navigation', () => {
         harness.elements.get(buttonId).click();
 
         assert.deepEqual(harness.history.goCalls, [-1], `${buttonId} should use the shared browser history`);
+        if (buttonId === 'back-to-category-from-vocab') {
+            assert.equal(
+                harness.elements.get('vocab-game-container').style.display,
+                'none',
+                'the Words game should be hidden before asynchronous browser history completes'
+            );
+        }
     }
+});
+
+test('Words submenu is hidden before asynchronous browser back completes', () => {
+    const harness = createNavigationBrowserContext();
+    harness.context.closeWordsSettings = () => {};
+    harness.loadScript('js/keyboard-accessibility.js');
+    harness.loadScript('js/game.js');
+    harness.context.showScreen('categories');
+    harness.context.navigateTo('wordsSubmenu');
+
+    const submenu = harness.elements.get('simple-verbs-submenu');
+    assert.equal(submenu.style.display, 'block');
+
+    harness.context.goBack();
+
+    assert.deepEqual(harness.history.goCalls, [-1]);
+    assert.equal(submenu.style.display, 'none');
 });
 
 test('mobile bottom navigation opens Progress and Settings for a guest', () => {
@@ -1087,4 +1479,17 @@ test('mobile bottom navigation opens Progress and Settings for a guest', () => {
     assert.equal(harness.elements.get('words-settings-overlay').classList.contains('visible'), true);
     assert.equal(harness.elements.get('words-settings-overlay').getAttribute('aria-hidden'), 'false');
     assert.equal(harness.elements.get('mobile-nav-settings').classList.contains('is-active'), true);
+});
+
+test('mobile navigation includes the rendered Words root screen', () => {
+    const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    const mobileNav = fs.readFileSync(path.join(ROOT, 'js/mobile-nav.js'), 'utf8');
+    const mobileNavStyles = fs.readFileSync(path.join(ROOT, 'css/mobile-nav.css'), 'utf8');
+
+    assert.match(index, /<body data-screen="login">/);
+    assert.match(mobileNav, /'words'/);
+    assert.doesNotMatch(mobileNav, /'wordsMenu'/);
+    assert.match(mobileNavStyles, /body\[data-screen="words"\] \.mobile-bottom-nav/);
+    assert.match(mobileNavStyles, /body\[data-screen="words"\] #words-menu-settings-btn/);
+    assert.doesNotMatch(mobileNavStyles, /data-screen="wordsMenu"/);
 });

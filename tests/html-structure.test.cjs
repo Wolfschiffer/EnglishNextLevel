@@ -125,6 +125,14 @@ test('index.html does not contain duplicate IDs', () => {
     assert.deepEqual([...duplicates], [], `Duplicate IDs: ${[...duplicates].join(', ')}`);
 });
 
+test('Words gameplay shell can shrink to a narrow mobile viewport', () => {
+    const wordsStyles = fs.readFileSync(path.join(projectRoot, 'css/words-game.css'), 'utf8');
+    const shellRule = /body\[data-screen="wordsGame"\]\s+#category-container\s*\{([^}]*)\}/.exec(wordsStyles);
+
+    assert.ok(shellRule, 'Words gameplay should define its outer shell');
+    assert.match(shellRule[1], /min-width:\s*0\s*!important\s*;/);
+});
+
 test('index.html keeps game-card actions out of inline event attributes', () => {
     const inlineHandlers = getQuotedAttributes(html, ['onclick', 'onkeydown', 'onkeyup']);
     assert.deepEqual(inlineHandlers, [], 'Game actions should be attached by JavaScript modules');

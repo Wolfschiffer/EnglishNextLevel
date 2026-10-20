@@ -2,9 +2,14 @@
 // 1. CONFIGURAÇÕES GLOBAIS
 // ============================================
 
+const SCREEN_BODY_STATES = Object.freeze({
+    wordsMenu: 'words'
+});
+
 const ScreenManager = {
   setScreen(screenName) {
-    document.body.setAttribute('data-screen', screenName);
+    const bodyScreen = SCREEN_BODY_STATES[screenName] || screenName;
+    document.body.setAttribute('data-screen', bodyScreen);
     window.enlDebug?.(`🖥️ Tela alterada para: ${screenName}`);
   }
 };
@@ -95,7 +100,7 @@ function showScreen(screen, options = {}) {
     }
 
     if (![SCREENS.WORDS_MENU, SCREENS.WORDS_SUBMENU, SCREENS.WORDS_SUBMENU_PAST, SCREENS.WORDS_GAME].includes(screen)) {
-        closeWordsSettings();
+        closeWordsSettings({ restoreFocus: false });
     }
 
     // Se o jogador sair do Vocabulary Match antes de terminar, encerra o cronômetro.
@@ -198,7 +203,6 @@ function showScreen(screen, options = {}) {
             if (simpleVerbsSubmenu) simpleVerbsSubmenu.style.display = 'none';
             if (simpleVerbsPastSubmenu) simpleVerbsPastSubmenu.style.display = 'none';
             window.EnglishNextLevelSpacedReviewManager?.refresh?.();
-            ScreenManager.setScreen('words');
             break;
 
         case SCREENS.WORDS_SUBMENU:
@@ -366,13 +370,13 @@ function goBack(steps = 1) {
     const actualSteps = Math.min(requestedSteps, navigationStack.length);
 
     if (isAppHistoryState(window.history.state)) {
-        // O popstate fará a troca visual quando o histórico terminar de voltar.
+        // Esconde os submenus imediatamente; o popstate troca para a tela de destino.
+        cleanBeforeBack();
         window.history.go(-actualSteps);
         return;
     }
 
     // Fallback para navegadores muito antigos ou histórico não inicializado.
-    cleanBeforeBack();
     let previousScreen = currentScreen;
     for (let i = 0; i < actualSteps; i += 1) {
         previousScreen = navigationStack.pop() || SCREENS.CATEGORIES;
@@ -389,8 +393,6 @@ window.addEventListener('popstate', (event) => {
     }
 
     window.enlDebug?.('📱 Voltar do navegador/celular:', event.state.screen);
-    cleanBeforeBack();
-
     navigationStack = Array.isArray(event.state.stack)
         ? [...event.state.stack]
         : [];

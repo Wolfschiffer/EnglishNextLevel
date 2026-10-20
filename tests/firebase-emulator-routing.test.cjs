@@ -42,20 +42,53 @@ function initializeFirebaseAt(location) {
     return { appConfig, authCalls, firestoreCalls, functionsCalls, environment: window.enlFirebaseEnvironment };
 }
 
+test('showing the login screen resets the mobile navigation state', () => {
+    const source = fs.readFileSync(path.join(__dirname, '../js/firebase-config.js'), 'utf8');
+    const start = source.indexOf('function showAuthScreen(');
+    const end = source.indexOf('\nconst passwordResetModule', start);
+    assert.notEqual(start, -1);
+    assert.notEqual(end, -1);
+
+    const attributes = new Map([['data-screen', 'words']]);
+    const elementIds = [
+        'auth-container', 'category-container', 'numbers-menu-container',
+        'game-container', 'vocab-game-container', 'words-menu-container'
+    ];
+    const elements = new Map(elementIds.map((id) => [id, {
+        style: { display: id === 'words-menu-container' ? 'block' : 'none' },
+        classList: { add() {}, remove() {} }
+    }]));
+    const document = {
+        body: { setAttribute(name, value) { attributes.set(name, value); } },
+        getElementById(id) { return elements.get(id) ?? null; },
+        querySelector() { return null; }
+    };
+
+    vm.runInNewContext(`${source.slice(start, end)}\nshowLoginScreen();`, { document });
+
+    assert.equal(attributes.get('data-screen'), 'login');
+    assert.equal(elements.get('auth-container').style.display, 'block');
+    assert.equal(elements.get('category-container').style.display, 'none');
+    assert.equal(elements.get('words-menu-container').style.display, 'none');
+});
+
 test('firebase environment resolver loads before Firebase initialization', () => {
     const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
     const environmentScript = html.indexOf('<script src="js/firebase-environment.js"></script>');
     const passwordResetScript = html.indexOf('<script src="js/password-reset.js"></script>');
     const emailVerificationScript = html.indexOf('<script src="js/email-verification.js"></script>');
+    const authUIScript = html.indexOf('<script src="js/auth-ui.js"></script>');
     const firebaseConfigScript = html.indexOf('<script src="js/firebase-config.js"></script>');
 
     assert.notEqual(environmentScript, -1);
     assert.notEqual(passwordResetScript, -1);
     assert.notEqual(emailVerificationScript, -1);
+    assert.notEqual(authUIScript, -1);
     assert.notEqual(firebaseConfigScript, -1);
     assert.ok(environmentScript < passwordResetScript);
     assert.ok(passwordResetScript < emailVerificationScript);
-    assert.ok(emailVerificationScript < firebaseConfigScript);
+    assert.ok(emailVerificationScript < authUIScript);
+    assert.ok(authUIScript < firebaseConfigScript);
 });
 
 test('Firebase auth helpers do not redeclare the shared navigation function names', () => {

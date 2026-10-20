@@ -5,7 +5,7 @@
     'categories',
     'profile',
     'numbersMenu',
-    'wordsMenu',
+    'words',
     'wordsSubmenu',
     'wordsSubmenuPast',
     'topicsMenu',

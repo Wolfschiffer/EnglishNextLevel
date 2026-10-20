@@ -20,14 +20,14 @@
 
 
   <!-- Firebase SDKs -->
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/13.0.0/firebase-functions-compat.js"></script>
   <script src="js/firebase-offline-fallback.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ts-fsrs@5.4.2/dist/index.umd.js" defer></script>
 </head>
-<body data-screen="words">
+<body data-screen="login">
 
 <!-- TELA DE LOGIN/REGISTRO -->
 <div id="auth-container" class="game-container auth-container">
@@ -1382,6 +1382,7 @@
 <script src="js/firebase-environment.js"></script>
 <script src="js/password-reset.js"></script>
 <script src="js/email-verification.js"></script>
+<script src="js/auth-ui.js"></script>
 <script src="js/firebase-config.js"></script>
 <script src="js/leaderboard-storage.js"></script>
 <script src="js/leaderboard-client.js"></script>
@@ -1395,6 +1396,7 @@
 <script src="js/numbers-run-session.js"></script>
 <script src="js/numbers-scoring.js"></script>
 <script src="js/numbers-high-score-storage.js"></script>
+<script src="js/numbers-high-score-profile.js"></script>
 <script src="js/audio-engines.js"></script>
 <script src="js/audio-settings.js"></script>
 <script src="js/vocabulary-scoring.js"></script>
@@ -1407,7 +1409,10 @@
 <script src="js/game.js"></script>
 <script src="js/category-navigation.js"></script>
 <script src="js/numbers-eagle.js"></script>
+<script src="js/numbers-image-loader.js"></script>
 <script src="js/numbers-round-feedback.js"></script>
+<script src="js/numbers-answer-options.js"></script>
+<script src="js/numbers-fallback-questions.js"></script>
 <script src="js/numbers-game.js"></script>
 <script src="js/progress-profile-data.js"></script>
 <script src="js/progress-profile-summary.js"></script>
@@ -1432,6 +1437,7 @@
 <script src="js/topics/match-pairs.js"></script>
 <script src="js/topics/speech-answer.js"></script>
 <script src="js/topics/speech-audio.js"></script>
+<script src="js/topics/speech-settings.js"></script>
 <script src="js/topics/speech-recognition.js"></script>
 <script src="js/topics/speech-page-lifecycle.js"></script>
 <script src="js/topics/speech-game.js"></script>

@@ -377,7 +377,6 @@ function startVocabularyGame(vocabularyDataParam = null, gameType = 'present') {
 
     renderVocabularyLists();
     if (vocabMessage) vocabMessage.innerHTML = '';
-    currentScreen = SCREENS.WORDS_GAME;
 
     // Prepara a voz disponível enquanto o modal está aberto, mas só inicia
     // tempo, pontuação e ativação efetiva do TTS depois do clique em START.
@@ -414,11 +413,6 @@ function renderVocabularyLists() {
 // MENU DE WORDS
 // ============================================
 
-const wordsMenuContainer = document.getElementById('words-menu-container');
-const backToCategoryFromWords = document.getElementById('back-to-category-from-words');
-
-
-
 window.selectWordGame = function(gameType) {
     window.enlDebug?.(`📚 Word game selected: ${gameType}`);
 
@@ -434,28 +428,7 @@ window.selectWordGame = function(gameType) {
                 ? `Simple Past${setNumber ? ` ${setNumber}` : ''}`
                 : `Simple Verbs${setNumber ? ` ${setNumber}` : ''}`;
         }
-        // Garantir que o container pai está visível
-        const categoryContainer = document.getElementById('category-container');
-        if (categoryContainer) categoryContainer.style.display = 'block';
-
-        // Esconder o menu de words
-        const wordsMenu = document.getElementById('words-menu-container');
-        if (wordsMenu) wordsMenu.style.display = 'none';
-
-        // Esconder os botões de categoria
-        const categoryButtons = document.querySelector('.category-buttons');
-        if (categoryButtons) categoryButtons.style.display = 'none';
-
-        // Mostrar o container do jogo
-        const vocabContainer = document.getElementById('vocab-game-container');
-        if (vocabContainer) {
-            vocabContainer.style.display = 'block';
-            vocabContainer.style.visibility = 'visible';
-            vocabContainer.style.opacity = '1';
-            window.enlDebug?.("✅ vocab-container exibido");
-        }
-
-        // Adicionar ao histórico
+        // O roteador controla as telas e atualiza o histórico interno do navegador.
         navigateTo(SCREENS.WORDS_GAME);
 
         // Iniciar o jogo com tipo explícito
@@ -471,25 +444,6 @@ document.querySelectorAll(
     card.addEventListener('click', () => window.selectWordGame(card.dataset.wordsMode));
 });
 
-
-// ============================================
-// BOTÃO VOLTAR DO JOGO DE VOCABULÁRIO
-// ============================================
-
-
-
-function backToCategoryFromVocab() {
-    window.enlDebug?.("◀ Botão voltar do vocabulário clicado");
-
-    const vocabContainer = document.getElementById('vocab-game-container');
-    if (vocabContainer) vocabContainer.style.display = 'none';
-
-    matchesCount = 0;
-    vocabularyMatching.reset();
-    vocabularyTouchInput.reset();
-
-    goBack();
-}
 
 // ============================================
 // SUBMENU DOS SIMPLE VERBS
@@ -530,16 +484,7 @@ if (backToWordsMenuBtn) {
         e.stopPropagation();
         window.enlDebug?.("◀ Botão VOLTAR do WORDS clicado");
 
-        const pastSubmenu = document.getElementById('simple-verbs-past-submenu');
-        const simpleSubmenu = document.getElementById('simple-verbs-submenu');
-        const vocabContainer = document.getElementById('vocab-game-container');
-
-        // Esconde submenus e containers do jogo
-        if (pastSubmenu) pastSubmenu.style.display = 'none';
-        if (simpleSubmenu) simpleSubmenu.style.display = 'none';
-        if (vocabContainer) vocabContainer.style.display = 'none';
-
-        // Volta para a tela anterior usando goBack()
+        // O roteador limpa os containers e atualiza o histórico.
         goBack();
     });
 }

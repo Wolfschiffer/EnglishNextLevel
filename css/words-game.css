@@ -26,6 +26,7 @@ body[data-screen="wordsGame"]::before {
 body[data-screen="wordsGame"] #category-container {
   width: min(1120px, 100%) !important;
   max-width: 1120px !important;
+  min-width: 0 !important;
   margin: 0 auto !important;
   padding: 0 !important;
   border: 0 !important;

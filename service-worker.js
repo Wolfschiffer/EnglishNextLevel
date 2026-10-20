@@ -1,5 +1,5 @@
 // Increment this when app-shell files change so returning visitors fetch the new build.
-const CACHE_NAME = 'enl-shell-v35';
+const CACHE_NAME = 'enl-shell-v48';
 
 const SHELL_ASSETS = [
     './',
@@ -17,6 +17,7 @@ const SHELL_ASSETS = [
     './js/firebase-offline-fallback.js',
     './js/password-reset.js',
     './js/email-verification.js',
+    './js/auth-ui.js',
     './js/firebase-config.js',
     './js/leaderboard-storage.js',
     './js/leaderboard-client.js',
@@ -30,6 +31,7 @@ const SHELL_ASSETS = [
     './js/numbers-run-session.js',
     './js/numbers-scoring.js',
     './js/numbers-high-score-storage.js',
+    './js/numbers-high-score-profile.js',
     './js/audio-engines.js',
     './js/audio-settings.js',
     './js/vocabulary-scoring.js',
@@ -42,7 +44,10 @@ const SHELL_ASSETS = [
     './js/game.js',
     './js/category-navigation.js',
     './js/numbers-eagle.js',
+    './js/numbers-image-loader.js',
     './js/numbers-round-feedback.js',
+    './js/numbers-answer-options.js',
+    './js/numbers-fallback-questions.js',
     './js/numbers-game.js',
     './js/progress-profile-data.js',
     './js/progress-profile-summary.js',
@@ -67,6 +72,7 @@ const SHELL_ASSETS = [
     './js/topics/match-pairs.js',
     './js/topics/speech-answer.js',
     './js/topics/speech-audio.js',
+    './js/topics/speech-settings.js',
     './js/topics/speech-recognition.js',
     './js/topics/speech-page-lifecycle.js',
     './js/topics/speech-game.js',
@@ -149,10 +155,10 @@ const SHELL_ASSETS = [
 // Cache only the pinned Firebase SDK and FSRS scheduler scripts. Firebase Auth,
 // Firestore and Functions data requests are never cached by this service worker.
 const FIREBASE_SDK_ASSETS = [
-    'https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js',
-    'https://www.gstatic.com/firebasejs/10.7.0/firebase-auth-compat.js',
-    'https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore-compat.js',
-    'https://www.gstatic.com/firebasejs/10.7.0/firebase-functions-compat.js'
+    'https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js',
+    'https://www.gstatic.com/firebasejs/13.0.0/firebase-auth-compat.js',
+    'https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js',
+    'https://www.gstatic.com/firebasejs/13.0.0/firebase-functions-compat.js'
 ];
 
 const PINNED_EXTERNAL_SCRIPT_ASSETS = [

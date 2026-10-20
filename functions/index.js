@@ -2,6 +2,7 @@ const { createHash } = require('node:crypto');
 const { initializeApp } = require('firebase-admin/app');
 const { FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
+const { setGlobalOptions } = require('firebase-functions/v2/options');
 const { normalizeProfileName, normalizeRunId, SCORE_MODES } = require('./score-validation');
 const {
     INITIAL_LIVES,
@@ -11,6 +12,8 @@ const {
     calculateNumbersRoundPoints,
     createNumbersRunQuestions
 } = require('./numbers-run');
+
+setGlobalOptions({ maxInstances: 10 });
 
 initializeApp();
 

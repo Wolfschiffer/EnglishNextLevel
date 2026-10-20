@@ -172,3 +172,18 @@ test('a lost round omits score submission and keeps the result actions', async (
     assert.equal(harness.calls.restart, 1);
     assert.equal(harness.calls.back, 1);
 });
+
+test('explains possible internet delay on verified runs only', () => {
+    const verifiedHarness = createHarness();
+    verifiedHarness.dialog.show(completedResult, { won: true });
+    const verifiedModal = verifiedHarness.document.querySelector('.numbers-result-modal');
+
+    assert.match(verifiedModal.innerHTML, /time for an online score may include internet delay/i);
+    assert.match(verifiedModal.innerHTML, /role="note"/);
+
+    const deviceOnlyHarness = createHarness();
+    deviceOnlyHarness.dialog.show({ ...completedResult, leaderboardRunId: null }, { won: true });
+    const deviceOnlyModal = deviceOnlyHarness.document.querySelector('.numbers-result-modal');
+
+    assert.doesNotMatch(deviceOnlyModal.innerHTML, /numbers-result-network-note/);
+});

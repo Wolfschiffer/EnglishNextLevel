@@ -11,7 +11,7 @@
   body[data-screen="categories"] .mobile-bottom-nav,
   body[data-screen="profile"] .mobile-bottom-nav,
   body[data-screen="numbersMenu"] .mobile-bottom-nav,
-  body[data-screen="wordsMenu"] .mobile-bottom-nav,
+  body[data-screen="words"] .mobile-bottom-nav,
   body[data-screen="wordsSubmenu"] .mobile-bottom-nav,
   body[data-screen="wordsSubmenuPast"] .mobile-bottom-nav,
   body[data-screen="topicsMenu"] .mobile-bottom-nav,
@@ -99,7 +99,7 @@
   body[data-screen="categories"],
   body[data-screen="profile"],
   body[data-screen="numbersMenu"],
-  body[data-screen="wordsMenu"],
+  body[data-screen="words"],
   body[data-screen="wordsSubmenu"],
   body[data-screen="wordsSubmenuPast"],
   body[data-screen="topicsMenu"],
@@ -127,7 +127,7 @@
   /* Contextual menu bars keep their right-hand slot so titles remain exactly
      centered, but Settings is provided by the bottom navigation on mobile. */
   body[data-screen="numbersMenu"] #numbers-menu-settings-btn,
-  body[data-screen="wordsMenu"] #words-menu-settings-btn,
+  body[data-screen="words"] #words-menu-settings-btn,
   body[data-screen="wordsSubmenu"] #words-menu-settings-btn,
   body[data-screen="wordsSubmenuPast"] #words-menu-settings-btn,
   body[data-screen="topicsMenu"] #topics-menu-settings-btn,
@@ -135,6 +135,33 @@
   body[data-screen="topicGameMenu"] #topic-game-menu-settings-btn {
     visibility: hidden !important;
     pointer-events: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  body[data-firebase-environment="test"][data-screen="categories"],
+  body[data-firebase-environment="test"][data-screen="profile"],
+  body[data-firebase-environment="test"][data-screen="numbersMenu"],
+  body[data-firebase-environment="test"][data-screen="words"],
+  body[data-firebase-environment="test"][data-screen="wordsSubmenu"],
+  body[data-firebase-environment="test"][data-screen="wordsSubmenuPast"],
+  body[data-firebase-environment="test"][data-screen="topicsMenu"],
+  body[data-firebase-environment="test"][data-screen="topicLevel"],
+  body[data-firebase-environment="test"][data-screen="topicGameMenu"] {
+    padding-bottom: calc(136px + env(safe-area-inset-bottom)) !important;
+  }
+
+  body[data-firebase-environment="test"][data-screen="categories"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="profile"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="numbersMenu"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="words"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="wordsSubmenu"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="wordsSubmenuPast"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="topicsMenu"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="topicLevel"] .firebase-emulator-warning,
+  body[data-firebase-environment="test"][data-screen="topicGameMenu"] .firebase-emulator-warning {
+    bottom: calc(70px + env(safe-area-inset-bottom)) !important;
+    z-index: 2399 !important;
   }
 }
 

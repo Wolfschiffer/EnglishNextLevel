@@ -85,6 +85,8 @@
                         </div>
                     </div>
 
+                    ${leaderboardRunId ? '<p class="numbers-result-network-note" role="note">The time for an online score may include internet delay, so it can be longer than the timer shown during play.</p>' : ''}
+
                     <div class="numbers-result-final">
                         <span>Final Score</span>
                         <strong>${formatScore(result.finalScore)}</strong>

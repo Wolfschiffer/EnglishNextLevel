@@ -39,6 +39,15 @@ if (!numbersData?.gameData) {
     throw new Error('numbers-data.js must load before numbers-game.js');
 }
 const gameData = numbersData.gameData;
+const numbersAnswerOptionsModule = window.EnglishNextLevelNumbersAnswerOptions;
+if (!numbersAnswerOptionsModule?.create) {
+    throw new Error('numbers-answer-options.js must load before numbers-game.js');
+}
+const numbersAnswerOptions = numbersAnswerOptionsModule.create();
+const numbersFallbackQuestions = window.EnglishNextLevelNumbersFallbackQuestions;
+if (!numbersFallbackQuestions?.buildFallbackNumbers) {
+    throw new Error('numbers-fallback-questions.js must load before numbers-game.js');
+}
 const numbersScoring = window.EnglishNextLevelNumbersScoring;
 if (!numbersScoring?.calculateRoundScore || !numbersScoring?.calculateFinalResult) {
     throw new Error('numbers-scoring.js must load before numbers-game.js');
@@ -46,6 +55,10 @@ if (!numbersScoring?.calculateRoundScore || !numbersScoring?.calculateFinalResul
 const numbersHighScoreStorage = window.EnglishNextLevelNumbersHighScoreStorage;
 if (!numbersHighScoreStorage?.loadScores || !numbersHighScoreStorage?.saveScores) {
     throw new Error('numbers-high-score-storage.js must load before numbers-game.js');
+}
+const numbersHighScoreProfileModule = window.EnglishNextLevelNumbersHighScoreProfile;
+if (!numbersHighScoreProfileModule?.create) {
+    throw new Error('numbers-high-score-profile.js must load before numbers-game.js');
 }
 
 // ============================================
@@ -56,23 +69,29 @@ let currentGame = 'numbers';
 let currentNumbers = [];
 let currentNumber = null;
 let score = 0;
-const NUMBERS_HIGH_SCORE_STORAGE_PREFIX = 'englishNextLevel.numbersHighScores.v1';
 const NUMBERS_MODE_IDS = [
     'numbers', 'numbers11-20', 'tens', 'random21_99', 'hundreds',
     'random101_999', 'thousands', 'random1001_9999', 'mixedAdvanced'
 ];
+const numbersHighScoreProfile = numbersHighScoreProfileModule.create({
+    prefix: 'englishNextLevel.numbersHighScores.v1',
+    modeIds: NUMBERS_MODE_IDS,
+    getProfile: () => ({ isGuest: window.isGuest, uid: window.currentUser?.uid }),
+    getStorage: () => localStorage,
+    storage: numbersHighScoreStorage
+});
 
 function createEmptyNumbersHighScores() {
     return numbersHighScoreStorage.createEmptyScores(NUMBERS_MODE_IDS);
 }
 
 let highScores = createEmptyNumbersHighScores();
-let loadedNumbersHighScoreStorageKey = null;
 
 // NUMBERS scoring source of truth. During a round, `score` is the base score.
 // Bonuses are applied only once when the round ends.
 let lastNumbersResult = null;
 let activeNumbersRun = null;
+let activeNumbersRunProfileStorageKey = null;
 let numbersRunStartSequence = 0;
 let numbersRunStarting = false;
 let pendingNumbersResultModalTimer = null;
@@ -98,11 +117,6 @@ const numbersRunSession = numbersRunSessionModule.create({
     findNumberByWord: word => Object.values(gameData).flat().find(number => number.word === word),
     logger: console
 });
-
-// Keep the correct answer position random, but never let it repeat
-// in the same slot more than twice in a row.
-let lastCorrectPlatformIndex = null;
-let consecutiveCorrectPlatformCount = 0;
 
 // ============================================
 // 5. TIMER
@@ -138,9 +152,16 @@ const DOM = {
 // 7. IMAGENS
 // ============================================
 
-let eagleImages = { idle: null, flap: [], celebrate: [], wrong: [] };
-let menuEagleImage = null;
-let eagleSpritesLoaded = false;
+const numbersImageLoaderFactory = window.EnglishNextLevelNumbersImageLoader;
+if (!numbersImageLoaderFactory?.create) {
+    throw new Error('numbers-image-loader.js must load before numbers-game.js');
+}
+const numbersImageLoader = numbersImageLoaderFactory.create({
+    document,
+    debug: (...args) => window.enlDebug?.(...args),
+    logger: console
+});
+const eagleImages = numbersImageLoader.images;
 const eagleAnimationFactory = window.EnglishNextLevelNumbersEagle;
 if (!eagleAnimationFactory?.create) {
     throw new Error('numbers-eagle.js must load before numbers-game.js');
@@ -159,81 +180,8 @@ const eagleAnimation = eagleAnimationFactory.create({
     debug: (...args) => window.enlDebug?.(...args)
 });
 
-function loadMenuImages() {
-    window.enlDebug?.('Loading menu images...');
-
-    eagleImages.idle = new Image();
-    eagleImages.idle.src = 'images/flap_01.png';
-    eagleImages.idle.onload = () => window.enlDebug?.('✅ Idle image loaded');
-    eagleImages.idle.onerror = () => console.error('❌ Failed: images/flap_01.png');
-
-    menuEagleImage = new Image();
-    menuEagleImage.src = 'images/flap_01.png';
-
-    menuEagleImage.onload = () => {
-        const menuEagle = document.querySelector('#numbers-menu-container .eagle-menu-icon');
-        if (menuEagle) {
-            menuEagle.innerHTML = '';
-            const img = document.createElement('img');
-            img.src = menuEagleImage.src;
-            img.style.width = '144px';
-            img.style.height = '120px';
-            img.style.objectFit = 'contain';
-            menuEagle.appendChild(img);
-        }
-
-        const wordsEagle = document.querySelector('#words-menu-container .eagle-menu-icon');
-        if (wordsEagle) {
-            wordsEagle.innerHTML = '';
-            const img2 = document.createElement('img');
-            img2.src = menuEagleImage.src;
-            img2.style.width = '144px';
-            img2.style.height = '120px';
-            img2.style.objectFit = 'contain';
-            wordsEagle.appendChild(img2);
-        }
-
-        window.enlDebug?.('✅ Menu eagle images loaded');
-    };
-
-    menuEagleImage.onerror = () => console.error('❌ Failed to load menu eagle');
-}
-
 function loadEagleSprites() {
-    if (eagleSpritesLoaded) return;
-
-    window.enlDebug?.('Loading eagle sprites...');
-
-    eagleImages.flap = [];
-    eagleImages.celebrate = [];
-    eagleImages.wrong = [];
-
-    for (let i = 1; i <= 18; i++) {
-        const img = new Image();
-        const num = i.toString().padStart(2, '0');
-        img.src = `images/flap_${num}.png`;
-        img.onerror = () => console.error(`❌ Failed: images/flap_${num}.png`);
-        eagleImages.flap.push(img);
-    }
-
-    for (let i = 1; i <= 11; i++) {
-        const img = new Image();
-        const num = i.toString().padStart(2, '0');
-        img.src = `images/eagle_center_${num}.png`;
-        img.onerror = () => console.error(`❌ Failed: images/eagle_center_${num}.png`);
-        eagleImages.celebrate.push(img);
-    }
-
-    for (let i = 1; i <= 19; i++) {
-        const img = new Image();
-        const num = i.toString().padStart(2, '0');
-        img.src = `images/eagle_wrong_${num}.png`;
-        img.onerror = () => console.error(`❌ Failed: images/eagle_wrong_${num}.png`);
-        eagleImages.wrong.push(img);
-    }
-
-    eagleSpritesLoaded = true;
-    window.enlDebug?.('✅ Eagle sprites loading started');
+    numbersImageLoader.loadEagleSprites();
 }
 
 
@@ -371,12 +319,12 @@ function handlePlatformClick(e) {
 
     const selectedValue = parseInt(btn.dataset.value);
     const wasCorrect = selectedValue === currentNumber.value;
-    const run = activeNumbersRun?.valid ? activeNumbersRun : null;
+    const run = activeNumbersRun;
     const runQuestionIndex = run?.questionIndex;
-    if (run) {
+    if (run?.valid) {
         numbersRunSession.queueAnswer(run, runQuestionIndex, selectedValue, wasCorrect);
-        if (wasCorrect) run.questionIndex++;
     }
+    if (run && wasCorrect) run.questionIndex++;
 
     if (wasCorrect) {
         const roundScore = calculateRoundScore();
@@ -445,41 +393,24 @@ function updateLives() {
 }
 
 function getNumbersHighScoreStorageKey() {
-    if (!window.isGuest && window.currentUser?.uid) {
-        return `${NUMBERS_HIGH_SCORE_STORAGE_PREFIX}.user.${window.currentUser.uid}`;
-    }
-    if (window.isGuest) {
-        return `${NUMBERS_HIGH_SCORE_STORAGE_PREFIX}.guest`;
-    }
-    return `${NUMBERS_HIGH_SCORE_STORAGE_PREFIX}.local`;
+    return numbersHighScoreProfile.getStorageKey();
 }
 
 function loadNumbersHighScoresForCurrentProfile(force = false) {
-    const storageKey = getNumbersHighScoreStorageKey();
-    if (!force && loadedNumbersHighScoreStorageKey === storageKey) return highScores;
-
-    highScores = numbersHighScoreStorage.loadScores(() => localStorage, storageKey, NUMBERS_MODE_IDS);
-    loadedNumbersHighScoreStorageKey = storageKey;
+    highScores = numbersHighScoreProfile.loadCurrent(force);
     return highScores;
 }
 
 function loadNumbersHighScoresForStorageKey(storageKey) {
-    return numbersHighScoreStorage.loadScores(() => localStorage, storageKey, NUMBERS_MODE_IDS);
+    return numbersHighScoreProfile.loadForKey(storageKey);
 }
 
 function saveNumbersHighScoreForStorageKey(storageKey, gameMode, finalScoreCandidate) {
-    if (!NUMBERS_MODE_IDS.includes(gameMode) || !Number.isFinite(finalScoreCandidate)) return false;
-    const profileScores = loadNumbersHighScoresForStorageKey(storageKey);
-    const nextBest = Math.max(0, Math.floor(finalScoreCandidate));
-    if (nextBest <= (profileScores[gameMode] || 0)) return true;
-    profileScores[gameMode] = nextBest;
-    return numbersHighScoreStorage.saveScores(() => localStorage, storageKey, profileScores);
+    return numbersHighScoreProfile.saveForKey(storageKey, gameMode, finalScoreCandidate);
 }
 
 function persistNumbersHighScores() {
-    const storageKey = getNumbersHighScoreStorageKey();
-    loadedNumbersHighScoreStorageKey = storageKey;
-    return numbersHighScoreStorage.saveScores(() => localStorage, storageKey, highScores);
+    return numbersHighScoreProfile.saveCurrent(highScores);
 }
 
 function syncNumbersMenuBestScores() {
@@ -502,7 +433,7 @@ function setNumbersHighScoresFromProgress(scores = {}, { invalidateUnconfirmedRe
     NUMBERS_MODE_IDS.forEach(modeId => {
         highScores[modeId] = Math.max(0, Math.floor(Number(scores[modeId]) || 0));
     });
-    loadedNumbersHighScoreStorageKey = getNumbersHighScoreStorageKey();
+    numbersHighScoreProfile.setCurrentScores(highScores);
     if (invalidateResult) invalidateUnconfirmedNumbersResult();
     syncNumbersMenuBestScores();
     if (DOM.highScore) DOM.highScore.textContent = formatNumbersScore(highScores[currentGame] || 0);
@@ -551,6 +482,7 @@ function gameOver() {
     gameEnded = true;
     numbersRunSession.invalidate(activeNumbersRun);
     activeNumbersRun = null;
+    activeNumbersRunProfileStorageKey = null;
     stopTimer();
     playSound('gameOver');
     DOM.platforms.forEach(p => p.disabled = true);
@@ -580,7 +512,10 @@ async function winGame() {
     let completedGameMode = currentGame;
     let leaderboardRunId = null;
     const run = activeNumbersRun?.valid ? activeNumbersRun : null;
-    const resultOwnerStorageKey = run?.profileStorageKey || getNumbersHighScoreStorageKey();
+    const resultOwnerStorageKey = run?.profileStorageKey
+        || activeNumbersRunProfileStorageKey
+        || getNumbersHighScoreStorageKey();
+    activeNumbersRunProfileStorageKey = null;
 
     if (run) {
         if (DOM.instructions) DOM.instructions.textContent = 'Checking your final score...';
@@ -649,7 +584,7 @@ function loseLife() {
 
 async function nextRound() {
     if (!gameActive) return;
-    const run = activeNumbersRun?.valid ? activeNumbersRun : null;
+    const run = activeNumbersRun;
     if ((run && run.questionIndex >= run.questionCount) || (!run && availableNumbers.length === 0)) {
         winGame();
         return;
@@ -675,25 +610,18 @@ async function nextRound() {
             const matchingLocalIndex = availableNumbers.findIndex(number => number.value === nextNumber.value);
             if (matchingLocalIndex >= 0) availableNumbers.splice(matchingLocalIndex, 1);
         } else {
-            const shownValues = run.shownQuestionValues;
             const remainingQuestionCount = Math.max(0, run.questionCount - run.questionIndex);
-            const fallbackNumbers = availableNumbers.filter(number => !shownValues.has(number.value));
-            const fallbackValues = new Set(fallbackNumbers.map(number => number.value));
-
-            // If the local sample is exhausted by questions already shown remotely,
-            // fill only the remaining slots with other unseen numbers from this mode.
-            for (const number of currentNumbers) {
-                if (fallbackNumbers.length >= remainingQuestionCount) break;
-                if (shownValues.has(number.value) || fallbackValues.has(number.value)) continue;
-                fallbackNumbers.push(number);
-                fallbackValues.add(number.value);
-            }
-
-            availableNumbers = fallbackNumbers.slice(0, remainingQuestionCount);
+            availableNumbers = numbersFallbackQuestions.buildFallbackNumbers({
+                availableNumbers,
+                allNumbers: currentNumbers,
+                shownValues: run.shownQuestionValues,
+                remainingCount: remainingQuestionCount
+            });
             rand = availableNumbers.length > 0
                 ? Math.floor(Math.random() * availableNumbers.length)
                 : -1;
             nextNumber = availableNumbers[rand] || null;
+            if (nextNumber) run.shownQuestionValues.add(nextNumber.value);
         }
     }
     if (!gameActive || (run && activeNumbersRun !== run)) return;
@@ -733,45 +661,10 @@ function setupPlatforms() {
         return;
     }
 
-    const possibleValues = currentNumbers
-        .map(n => n.value)
-        .filter(value => value !== correctValue);
-
-    // Choose the slot for the correct answer. All three positions remain
-    // equally eligible unless one has already been used twice in a row.
-    let allowedCorrectIndexes = [0, 1, 2];
-    if (lastCorrectPlatformIndex !== null && consecutiveCorrectPlatformCount >= 2) {
-        allowedCorrectIndexes = allowedCorrectIndexes.filter(index => index !== lastCorrectPlatformIndex);
-    }
-
-    const correctIndex = allowedCorrectIndexes[
-        Math.floor(Math.random() * allowedCorrectIndexes.length)
-    ];
-
-    if (correctIndex === lastCorrectPlatformIndex) {
-        consecutiveCorrectPlatformCount++;
-    } else {
-        lastCorrectPlatformIndex = correctIndex;
-        consecutiveCorrectPlatformCount = 1;
-    }
-
-    // Pick two unique distractors, then place the correct answer directly
-    // in its selected slot instead of shuffling all three afterward.
-    const distractors = [];
-    while (distractors.length < 2 && possibleValues.length > 0) {
-        const randomIndex = Math.floor(Math.random() * possibleValues.length);
-        const [randomValue] = possibleValues.splice(randomIndex, 1);
-        if (!distractors.includes(randomValue)) distractors.push(randomValue);
-    }
-
-    const options = new Array(3);
-    options[correctIndex] = correctValue;
-    let distractorIndex = 0;
-    for (let i = 0; i < options.length; i++) {
-        if (i !== correctIndex) {
-            options[i] = distractors[distractorIndex++];
-        }
-    }
+    const options = numbersAnswerOptions.generate(
+        currentNumbers.map(number => number.value),
+        correctValue
+    );
 
     DOM.platforms.forEach((p, i) => {
         p.textContent = options[i];
@@ -843,6 +736,7 @@ function leaveNumbersGameScreen() {
         numbersRunSession.invalidate(activeNumbersRun);
         activeNumbersRun = null;
     }
+    activeNumbersRunProfileStorageKey = null;
     gameActive = false;
     gameEnded = false;
     answered = false;
@@ -923,6 +817,7 @@ function showMenu() {
     numbersRunStarting = false;
     numbersRunSession.invalidate(activeNumbersRun);
     activeNumbersRun = null;
+    activeNumbersRunProfileStorageKey = null;
     gameActive = false;
     EnglishSpeechEngine.stop();
     stopTimer();
@@ -1008,9 +903,7 @@ function resetGame() {
     answered = false;
     lastNumbersResult = null;
 
-    // Start each new game with a fresh answer-position history.
-    lastCorrectPlatformIndex = null;
-    consecutiveCorrectPlatformCount = 0;
+    numbersAnswerOptions.reset();
 
     // A new game must never inherit timing data from the previous round.
     startTime = null;
@@ -1044,6 +937,7 @@ async function startGame() {
     numbersRunStarting = true;
     const requestSequence = ++numbersRunStartSequence;
     const profileStorageKey = getNumbersHighScoreStorageKey();
+    activeNumbersRunProfileStorageKey = profileStorageKey;
     activeNumbersRun = null;
     gameActive = true;
     DOM.game.classList.add('game-active');
@@ -1094,6 +988,7 @@ window.selectGame = function(gameType) {
     numbersRunStarting = false;
     numbersRunSession.invalidate(activeNumbersRun);
     activeNumbersRun = null;
+    activeNumbersRunProfileStorageKey = null;
     currentGame = gameType;
 
     const modeLabelMap = {
@@ -1189,7 +1084,7 @@ function initGame() {
         DOM.canvas.height = 250;
     }
 
-    loadMenuImages();
+    numbersImageLoader.loadIdleImage();
 
     if (DOM.menuButton) {
         DOM.menuButton.removeEventListener('click', showMenu);
