@@ -108,7 +108,7 @@ These checks cover JavaScript syntax, local leaderboard storage, progress recove
 
 ### Browser smoke checks
 
-The Playwright smoke suite opens the app through a local HTTP server at `http://127.0.0.1:4173/EnglishNextLevel/`, using a 390 × 844 viewport. It checks keyboard navigation between the login tabs, guest navigation into a Words activity and completing a matching pair with Enter, starting a Numbers round and submitting the correct answer, and returning to the guest app shell after the service worker is installed and the browser goes offline. The tests block external requests; the login check supplies a Firebase SDK stub and verifies that Firebase stays in the local `demo-` test environment.
+The Playwright smoke suite opens the app through a local HTTP server at `http://127.0.0.1:4173/EnglishNextLevel/`. Most flows use a 390 × 844 viewport; a separate responsive check samples widths of 320, 390, 560, 768, 821, 980, and 1280 px and checks for page-level horizontal overflow on the guest home, Words, and Numbers screens. Other checks cover keyboard navigation between the login tabs, completing a Words matching pair with Enter, submitting a correct answer in a Numbers round, and returning to the guest app shell after the service worker is installed and the browser goes offline. The tests block external requests; the login check supplies a Firebase SDK stub and verifies that Firebase stays in the local `demo-` test environment. The width checks do not replace a full visual review of every screen and size.
 
 Install the root development dependency and Chromium once, then run the browser checks:
 

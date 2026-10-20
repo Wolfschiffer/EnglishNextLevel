@@ -36,6 +36,13 @@ async function expectNoHorizontalOverflow(page) {
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth + 1);
 }
 
+async function expectNoHorizontalOverflowAtWidths(page, widths) {
+    for (const width of widths) {
+        await page.setViewportSize({ width, height: 844 });
+        await expectNoHorizontalOverflow(page);
+    }
+}
+
 test('login tabs work by keyboard at a 390 px viewport without overflow', async ({ page }) => {
     await isolateBrowserNetwork(page.context(), { provideFirebaseStub: true });
     await page.goto('./');
@@ -132,6 +139,38 @@ test('guest can start a Numbers round and answer on mobile', async ({ page }) =>
     await page.locator(`#game-platforms .platform[data-value="${correctValue}"]`).click();
     await expect(page.locator('#score')).not.toHaveText('0');
     await expectNoHorizontalOverflow(page);
+});
+
+test('guest home, Words, and Numbers screens fit common viewport widths', async ({ page }) => {
+    const viewportWidths = [320, 390, 560, 768, 821, 980, 1280];
+    const mobileViewport = { width: 390, height: 844 };
+
+    await isolateBrowserNetwork(page.context(), { provideFirebaseStub: true });
+    await page.goto('./');
+    await page.getByRole('button', { name: 'Continue as Guest' }).click();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+
+    await page.setViewportSize(mobileViewport);
+    await page.getByRole('button', { name: 'Open Words' }).click();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+
+    await page.setViewportSize(mobileViewport);
+    await page.locator('#simple-verbs-btn').click();
+    await page.locator('#simple-verbs-submenu .game-card[data-words-mode="verbs1"]').click();
+    await page.locator('#vocab-start-btn').click();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+
+    await page.setViewportSize(mobileViewport);
+    await page.locator('#back-to-category-from-vocab').click();
+    await page.locator('#back-to-category-from-words').click();
+    await page.locator('#back-to-category-from-words').click();
+    await page.getByRole('button', { name: 'Open Numbers' }).click();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+
+    await page.setViewportSize(mobileViewport);
+    await page.locator('#numbers-menu-container [data-numbers-mode="numbers"]').click();
+    await page.locator('#start-game-btn').click();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
 });
 
 test('installed app shell can reload and navigate as a guest offline', async ({ browser }) => {
