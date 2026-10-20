@@ -59,7 +59,7 @@ function createFakeFirestore({ beforeRetry = null } = {}) {
     return { db, documents };
 }
 
-test('callable limits reject excess requests, reset after the window, and stay per account', async () => {
+test('callable limits count requests in the rolling window and stay per account', async () => {
     const { db, documents } = createFakeFirestore();
     const limit = CALLABLE_RATE_LIMITS.startNumbersQuestion;
     const options = { db, HttpsError };
@@ -84,32 +84,91 @@ test('callable limits reject excess requests, reset after the window, and stay p
 
     assert.deepEqual(
         documents.get('callableRateLimits/user-a/operations/startNumbersQuestion'),
-        { windowStartedAtMs: 1_000 + limit.windowMs, count: 1 }
+        { requestTimestampsMs: [1_000 + limit.windowMs] }
     );
     assert.deepEqual(
         documents.get('callableRateLimits/user-b/operations/startNumbersQuestion'),
-        { windowStartedAtMs: 1_000, count: 1 }
+        { requestTimestampsMs: [1_000] }
     );
 });
 
-test('a retried transaction uses the current time and preserves a concurrent new window', async () => {
+test('the rolling window blocks a burst across adjacent minute boundaries', async () => {
+    const { db, documents } = createFakeFirestore();
     const limit = CALLABLE_RATE_LIMITS.startNumbersQuestion;
-    const firstWindowStart = 1_000;
-    const nextWindowStart = firstWindowStart + limit.windowMs;
+    const options = { db, HttpsError };
+    const justBeforeBoundary = limit.windowMs - 1;
+
+    for (let count = 0; count < limit.maxRequests; count++) {
+        await consumeCallableRateLimit(
+            options,
+            'user-a',
+            'startNumbersQuestion',
+            () => justBeforeBoundary
+        );
+    }
+
+    await assert.rejects(
+        consumeCallableRateLimit(
+            options,
+            'user-a',
+            'startNumbersQuestion',
+            () => limit.windowMs + 1
+        ),
+        error => error.code === 'resource-exhausted'
+    );
+
+    await consumeCallableRateLimit(
+        options,
+        'user-a',
+        'startNumbersQuestion',
+        () => justBeforeBoundary + limit.windowMs
+    );
+
+    assert.equal(
+        documents.get('callableRateLimits/user-a/operations/startNumbersQuestion')
+            .requestTimestampsMs.length,
+        1
+    );
+});
+
+test('a slower instance clock preserves requests recorded by a faster instance', async () => {
+    const { db, documents } = createFakeFirestore();
+    const limit = CALLABLE_RATE_LIMITS.startNumbersQuestion;
+    const options = { db, HttpsError };
+
+    for (let count = 0; count < limit.maxRequests - 1; count++) {
+        await consumeCallableRateLimit(options, 'user-a', 'startNumbersQuestion', () => 1_000);
+    }
+
+    await consumeCallableRateLimit(options, 'user-a', 'startNumbersQuestion', () => 999);
+
+    assert.equal(
+        documents.get('callableRateLimits/user-a/operations/startNumbersQuestion')
+            .requestTimestampsMs.length,
+        limit.maxRequests
+    );
+    await assert.rejects(
+        consumeCallableRateLimit(options, 'user-a', 'startNumbersQuestion', () => 998),
+        error => error.code === 'resource-exhausted'
+    );
+});
+
+test('a retried transaction uses the current time and preserves a concurrent request', async () => {
+    const limit = CALLABLE_RATE_LIMITS.startNumbersQuestion;
+    const previousRequestTime = 1_000;
+    const concurrentRequestTime = previousRequestTime + limit.windowMs;
     const referencePath = 'callableRateLimits/user-a/operations/startNumbersQuestion';
     const { db, documents } = createFakeFirestore({
         beforeRetry(currentDocuments) {
             currentDocuments.set(referencePath, {
-                windowStartedAtMs: nextWindowStart,
-                count: 1
+                requestTimestampsMs: [concurrentRequestTime]
             });
         }
     });
     documents.set(referencePath, {
-        windowStartedAtMs: firstWindowStart,
-        count: limit.maxRequests - 1
+        requestTimestampsMs: Array(limit.maxRequests - 1).fill(previousRequestTime)
     });
-    const times = [nextWindowStart - 1, nextWindowStart + 1];
+    const times = [concurrentRequestTime - 1, concurrentRequestTime + 1];
     const clock = () => times.shift();
 
     await consumeCallableRateLimit(
@@ -120,7 +179,6 @@ test('a retried transaction uses the current time and preserves a concurrent new
     );
 
     assert.deepEqual(documents.get(referencePath), {
-        windowStartedAtMs: nextWindowStart,
-        count: 2
+        requestTimestampsMs: [concurrentRequestTime, concurrentRequestTime + 1]
     });
 });

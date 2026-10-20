@@ -15,23 +15,32 @@ async function consumeCallableRateLimit({ db, HttpsError }, uid, operation, cloc
         .doc(operation);
 
     await db.runTransaction(async (transaction) => {
-        const now = clock();
+        const currentTimeMs = clock();
+        if (!Number.isSafeInteger(currentTimeMs) || currentTimeMs < 0) {
+            throw new TypeError('Callable rate limit clock must return a non-negative integer.');
+        }
+
         const snapshot = await transaction.get(limitRef);
         const previous = snapshot.exists ? snapshot.data() : null;
-        const hasActiveWindow = Number.isSafeInteger(previous?.windowStartedAtMs) &&
-            previous.windowStartedAtMs <= now &&
-            now < previous.windowStartedAtMs + limit.windowMs &&
-            Number.isSafeInteger(previous.count) &&
-            previous.count > 0;
+        const storedTimestamps = Array.isArray(previous?.requestTimestampsMs)
+            ? previous.requestTimestampsMs.filter(timestamp =>
+                Number.isSafeInteger(timestamp) && timestamp >= 0
+            )
+            : [];
+        const logicalNowMs = storedTimestamps.reduce(
+            (latest, timestamp) => Math.max(latest, timestamp),
+            currentTimeMs
+        );
+        const recentRequests = storedTimestamps.filter(
+            timestamp => logicalNowMs - timestamp < limit.windowMs
+        );
 
-        if (hasActiveWindow && previous.count >= limit.maxRequests) {
+        if (recentRequests.length >= limit.maxRequests) {
             throw new HttpsError('resource-exhausted', 'Too many requests. Try again later.');
         }
 
-        const windowStartedAtMs = hasActiveWindow ? previous.windowStartedAtMs : now;
         transaction.set(limitRef, {
-            windowStartedAtMs,
-            count: hasActiveWindow ? previous.count + 1 : 1
+            requestTimestampsMs: [...recentRequests, logicalNowMs]
         });
     });
 }
