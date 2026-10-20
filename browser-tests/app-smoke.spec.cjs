@@ -106,6 +106,34 @@ test('guest can navigate between the home, Words, and Topics screens on mobile',
     await expectNoHorizontalOverflow(page);
 });
 
+test('guest can start a Numbers round and answer on mobile', async ({ page }) => {
+    await isolateBrowserNetwork(page.context(), { provideFirebaseStub: true });
+    await page.goto('./');
+
+    await page.getByRole('button', { name: 'Continue as Guest' }).click();
+    await page.getByRole('button', { name: 'Open Numbers' }).click();
+    await expect(page.locator('#numbers-menu-container')).toBeVisible();
+
+    await page.locator('#numbers-menu-container [data-numbers-mode="numbers"]').click();
+    await expect(page.locator('#game-container')).toBeVisible();
+    await page.locator('#start-game-btn').click();
+
+    const prompt = page.locator('#wordDisplay');
+    await expect(prompt).not.toHaveText('Ready?');
+    await expect(page.locator('#game-platforms .platform')).toHaveCount(3);
+
+    const word = (await prompt.textContent()).trim();
+    const correctValue = await page.evaluate((currentWord) => {
+        return window.EnglishNextLevelNumbersData.gameData.numbers
+            .find((number) => number.word === currentWord)?.value ?? null;
+    }, word);
+    expect(correctValue).not.toBeNull();
+
+    await page.locator(`#game-platforms .platform[data-value="${correctValue}"]`).click();
+    await expect(page.locator('#score')).not.toHaveText('0');
+    await expectNoHorizontalOverflow(page);
+});
+
 test('installed app shell can reload and navigate as a guest offline', async ({ browser }) => {
     const context = await browser.newContext({
         serviceWorkers: 'allow',
