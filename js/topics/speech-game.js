@@ -42,6 +42,7 @@
   let recognitionController = null;
   let pendingPronunciationTimer = null;
   let releaseStartFocusTrap = () => {};
+  let releaseSettingsFocusTrap = () => {};
   let returnFocusPopstateHandler = null;
   const speechSettings = window.TopicSpeakSettings.create({
     state,
@@ -80,20 +81,45 @@
     recognitionController.clearAcceptRecognitionTimer();
     stopSpeech();
     const overlay = $('topic-speak-settings-overlay');
-    if (!overlay) return;
+    if (!overlay || overlay.classList.contains('visible')) return;
     speechSettings.loadAudioVolumes();
     speechSettings.syncSettingsUI();
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden', 'false');
-    $('topic-speak-preaudio-toggle')?.focus({ preventScroll: true });
+
+    const dialog = overlay.querySelector?.('[role="dialog"]');
+    const initialFocus = $('topic-speak-settings-close');
+    releaseSettingsFocusTrap = dialog
+      ? window.EnlKeyboardAccessibility?.trapDialogFocus?.(dialog, {
+          initialFocus,
+          onEscape: closeSettings
+        }) || null
+      : null;
+
+    if (!releaseSettingsFocusTrap) initialFocus?.focus({ preventScroll: true });
   }
 
-  function closeSettings() {
+  function closeSettings({ restoreFocus = true } = {}) {
     const overlay = $('topic-speak-settings-overlay');
     if (!overlay) return;
+    const wasVisible = overlay.classList.contains('visible');
+    const dialog = overlay.querySelector?.('[role="dialog"]');
     overlay.classList.remove('visible');
     overlay.setAttribute('aria-hidden', 'true');
-    $('topic-speak-settings-btn')?.focus({ preventScroll: true });
+    releaseSettingsFocusTrap?.();
+    releaseSettingsFocusTrap = () => {};
+
+    const returnFocus = $('topic-speak-settings-btn');
+    const canRestoreFocus = restoreFocus && wasVisible && returnFocus &&
+      returnFocus.isConnected !== false && !returnFocus.disabled &&
+      !(typeof returnFocus.getClientRects === 'function' && returnFocus.getClientRects().length === 0);
+
+    if (canRestoreFocus) {
+      returnFocus.focus?.({ preventScroll: true });
+    } else if (dialog?.contains?.(document.activeElement)) {
+      document.activeElement.blur?.();
+    }
+
     if (state.started && !state.currentWordResolved && state.listening && !state.recognitionPaused && recognitionController.pageCanUseMicrophone()) {
       recognitionController.armRecognitionForCurrentWord(250);
     }
@@ -634,12 +660,8 @@
     state.currentWordResolved = false;
     pageLifecycle?.clearBlurLifecycleTimer();
     hideStartOverlay();
+    closeSettings({ restoreFocus: false });
     updatePreviewAudioVisibility();
-    const settingsOverlay = $('topic-speak-settings-overlay');
-    if (settingsOverlay) {
-      settingsOverlay.classList.remove('visible');
-      settingsOverlay.setAttribute('aria-hidden', 'true');
-    }
   }
 
   $('topic-speak-start-btn')?.addEventListener('click', startRound);

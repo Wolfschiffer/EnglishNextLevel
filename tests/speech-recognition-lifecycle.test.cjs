@@ -59,6 +59,9 @@ function createSpeechHarness() {
                 if (id === 'topic-speak-start-overlay' && selector === '[role="dialog"]') {
                     return elements.get('topic-speak-start-dialog') || null;
                 }
+                if (id === 'topic-speak-settings-overlay' && selector === '[role="dialog"]') {
+                    return elements.get('topic-speak-settings-dialog') || null;
+                }
                 return null;
             },
             hidden: false,
@@ -76,7 +79,7 @@ function createSpeechHarness() {
         'topic-speak-mic', 'topic-speak-mic-label', 'topic-speak-reveal', 'topic-speak-audio',
         'topic-speak-play-again', 'topic-speak-back-topic', 'back-from-topic-speak',
         'topic-speak-preview-audio', 'topic-speak-settings-btn', 'topic-speak-settings-close',
-        'topic-speak-settings-overlay', 'topic-speak-preaudio-toggle', 'topic-speak-voice-volume',
+        'topic-speak-settings-overlay', 'topic-speak-settings-dialog', 'topic-speak-preaudio-toggle', 'topic-speak-voice-volume',
         'topic-speak-voice-volume-value', 'topic-speak-voice-volume-icon', 'topic-speak-sfx-volume',
         'topic-speak-sfx-volume-value', 'topic-speak-sfx-volume-icon', 'topic-speak-title',
         'topic-speak-level', 'topic-speak-current', 'topic-speak-total', 'topic-speak-portuguese',
@@ -430,15 +433,59 @@ test('Speak cancels a delayed revealed-answer pronunciation when Settings opens'
 test('Speak resumes accepting answers after Settings closes during an active round', () => {
     const harness = createSpeechHarness();
     const recognition = startOneWordRound(harness);
+    const settingsButton = harness.elements.get('topic-speak-settings-btn');
 
-    harness.elements.get('topic-speak-settings-btn').dispatch('click');
+    settingsButton.dispatch('click');
     harness.elements.get('topic-speak-settings-close').dispatch('click');
+
+    assert.equal(settingsButton.focusCount, 1);
+    assert.equal(harness.focusTrapReleaseCount(), 2);
+
     harness.advanceBy(250);
     harness.advanceBy(221);
     recognition.emitResult(['grater']);
 
     assert.equal(harness.elements.get('topic-speak-result').hidden, false);
     assert.match(harness.elements.get('topic-speak-status').textContent, /Correct/);
+});
+
+test('Speak Settings traps focus and Escape closes it back to the opener', () => {
+    const harness = createSpeechHarness();
+    startOneWordRound(harness);
+    const settingsButton = harness.elements.get('topic-speak-settings-btn');
+    const settingsOverlay = harness.elements.get('topic-speak-settings-overlay');
+    const settingsClose = harness.elements.get('topic-speak-settings-close');
+
+    settingsButton.dispatch('click');
+
+    assert.equal(settingsOverlay.getAttribute('aria-hidden'), 'false');
+    assert.equal(settingsOverlay.classList.contains('visible'), true);
+    assert.equal(harness.focusTrapCalls.length, 2);
+    assert.strictEqual(harness.focusTrapCalls[1].dialog, harness.elements.get('topic-speak-settings-dialog'));
+    assert.strictEqual(harness.focusTrapCalls[1].options.initialFocus, settingsClose);
+    assert.equal(settingsClose.focusCount, 1);
+
+    harness.focusTrapCalls[1].options.onEscape();
+
+    assert.equal(settingsOverlay.getAttribute('aria-hidden'), 'true');
+    assert.equal(settingsOverlay.classList.contains('visible'), false);
+    assert.equal(harness.focusTrapReleaseCount(), 2);
+    assert.equal(settingsButton.focusCount, 1);
+});
+
+test('Speak releases the Settings focus trap without returning focus when leaving the screen', () => {
+    const harness = createSpeechHarness();
+    startOneWordRound(harness);
+    const settingsButton = harness.elements.get('topic-speak-settings-btn');
+    const settingsOverlay = harness.elements.get('topic-speak-settings-overlay');
+    settingsButton.dispatch('click');
+
+    harness.api.leaveGame();
+
+    assert.equal(settingsOverlay.getAttribute('aria-hidden'), 'true');
+    assert.equal(settingsOverlay.classList.contains('visible'), false);
+    assert.equal(harness.focusTrapReleaseCount(), 2);
+    assert.equal(settingsButton.focusCount, 0);
 });
 
 test('index loads Speak dependencies before the Speak game', () => {
