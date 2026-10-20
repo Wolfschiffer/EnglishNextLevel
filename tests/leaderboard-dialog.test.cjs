@@ -50,6 +50,8 @@ class FakeElement {
 
     initializeModal() {
         this.queryNodes = new Map([
+            ['#leaderboard-scope-label', new FakeElement(this.document)],
+            ['#leaderboard-dialog-title', new FakeElement(this.document, 'h2')],
             ['#leaderboard-tabs', new FakeElement(this.document)],
             ['#leaderboard-mode-label', new FakeElement(this.document)],
             ['#leaderboard-list', new FakeElement(this.document)],
@@ -92,6 +94,7 @@ class FakeElement {
     }
 
     setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    getAttribute(name) { return this.attributes.get(name) || null; }
     addEventListener(type, handler) {
         const handlers = this.listeners.get(type) || [];
         handlers.push(handler);
@@ -167,6 +170,26 @@ function createSnapshot(scores) {
     };
 }
 
+function createFirestoreWithGet(get) {
+    return {
+        collection() {
+            return {
+                doc() {
+                    return {
+                        collection() {
+                            return {
+                                orderBy() { return this; },
+                                limit() { return this; },
+                                get
+                            };
+                        }
+                    };
+                }
+            };
+        }
+    };
+}
+
 test('opens the leaderboard with tabs and safely escapes player names', async () => {
     const harness = createDependencies({
         readLocalScores: () => ({ scores: [{ name: '<img src=x onerror=alert(1)>', score: 12 }], ok: true })
@@ -177,10 +200,41 @@ test('opens the leaderboard with tabs and safely escapes player names', async ()
 
     const modal = harness.document.querySelector('.leaderboard-modal');
     assert.ok(modal);
+    assert.equal(modal.querySelector('#leaderboard-scope-label').textContent, 'Device Leaderboards');
+    assert.equal(modal.querySelector('#leaderboard-dialog-title').textContent, 'Device Leaderboards');
     assert.equal(modal.querySelector('#leaderboard-tabs').children.length, 9);
     assert.equal(modal.querySelector('#leaderboard-mode-label').textContent, '1–10');
     assert.match(modal.querySelector('#leaderboard-list').children[0].innerHTML, /&lt;img/);
     assert.doesNotMatch(modal.querySelector('#leaderboard-list').children[0].innerHTML, /<img/);
+});
+
+test('shows device scope when a configured cloud leaderboard cannot be loaded', async () => {
+    const harness = createDependencies({
+        isCloudConfigured: () => true,
+        getFirestore: () => createFirestoreWithGet(() => Promise.reject(new Error('Cloud is unavailable.')))
+    });
+
+    await dialogModule.create(harness.dependencies).open();
+
+    const modal = harness.document.querySelector('.leaderboard-modal');
+    assert.equal(modal.querySelector('#leaderboard-scope-label').textContent, 'Device Leaderboards');
+    assert.equal(modal.querySelector('#leaderboard-dialog-title').textContent, 'Device Leaderboards');
+    assert.equal(modal.querySelector('.close-modal').getAttribute('aria-label'), 'Close device leaderboards');
+});
+
+test('shows device scope when Firestore returns a cached leaderboard', async () => {
+    const cachedSnapshot = { ...createSnapshot([{ name: 'Old cloud score', score: 50 }]), metadata: { fromCache: true } };
+    const harness = createDependencies({
+        isCloudConfigured: () => true,
+        getFirestore: () => createFirestoreWithGet(() => Promise.resolve(cachedSnapshot))
+    });
+
+    await dialogModule.create(harness.dependencies).open();
+
+    const modal = harness.document.querySelector('.leaderboard-modal');
+    assert.equal(modal.querySelector('#leaderboard-scope-label').textContent, 'Device Leaderboards');
+    assert.match(modal.querySelector('#leaderboard-list').children[0].innerHTML, /Alex/);
+    assert.doesNotMatch(modal.querySelector('#leaderboard-list').children[0].innerHTML, /Old cloud score/);
 });
 
 test('ignores an older cloud response after switching leaderboard tabs', async () => {
@@ -222,6 +276,7 @@ test('ignores an older cloud response after switching leaderboard tabs', async (
     await new Promise(resolve => setImmediate(resolve));
 
     assert.equal(modal.querySelector('#leaderboard-mode-label').textContent, '11–20');
+    assert.equal(modal.querySelector('#leaderboard-scope-label').textContent, 'Global Leaderboards');
     assert.match(modal.querySelector('#leaderboard-list').children[0].innerHTML, /Selected tab/);
     assert.doesNotMatch(modal.querySelector('#leaderboard-list').children[0].innerHTML, /Old tab/);
 });

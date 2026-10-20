@@ -34,6 +34,8 @@ Then open `http://localhost:8000/`. Only the published HTTPS address `https://wo
 
 The emulator suite requires Node.js 22, npm, and Java JDK 21. The first run downloads the pinned Firebase CLI and emulator binaries, so it needs internet access. Emulator data is temporary and resets when the process stops unless you explicitly export it.
 
+If the Firebase SDK cannot load from its CDN, the page keeps the local guest option available and explains that account features are offline. Progress and scores then stay on the current device.
+
 ## Project layout
 
 - `index.html`: application shell and script/style entry points.
@@ -61,6 +63,7 @@ The emulator suite requires Node.js 22, npm, and Java JDK 21. The first run down
 - `js/audio-engines.js`: shared speech and sound effect engines.
 - `js/spaced-review.js`: FSRS-based review sessions for completed Words sets.
 - `js/firebase-environment.js`: selects production, QA, or local emulator configuration from the site URL.
+- `js/firebase-offline-fallback.js`: preserves guest play when the Firebase Auth or Firestore SDK cannot load.
 - `js/password-reset.js`: password reset form, generic account-safe responses, and resend cooldown.
 - `js/email-verification.js`: email-verification screen, resend flow, and verification cooldown.
 - `js/firebase-config.js`: Firebase initialization, sign-in, registration, and session state.

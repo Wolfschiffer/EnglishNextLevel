@@ -107,6 +107,23 @@ test('uses local leaderboard storage for reads and fallback saves', () => {
     });
 });
 
+test('treats the offline Firebase compatibility stub as unavailable cloud storage', async () => {
+    const { api, window } = createHarness();
+    window.enlFirebaseUnavailable = true;
+    window.firebase = { firestore: () => { throw new Error('offline stub should not be queried'); } };
+    let dialogDependencies;
+    window.EnglishNextLevelLeaderboardDialog = {
+        create(dependencies) {
+            dialogDependencies = dependencies;
+            return { async open() {} };
+        }
+    };
+
+    await api.showModal();
+
+    assert.equal(dialogDependencies.isCloudConfigured(), false);
+});
+
 test('returns a device-only failure when the leaderboard client is unavailable', async () => {
     const { api, calls } = createHarness();
 

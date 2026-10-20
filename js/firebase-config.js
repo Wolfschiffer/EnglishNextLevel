@@ -297,6 +297,23 @@ document.addEventListener('DOMContentLoaded', () => {
     if (vocabContainer) vocabContainer.style.display = 'none';
     if (wordsMenu) wordsMenu.style.display = 'none';
 
+    if (window.enlFirebaseUnavailable) {
+        const authIntro = document.getElementById('auth-intro');
+        const authTabs = document.querySelector('.auth-tabs');
+        if (authIntro) {
+            authIntro.textContent = 'Account services are unavailable. Continue as Guest to practice; progress stays on this device.';
+        }
+        if (authTabs) authTabs.style.display = 'none';
+        if (loginForm) {
+            loginForm.classList.remove('active');
+            loginForm.style.display = 'none';
+        }
+        if (registerForm) {
+            registerForm.classList.remove('active');
+            registerForm.style.display = 'none';
+        }
+    }
+
     const tabs = document.querySelectorAll('.auth-tab');
     tabs.forEach(tab => {
         tab.addEventListener('click', () => {

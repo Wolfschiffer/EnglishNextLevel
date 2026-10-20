@@ -61,7 +61,9 @@
                 readLocalScores: readLocalLeaderboardResult,
                 focusTrap: root.EnlKeyboardAccessibility,
                 environment: root.enlFirebaseEnvironment,
-                isCloudConfigured: () => typeof root.firebase !== 'undefined' && Boolean(root.firebase.firestore),
+                isCloudConfigured: () => !root.enlFirebaseUnavailable
+                    && typeof root.firebase !== 'undefined'
+                    && Boolean(root.firebase.firestore),
                 getFirestore: () => root.firebase.firestore(),
                 logger,
                 debug

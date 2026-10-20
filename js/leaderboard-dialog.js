@@ -16,13 +16,22 @@
             || ((modeId) => root.EnglishNextLevelLeaderboardStorage?.readLocalLeaderboardResult(modeId)
                 || { scores: [], ok: false });
         const isCloudConfigured = dependencies.isCloudConfigured
-            || (() => Boolean(root.firebase?.firestore));
+            || (() => !root.enlFirebaseUnavailable && Boolean(root.firebase?.firestore));
         const getFirestore = dependencies.getFirestore
             || (() => root.firebase.firestore());
         const focusTrap = dependencies.focusTrap || root.EnlKeyboardAccessibility;
         const environment = dependencies.environment ?? root.enlFirebaseEnvironment;
         const logger = dependencies.logger || root.console;
         const debug = dependencies.debug || ((message) => root.enlDebug?.(message));
+        const globalScopeTitle = client?.getLeaderboardScopeTitle(environment)
+            || 'Global Leaderboards';
+        const localScopeTitle = 'Device Leaderboards';
+
+        function updateScopeTitle(modal, title) {
+            modal.querySelector('#leaderboard-scope-label').textContent = title;
+            modal.querySelector('#leaderboard-dialog-title').textContent = title;
+            modal.querySelector('.close-modal').setAttribute('aria-label', `Close ${title.toLowerCase()}`);
+        }
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -35,8 +44,7 @@
             if (existingModal) existingModal.remove();
 
             const previouslyFocusedElement = document.activeElement;
-            const leaderboardScopeTitle = client?.getLeaderboardScopeTitle(environment)
-                || 'Global Leaderboards';
+            const leaderboardScopeTitle = isCloudConfigured() ? globalScopeTitle : localScopeTitle;
             const modal = document.createElement('div');
             modal.className = 'leaderboard-modal';
             modal.innerHTML = `
@@ -47,7 +55,7 @@
                                 <span class="leaderboard-kicker-badge" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" focusable="false"><path d="M7 3h10v2h3a1 1 0 0 1 1 1v2a5 5 0 0 1-4 4.9A6 6 0 0 1 13 17.9V20h4v2H7v-2h4v-2.1A6 6 0 0 1 7 12.9A5 5 0 0 1 3 8V6a1 1 0 0 1 1-1h3V3Zm0 4H5v1a3 3 0 0 0 2 2.82V7Zm10 0v3.82A3 3 0 0 0 19 8V7h-2Z"/></svg>
                                 </span>
-                                <span>${leaderboardScopeTitle}</span>
+                                <span id="leaderboard-scope-label">${leaderboardScopeTitle}</span>
                             </div>
                             <h2 id="leaderboard-dialog-title">${leaderboardScopeTitle}</h2>
                             <p>Track the best scores for each Numbers mode.</p>
@@ -157,6 +165,10 @@
                 }
 
                 if (!isCurrentRequest()) return;
+
+                updateScopeTitle(modal, cloudConfigured && !cloudReadFailed
+                    ? globalScopeTitle
+                    : localScopeTitle);
 
                 const readFeedback = client.getLeaderboardReadFeedback({
                     cloudConfigured,
