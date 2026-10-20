@@ -1,5 +1,5 @@
 // Increment this when app-shell files change so returning visitors fetch the new build.
-const CACHE_NAME = 'enl-shell-v51';
+const CACHE_NAME = 'enl-shell-v52';
 
 const SHELL_ASSETS = [
     './',
