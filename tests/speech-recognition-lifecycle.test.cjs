@@ -12,6 +12,9 @@ function createSpeechHarness() {
     const windowListeners = new Map();
     const timers = new Map();
     const recognitionInstances = [];
+    const focusTrapCalls = [];
+    const goBackCalls = [];
+    let focusTrapReleaseCount = 0;
     let now = 1000;
     let nextTimerId = 1;
     let focused = true;
@@ -27,6 +30,7 @@ function createSpeechHarness() {
             id,
             textContent: '',
             dataset: {},
+            visible: true,
             style: { setProperty(name, value) { styleProperties.set(name, value); } },
             classList: {
                 add(...names) { names.forEach((name) => classes.add(name)); },
@@ -45,11 +49,18 @@ function createSpeechHarness() {
             getAttribute(name) { return attributes.get(name) ?? null; },
             setAttribute(name, value) { attributes.set(name, String(value)); },
             removeAttribute(name) { attributes.delete(name); },
+            focusCount: 0,
+            focus() { this.focusCount += 1; },
+            getClientRects() { return this.visible ? [{}] : []; },
             appendChild() {},
             append() {},
             insertBefore() {},
-            querySelector() { return null; },
-            focus() {},
+            querySelector(selector) {
+                if (id === 'topic-speak-start-overlay' && selector === '[role="dialog"]') {
+                    return elements.get('topic-speak-start-dialog') || null;
+                }
+                return null;
+            },
             hidden: false,
             disabled: false,
             checked: false,
@@ -60,7 +71,8 @@ function createSpeechHarness() {
     }
 
     const allIds = [
-        'topic-speak-start-overlay', 'topic-speak-start-btn', 'topic-speak-start-back-btn',
+        'topic-speak-start-overlay', 'topic-speak-start-dialog', 'topic-speak-start-btn', 'topic-speak-start-back-btn',
+        'topic-speak-btn',
         'topic-speak-mic', 'topic-speak-mic-label', 'topic-speak-reveal', 'topic-speak-audio',
         'topic-speak-play-again', 'topic-speak-back-topic', 'back-from-topic-speak',
         'topic-speak-preview-audio', 'topic-speak-settings-btn', 'topic-speak-settings-close',
@@ -74,6 +86,7 @@ function createSpeechHarness() {
         'topic-speak-review', 'topic-speak-review-list', 'topic-speak-play-area', 'topic-speak-container'
     ];
     allIds.forEach((id) => elements.set(id, createElement(id)));
+    elements.get('topic-speak-btn').visible = false;
 
     class FakeRecognition {
         constructor() {
@@ -136,12 +149,29 @@ function createSpeechHarness() {
             unlockSfx() {}
         },
         sessionStorage: { getItem() { return null; }, setItem() {} },
+        EnlKeyboardAccessibility: {
+            trapDialogFocus(dialog, options) {
+                focusTrapCalls.push({ dialog, options });
+                options.initialFocus?.focus();
+                let released = false;
+                return () => {
+                    if (released) return;
+                    released = true;
+                    focusTrapReleaseCount += 1;
+                };
+            }
+        },
+        goBack(...args) {
+            goBackCalls.push(args);
+            return true;
+        },
         setTimeout: setTimer,
         clearTimeout: clearTimer,
         addEventListener(event, callback) {
             if (!windowListeners.has(event)) windowListeners.set(event, new Set());
             windowListeners.get(event).add(callback);
         },
+        removeEventListener(event, callback) { windowListeners.get(event)?.delete(callback); },
         dispatchEvent(event) {
             [...(windowListeners.get(event) || [])].forEach((callback) => callback());
         },
@@ -192,6 +222,9 @@ function createSpeechHarness() {
         api: window.TopicSpeakGame,
         elements,
         recognitionInstances,
+        focusTrapCalls,
+        goBackCalls,
+        focusTrapReleaseCount() { return focusTrapReleaseCount; },
         timers,
       spokenTexts,
         advanceBy,
@@ -201,6 +234,107 @@ function createSpeechHarness() {
         dispatchDocumentEvent: document.dispatchEvent
     };
 }
+
+test('Speak focuses START and traps keyboard focus in the Ready dialog', () => {
+    const harness = createSpeechHarness();
+
+    harness.api.prepare({
+        topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
+        level: {
+            id: 'common',
+            label: 'Common',
+            words: [{ id: 'grater', english: 'grater', portuguese: 'ralador' }]
+        }
+    });
+
+    const overlay = harness.elements.get('topic-speak-start-overlay');
+    const startButton = harness.elements.get('topic-speak-start-btn');
+    assert.equal(overlay.getAttribute('aria-hidden'), 'false');
+    assert.equal(overlay.classList.contains('visible'), true);
+    assert.equal(harness.focusTrapCalls.length, 1);
+    assert.strictEqual(harness.focusTrapCalls[0].dialog, harness.elements.get('topic-speak-start-dialog'));
+    assert.strictEqual(harness.focusTrapCalls[0].options.initialFocus, startButton);
+    assert.equal(startButton.focusCount, 1);
+});
+
+test('Speak releases the Ready dialog focus trap when START begins the round', () => {
+    const harness = createSpeechHarness();
+
+    harness.api.prepare({
+        topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
+        level: {
+            id: 'common',
+            label: 'Common',
+            words: [{ id: 'grater', english: 'grater', portuguese: 'ralador' }]
+        }
+    });
+    harness.elements.get('topic-speak-start-btn').dispatch('click');
+
+    assert.equal(harness.elements.get('topic-speak-start-overlay').getAttribute('aria-hidden'), 'true');
+    assert.equal(harness.focusTrapReleaseCount(), 1);
+});
+
+test('Escape from the Speak Ready dialog returns to the previous menu', () => {
+    const harness = createSpeechHarness();
+
+    harness.api.prepare({
+        topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
+        level: {
+            id: 'common',
+            label: 'Common',
+            words: [{ id: 'grater', english: 'grater', portuguese: 'ralador' }]
+        }
+    });
+    harness.focusTrapCalls[0].options.onEscape();
+
+    assert.equal(harness.elements.get('topic-speak-start-overlay').getAttribute('aria-hidden'), 'true');
+    assert.equal(harness.focusTrapReleaseCount(), 1);
+    assert.deepEqual(harness.goBackCalls, [[]]);
+    const returnButton = harness.elements.get('topic-speak-btn');
+    assert.equal(returnButton.focusCount, 0);
+    returnButton.visible = true;
+    harness.dispatchWindowEvent('popstate');
+    assert.equal(returnButton.focusCount, 1);
+});
+
+test('Speak restores menu focus after browser or device Back leaves the Ready screen', () => {
+    const harness = createSpeechHarness();
+
+    harness.api.prepare({
+        topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
+        level: {
+            id: 'common',
+            label: 'Common',
+            words: [{ id: 'grater', english: 'grater', portuguese: 'ralador' }]
+        }
+    });
+    harness.api.leaveGame();
+    harness.elements.get('topic-speak-btn').visible = true;
+    harness.dispatchWindowEvent('popstate');
+
+    assert.equal(harness.elements.get('topic-speak-start-overlay').getAttribute('aria-hidden'), 'true');
+    assert.equal(harness.focusTrapReleaseCount(), 1);
+    assert.equal(harness.elements.get('topic-speak-btn').focusCount, 1);
+});
+
+test('Speak removes the return-focus listener when the first back destination stays hidden', () => {
+    const harness = createSpeechHarness();
+
+    harness.api.prepare({
+        topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
+        level: {
+            id: 'common',
+            label: 'Common',
+            words: [{ id: 'grater', english: 'grater', portuguese: 'ralador' }]
+        }
+    });
+    harness.api.leaveGame();
+    harness.dispatchWindowEvent('popstate');
+    harness.elements.get('topic-speak-btn').visible = true;
+    harness.dispatchWindowEvent('popstate');
+
+    assert.equal(harness.elements.get('topic-speak-btn').focusCount, 0);
+});
 
 function startOneWordRound(harness, english = 'grater') {
     harness.api.prepare({

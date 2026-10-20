@@ -41,6 +41,8 @@
   let speechAudio = null;
   let recognitionController = null;
   let pendingPronunciationTimer = null;
+  let releaseStartFocusTrap = () => {};
+  let returnFocusPopstateHandler = null;
   const speechSettings = window.TopicSpeakSettings.create({
     state,
     window,
@@ -364,15 +366,64 @@
   function showStartOverlay() {
     const overlay = $('topic-speak-start-overlay');
     if (!overlay) return;
+    releaseStartFocusTrap();
     overlay.classList.add('visible');
     overlay.setAttribute('aria-hidden', 'false');
+
+    const dialog = overlay.querySelector('[role="dialog"]');
+    releaseStartFocusTrap = window.EnlKeyboardAccessibility?.trapDialogFocus?.(dialog, {
+      initialFocus: $('topic-speak-start-btn'),
+      onEscape: returnToPreviousMenu
+    }) || (() => {});
   }
 
   function hideStartOverlay() {
+    releaseStartFocusTrap();
+    releaseStartFocusTrap = () => {};
+
     const overlay = $('topic-speak-start-overlay');
     if (!overlay) return;
     overlay.classList.remove('visible');
     overlay.setAttribute('aria-hidden', 'true');
+  }
+
+  function clearReturnFocusPopstateHandler() {
+    if (!returnFocusPopstateHandler) return;
+    window.removeEventListener?.('popstate', returnFocusPopstateHandler);
+    returnFocusPopstateHandler = null;
+  }
+
+  function restoreTopicSpeakMenuFocus() {
+    const target = $('topic-speak-btn');
+    if (!target || target.isConnected === false) return false;
+    if (typeof target.getClientRects === 'function' && target.getClientRects().length === 0) return false;
+
+    target.focus?.({ preventScroll: true });
+    return true;
+  }
+
+  function armReturnFocusOnPopstate() {
+    clearReturnFocusPopstateHandler();
+    if (typeof window.addEventListener !== 'function') return;
+
+    returnFocusPopstateHandler = () => {
+      // A hidden destination should not leave a stale listener for a later navigation.
+      clearReturnFocusPopstateHandler();
+      restoreTopicSpeakMenuFocus();
+    };
+    window.addEventListener('popstate', returnFocusPopstateHandler);
+  }
+
+  function returnToPreviousMenu() {
+    hideStartOverlay();
+    if (typeof window.goBack !== 'function') {
+      clearReturnFocusPopstateHandler();
+      return;
+    }
+
+    const usedAsyncNavigation = window.goBack() === true;
+    // The legacy fallback changes screens synchronously without a popstate event.
+    if (!usedAsyncNavigation && returnFocusPopstateHandler) returnFocusPopstateHandler();
   }
 
   function hideReview() {
@@ -523,6 +574,7 @@
     recognitionController.clearAcceptRecognitionTimer();
     pageLifecycle?.clearBlurLifecycleTimer();
     clearAutoAdvance();
+    armReturnFocusOnPopstate();
 
     const mic = $('topic-speak-mic');
     if (mic) {

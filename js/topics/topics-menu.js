@@ -259,8 +259,8 @@
         console.error('TOPICS: Match Pairs module is unavailable.');
         return;
       }
-      window.TopicMatchPairs.prepare({ topic, level });
       navigate('topicMatch');
+      window.TopicMatchPairs.prepare({ topic, level });
       return;
     }
 
@@ -269,8 +269,8 @@
         console.error('TOPICS: Speak module is unavailable.');
         return;
       }
-      window.TopicSpeakGame.prepare({ topic, level });
       navigate('topicSpeak');
+      window.TopicSpeakGame.prepare({ topic, level });
     }
   }
 
