@@ -177,7 +177,7 @@ test('Words practice mode cards are native keyboard-operable buttons', () => {
 });
 
 test('Words review is wired to the pinned scheduler and has accessible controls', () => {
-    assert.match(html, /https:\/\/cdn\.jsdelivr\.net\/npm\/ts-fsrs@5\.4\.2\/dist\/index\.umd\.js" defer/);
+    assert.match(html, /<script src="js\/vendor\/ts-fsrs-5\.4\.2\.umd\.js" defer><\/script>/);
     assert.match(html, /<script src="js\/spaced-review\.js"><\/script>/);
     assert.match(html, /id="spaced-review-open-btn"[^>]*aria-controls="spaced-review-panel"[^>]*aria-expanded="false"/);
     assert.match(html, /id="spaced-review-status"[^>]*role="status"[^>]*aria-live="polite"/);

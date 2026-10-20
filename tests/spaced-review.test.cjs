@@ -1,5 +1,9 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
+const fsrsBundle = fs.readFileSync(path.join(__dirname, '../js/vendor/ts-fsrs-5.4.2.umd.js'), 'utf8');
 const reviewApi = require('../js/spaced-review.js');
 
 function makeProgress(cards = []) {
@@ -37,6 +41,21 @@ function makeFsrs() {
     };
     return { library, calls };
 }
+
+test('vendored FSRS UMD exposes the browser global and creates review intervals', () => {
+    const browserGlobal = {};
+    vm.runInNewContext(fsrsBundle, browserGlobal, { filename: 'ts-fsrs-5.4.2.umd.js' });
+    const library = browserGlobal.FSRS;
+    const reviewedAt = new Date('2026-01-01T00:00:00.000Z');
+    const scheduler = library.fsrs({ enable_fuzz: false });
+    const card = library.createEmptyCard(reviewedAt);
+    const result = scheduler.next(card, reviewedAt, library.Rating.Good);
+
+    assert.equal(typeof library.fsrs, 'function');
+    assert.ok(Number.isFinite(result.card.due.getTime()));
+    assert.ok(result.card.due.getTime() > reviewedAt.getTime());
+    assert.equal(result.log.rating, library.Rating.Good);
+});
 
 const dueCard = {
     id: 'present:verbs1:0', mode: 'present', setId: 'verbs1',

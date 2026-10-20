@@ -88,6 +88,7 @@ test('service worker leaves remote SDK scripts and Firebase requests to the brow
 
     assert.equal(scriptSdkAssets.length, 4);
     assert.match(worker, /'\.\/js\/spaced-review\.js'/);
+    assert.match(worker, /'\.\/js\/vendor\/ts-fsrs-5\.4\.2\.umd\.js'/);
     assert.match(worker, /requestUrl\.origin !== self\.location\.origin/);
     assert.doesNotMatch(worker, /firebasejs\/13\.0\.0|ts-fsrs@5\.4\.2/);
     assert.match(worker, /if \(request\.method !== 'GET'\) return/);
