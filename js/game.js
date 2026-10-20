@@ -274,10 +274,10 @@ function showScreen(screen, options = {}) {
 function navigateTo(screen, options = {}) {
     window.enlDebug?.(`📍 Navegando para: ${screen}`);
 
-    // Firebase/Guest pode exibir Categories diretamente sem passar pelo navegador interno.
-    // Normaliza esse caso antes de criar a próxima entrada do histórico.
+    // Firebase/Guest pode exibir Categories sem iniciar a navegação interna.
+    // Estabelece Categories como raiz antes de registrar a primeira tela aberta.
     if (
-        currentScreen === SCREENS.LOGIN &&
+        (!currentScreen || currentScreen === SCREENS.LOGIN) &&
         (window.currentUser || window.isGuest) &&
         screen !== SCREENS.LOGIN
     ) {

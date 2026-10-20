@@ -1491,7 +1491,7 @@ test('category cards navigate through the shared screen manager and support keyb
     assert.equal(spaceHarness.history.state.screen, 'topicsMenu');
 });
 
-test('delayed startup navigation does not override a guest opening Topics', () => {
+test('delayed startup navigation preserves Topics and its Home history for a guest', () => {
     const harness = createNavigationBrowserContext();
     const pendingTimers = [];
     harness.context.closeWordsSettings = () => {};
@@ -1516,8 +1516,12 @@ test('delayed startup navigation does not override a guest opening Topics', () =
     pendingTimers.shift()();
 
     assert.equal(harness.history.state.screen, 'topicsMenu');
+    assert.equal(harness.history.state.stack.length, 1);
+    assert.equal(harness.history.state.stack[0], 'categories');
     assert.equal(harness.elements.get('category-container').style.display, 'none');
     assert.equal(harness.elements.get('topics-menu-container').style.display, 'block');
+    assert.equal(harness.context.goBack(), true, 'browser Back should return to the guest home screen');
+    assert.deepEqual(harness.history.goCalls, [-1]);
 });
 
 test('category back buttons share browser-history navigation', () => {

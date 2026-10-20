@@ -261,6 +261,9 @@ test('installed app shell can reload and navigate as a guest offline', async ({ 
         await page.getByRole('button', { name: 'Continue as Guest' }).click();
         await page.getByRole('button', { name: 'Open Topics' }).click();
         await expect(page.locator('#topics-menu-container')).toBeVisible();
+        await page.goBack({ waitUntil: 'commit' });
+        await expect(page.locator('#category-container')).toBeVisible();
+        await expect(page.locator('#topics-menu-container')).toBeHidden();
         await expectNoHorizontalOverflow(page);
     } finally {
         await context.close();
