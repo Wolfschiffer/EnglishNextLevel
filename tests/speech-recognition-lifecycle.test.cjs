@@ -50,7 +50,7 @@ function createSpeechHarness() {
             setAttribute(name, value) { attributes.set(name, String(value)); },
             removeAttribute(name) { attributes.delete(name); },
             focusCount: 0,
-            focus() { this.focusCount += 1; },
+            focus(options) { this.focusCount += 1; this.lastFocusOptions = options; },
             getClientRects() { return this.visible ? [{}] : []; },
             appendChild() {},
             append() {},
@@ -62,8 +62,12 @@ function createSpeechHarness() {
                 if (id === 'topic-speak-settings-overlay' && selector === '[role="dialog"]') {
                     return elements.get('topic-speak-settings-dialog') || null;
                 }
+                if (id === 'topic-speak-review' && selector === '.topic-review-audio') {
+                    return elements.get('topic-speak-review-first-audio') || null;
+                }
                 return null;
             },
+            scrollIntoView(options) { this.lastScrollOptions = options; },
             hidden: false,
             disabled: false,
             checked: false,
@@ -86,7 +90,8 @@ function createSpeechHarness() {
         'topic-speak-result', 'topic-speak-result-icon', 'topic-speak-result-title',
         'topic-speak-answer', 'topic-speak-heard', 'topic-speak-transcript', 'topic-speak-status',
         'topic-speak-unsupported', 'topic-speak-fallback-title', 'topic-speak-fallback-text',
-        'topic-speak-review', 'topic-speak-review-list', 'topic-speak-play-area', 'topic-speak-container'
+        'topic-speak-review', 'topic-speak-review-list', 'topic-speak-review-first-audio',
+        'topic-speak-play-area', 'topic-speak-container'
     ];
     allIds.forEach((id) => elements.set(id, createElement(id)));
     elements.get('topic-speak-btn').visible = false;
@@ -486,6 +491,20 @@ test('Speak releases the Settings focus trap without returning focus when leavin
     assert.equal(settingsOverlay.classList.contains('visible'), false);
     assert.equal(harness.focusTrapReleaseCount(), 2);
     assert.equal(settingsButton.focusCount, 0);
+});
+
+test('Speak moves focus to the first pronunciation button when the round review appears', () => {
+    const harness = createSpeechHarness();
+    startOneWordRound(harness);
+    harness.elements.get('topic-speak-reveal').dispatch('click');
+    harness.advanceBy(3200);
+
+    const review = harness.elements.get('topic-speak-review');
+    const firstAudioButton = harness.elements.get('topic-speak-review-first-audio');
+    assert.equal(review.classList.contains('visible'), true);
+    assert.equal(review.getAttribute('aria-hidden'), 'false');
+    assert.equal(firstAudioButton.focusCount, 1);
+    assert.equal(firstAudioButton.lastFocusOptions?.preventScroll, true);
 });
 
 test('index loads Speak dependencies before the Speak game', () => {

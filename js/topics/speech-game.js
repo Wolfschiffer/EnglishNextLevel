@@ -522,6 +522,7 @@
         behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
         block: 'start'
       });
+      review.querySelector('.topic-review-audio')?.focus({ preventScroll: true });
     }
 
     window.EnglishNextLevelTopicStats?.finalizeRound('speak');
