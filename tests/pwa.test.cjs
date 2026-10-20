@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
+const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
@@ -75,29 +76,119 @@ test('service worker shell cache includes every local JavaScript and stylesheet 
     }
 });
 
-test('service worker uses a versioned shell cache and removes older versions', () => {
+test('service worker uses a versioned app-shell cache and removes older versions', () => {
     assert.match(worker, /const CACHE_NAME = 'enl-shell-v\d+';/);
     assert.match(worker, /cacheName\.startsWith\('enl-shell-'\)[\s\S]*?caches\.delete\(cacheName\)/);
-    assert.match(worker, /async function copyCachedExternalScript\(/);
-    assert.match(worker, /targetCache\.put\(request, cachedResponse\.clone\(\)\)/);
-    assert.match(worker, /if \(response\.type === 'opaque'\) \{[\s\S]*?if \(await copyCachedExternalScript\(cache, request\)\) return;[\s\S]*?await cache\.put\(request, response\.clone\(\)\)/);
+    assert.doesNotMatch(worker, /cacheExternalScripts|copyCachedExternalScript/);
 });
 
-test('service worker caches pinned Firebase SDK files but bypasses Firebase data requests', () => {
-    const sdkAssets = [...worker.matchAll(/'((?:https:\/\/www\.gstatic\.com\/firebasejs\/)[^']+)'/g)]
-        .map((match) => match[1]);
+test('service worker leaves remote SDK scripts and Firebase requests to the browser network', () => {
     const scriptSdkAssets = [...html.matchAll(/<script src="(https:\/\/www\.gstatic\.com\/firebasejs\/[^\"]+)"/g)]
         .map((match) => match[1]);
 
-    assert.deepEqual(sdkAssets, scriptSdkAssets);
-    assert.match(worker, /https:\/\/cdn\.jsdelivr\.net\/npm\/ts-fsrs@5\.4\.2\/dist\/index\.umd\.js/);
+    assert.equal(scriptSdkAssets.length, 4);
     assert.match(worker, /'\.\/js\/spaced-review\.js'/);
     assert.match(worker, /requestUrl\.origin !== self\.location\.origin/);
-    assert.match(worker, /FIREBASE_SDK_ASSETS\.includes\(url\.href\)/);
+    assert.doesNotMatch(worker, /firebasejs\/13\.0\.0|ts-fsrs@5\.4\.2/);
     assert.match(worker, /if \(request\.method !== 'GET'\) return/);
 });
 
-test('runtime opaque CDN responses preserve a cached pinned script', () => {
-    assert.match(worker, /if \(response\.type === 'opaque'\) \{\s*const cachedResponse = await cache\.match\(request\);\s*if \(cachedResponse\) return cachedResponse;/);
-    assert.match(worker, /if \(await copyCachedExternalScript\(cache, request\)\) \{\s*return await cache\.match\(request\) \|\| response;\s*\}/);
+test('activation removes old CDN errors, serves the offline shell, and bypasses remote scripts', async () => {
+    const scriptUrl = 'https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js';
+    const currentCacheName = worker.match(/const CACHE_NAME = '(enl-shell-v(\d+))';/)?.[1];
+    const currentVersion = Number(worker.match(/const CACHE_NAME = 'enl-shell-v(\d+)';/)?.[1]);
+    const oldCacheName = `enl-shell-v${currentVersion - 1}`;
+    const cacheStore = new Map();
+    const oldEntries = new Map([[scriptUrl, { type: 'opaque', label: 'stale CDN error', clone() { return this; } }]]);
+    cacheStore.set(oldCacheName, oldEntries);
+    const listeners = new Map();
+    const requestKey = (request) => typeof request === 'string' ? request : request.url;
+    let networkFetchCount = 0;
+
+    class FakeRequest {
+        constructor(url, options = {}) {
+            this.url = String(url);
+            this.mode = options.mode || 'cors';
+            this.destination = options.destination || '';
+            this.method = options.method || 'GET';
+        }
+    }
+
+    const cachesApi = {
+        async open(name) {
+            if (!cacheStore.has(name)) cacheStore.set(name, new Map());
+            const entries = cacheStore.get(name);
+            return {
+                async addAll(assetUrls) {
+                    for (const assetUrl of assetUrls) {
+                        const label = assetUrl.endsWith('/index.html') ? 'cached index.html' : `cached ${assetUrl}`;
+                        entries.set(assetUrl, { type: 'basic', label, clone() { return this; } });
+                    }
+                },
+                async match(request) { return entries.get(requestKey(request)); },
+                async put(request, response) { entries.set(requestKey(request), response); }
+            };
+        },
+        async keys() { return [...cacheStore.keys()]; },
+        async delete(name) { return cacheStore.delete(name); }
+    };
+
+    const self = {
+        location: { origin: 'https://wolfschiffer.github.io' },
+        registration: { scope: 'https://wolfschiffer.github.io/EnglishNextLevel/' },
+        addEventListener(type, listener) { listeners.set(type, listener); },
+        async skipWaiting() {},
+        clients: { async claim() {} }
+    };
+    let networkOffline = false;
+    const context = {
+        self,
+        caches: cachesApi,
+        Request: FakeRequest,
+        URL,
+        Response: { error() { return { type: 'error' }; } },
+        fetch: async () => {
+            networkFetchCount += 1;
+            if (networkOffline) throw new Error('offline');
+            return { type: 'opaque', ok: false, clone() { return this; } };
+        }
+    };
+
+    vm.runInNewContext(worker, context, { filename: 'service-worker.js' });
+
+    let installPromise;
+    listeners.get('install')({ waitUntil(promise) { installPromise = promise; } });
+    await installPromise;
+
+    assert.ok(currentCacheName, 'service worker should define the current shell cache');
+    assert.equal(cacheStore.has(currentCacheName), true, 'install should create the current shell cache');
+    assert.equal(networkFetchCount, 0, 'install should not fetch remote scripts that cannot be validated');
+
+    let activatePromise;
+    listeners.get('activate')({ waitUntil(promise) { activatePromise = promise; } });
+    await activatePromise;
+    assert.equal(cacheStore.has(oldCacheName), false, 'activation should remove the cache that may contain the old error');
+
+    networkOffline = true;
+    const navigationRequest = new FakeRequest(new URL('offline-route', self.registration.scope).href, {
+        mode: 'navigate',
+        destination: 'document'
+    });
+    let offlineNavigationResponse;
+    listeners.get('fetch')({
+        request: navigationRequest,
+        respondWith(promise) { offlineNavigationResponse = promise; }
+    });
+    assert.equal(await offlineNavigationResponse.then((response) => response.label), 'cached index.html');
+
+    const request = new FakeRequest(scriptUrl, { mode: 'no-cors', destination: 'script' });
+    let wasIntercepted = false;
+    listeners.get('fetch')({
+        request,
+        respondWith() { wasIntercepted = true; }
+    });
+
+    assert.equal(wasIntercepted, false, 'the browser should fetch remote scripts directly after recovery');
+    assert.equal(cacheStore.get(currentCacheName).has(scriptUrl), false, 'remote scripts must not remain in the shell cache');
+    assert.equal(networkFetchCount, 1, 'the service worker should make no network call for a bypassed remote script');
 });

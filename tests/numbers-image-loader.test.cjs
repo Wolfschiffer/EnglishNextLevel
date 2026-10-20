@@ -64,5 +64,5 @@ test('index loads the image loader before Numbers and the service worker caches 
     assert.notEqual(loaderIndex, -1);
     assert.ok(gameIndex > loaderIndex);
     assert.match(serviceWorker, /'\.\/js\/numbers-image-loader\.js'/);
-    assert.match(serviceWorker, /const CACHE_NAME = 'enl-shell-v49';/);
+    assert.match(serviceWorker, /const CACHE_NAME = 'enl-shell-v\d+';/);
 });

@@ -1,5 +1,5 @@
 // Increment this when app-shell files change so returning visitors fetch the new build.
-const CACHE_NAME = 'enl-shell-v49';
+const CACHE_NAME = 'enl-shell-v50';
 
 const SHELL_ASSETS = [
     './',
@@ -153,66 +153,11 @@ const SHELL_ASSETS = [
     './images/topics/winter-clothes.png'
 ];
 
-// Cache only the pinned Firebase SDK and FSRS scheduler scripts. Firebase Auth,
-// Firestore and Functions data requests are never cached by this service worker.
-const FIREBASE_SDK_ASSETS = [
-    'https://www.gstatic.com/firebasejs/13.0.0/firebase-app-compat.js',
-    'https://www.gstatic.com/firebasejs/13.0.0/firebase-auth-compat.js',
-    'https://www.gstatic.com/firebasejs/13.0.0/firebase-firestore-compat.js',
-    'https://www.gstatic.com/firebasejs/13.0.0/firebase-functions-compat.js'
-];
-
-const PINNED_EXTERNAL_SCRIPT_ASSETS = [
-    'https://cdn.jsdelivr.net/npm/ts-fsrs@5.4.2/dist/index.umd.js'
-];
-
-function isFirebaseSdkAsset(url) {
-    return FIREBASE_SDK_ASSETS.includes(url.href) || PINNED_EXTERNAL_SCRIPT_ASSETS.includes(url.href);
-}
-
-async function cacheExternalScripts(cache, assetUrls) {
-    await Promise.all(assetUrls.map(async (assetUrl) => {
-        const request = new Request(assetUrl, { mode: 'no-cors' });
-        try {
-            const response = await fetch(request);
-            if (response.type === 'opaque') {
-                // A no-cors response hides its status. Prefer the previously cached,
-                // pinned script over replacing it with an unverifiable response.
-                if (await copyCachedExternalScript(cache, request)) return;
-                await cache.put(request, response.clone());
-                return;
-            }
-            if (response.ok) {
-                await cache.put(request, response.clone());
-                return;
-            }
-        } catch (error) {
-            // The local app shell still installs when the CDN is temporarily unavailable.
-        }
-
-        await copyCachedExternalScript(cache, request);
-    }));
-}
-
-async function copyCachedExternalScript(targetCache, request) {
-    const cacheNames = await caches.keys();
-    for (const cacheName of cacheNames) {
-        if (!cacheName.startsWith('enl-shell-') || cacheName === CACHE_NAME) continue;
-        const previousCache = await caches.open(cacheName);
-        const cachedResponse = await previousCache.match(request);
-        if (!cachedResponse) continue;
-        await targetCache.put(request, cachedResponse.clone());
-        return true;
-    }
-    return false;
-}
-
 self.addEventListener('install', (event) => {
     event.waitUntil((async () => {
         const cache = await caches.open(CACHE_NAME);
         const appAssets = SHELL_ASSETS.map((asset) => new URL(asset, self.registration.scope).href);
         await cache.addAll(appAssets);
-        await cacheExternalScripts(cache, [...FIREBASE_SDK_ASSETS, ...PINNED_EXTERNAL_SCRIPT_ASSETS]);
         await self.skipWaiting();
     })());
 });
@@ -232,31 +177,6 @@ self.addEventListener('fetch', (event) => {
     if (request.method !== 'GET') return;
 
     const requestUrl = new URL(request.url);
-    if (isFirebaseSdkAsset(requestUrl)) {
-        event.respondWith((async () => {
-            const cache = await caches.open(CACHE_NAME);
-            try {
-                const response = await fetch(request);
-                if (response.type === 'opaque') {
-                    const cachedResponse = await cache.match(request);
-                    if (cachedResponse) return cachedResponse;
-                    if (await copyCachedExternalScript(cache, request)) {
-                        return await cache.match(request) || response;
-                    }
-                    await cache.put(request, response.clone());
-                    return response;
-                }
-                if (response.ok || response.type === 'opaque') {
-                    await cache.put(request, response.clone());
-                }
-                return response;
-            } catch (error) {
-                return await cache.match(request) || Response.error();
-            }
-        })());
-        return;
-    }
-
     const scopeUrl = new URL(self.registration.scope);
     if (requestUrl.origin !== self.location.origin || !requestUrl.pathname.startsWith(scopeUrl.pathname)) return;
 
