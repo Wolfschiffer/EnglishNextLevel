@@ -104,6 +104,8 @@ function getNumbersMonotonicTime() {
 let lives = 3, streak = 0, multiplier = 1, answered = false, availableNumbers = [];
 let gameActive = false, gameEnded = false;
 let isWaiting = false;
+let wrongAnswerInputLocked = false;
+let wrongAnswerFeedbackTimeout = null;
 
 const numbersRunSessionModule = window.EnglishNextLevelNumbersRunSession;
 if (!numbersRunSessionModule?.create) {
@@ -309,13 +311,21 @@ function resetEagle() {
     eagleAnimation.reset();
 }
 
+function clearWrongAnswerInputLock() {
+    if (wrongAnswerFeedbackTimeout !== null) {
+        clearTimeout(wrongAnswerFeedbackTimeout);
+        wrongAnswerFeedbackTimeout = null;
+    }
+    wrongAnswerInputLocked = false;
+}
+
 // ============================================
 // 11. GAME MECÂNICAS
 // ============================================
 
 function handlePlatformClick(e) {
     const btn = e.currentTarget, idx = parseInt(btn.dataset.index);
-    if (!gameActive || answered || !currentNumber || isWaiting) return;
+    if (!gameActive || answered || !currentNumber || isWaiting || wrongAnswerInputLocked) return;
 
     const selectedValue = parseInt(btn.dataset.value);
     const wasCorrect = selectedValue === currentNumber.value;
@@ -345,6 +355,7 @@ function handlePlatformClick(e) {
         // correct platform is the center one.
         jumpToPlatform(idx);
     } else {
+        wrongAnswerInputLocked = true;
         btn.classList.add('wrong');
         streak = 0;
         multiplier = 1;
@@ -353,7 +364,11 @@ function handlePlatformClick(e) {
         startAnimation('wrong');
         loseLife();
         showWrongPopup();
-        setTimeout(() => btn.classList.remove('wrong'), 300);
+        wrongAnswerFeedbackTimeout = setTimeout(() => {
+            wrongAnswerInputLocked = false;
+            wrongAnswerFeedbackTimeout = null;
+            btn.classList.remove('wrong');
+        }, 300);
     }
 }
 
@@ -741,6 +756,7 @@ function leaveNumbersGameScreen() {
     gameEnded = false;
     answered = false;
     isWaiting = false;
+    clearWrongAnswerInputLock();
 
     stopTimer();
     EnglishSpeechEngine.stop();
@@ -875,6 +891,7 @@ function addRestartButton() {
 function resetGame() {
     cancelPendingNumbersResultModal();
     clearNumbersRoundFeedback();
+    clearWrongAnswerInputLock();
     const shuffled = [...currentNumbers];
     for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));

@@ -186,6 +186,12 @@ function createNumbersClickHarness() {
     return { ...harness, calls, clickButtons, classes };
 }
 
+function finishWrongAnswerFeedback(harness) {
+    const feedbackTimer = [...harness.timers].reverse().find(timer => timer.delay === 300 && !timer.cancelled);
+    assert.ok(feedbackTimer, 'wrong-answer feedback should have an active 300 ms timer');
+    feedbackTimer.callback();
+}
+
 function createNumbersRunFallbackHarness({ recordAnswer = async () => {
     throw new Error('Simulated network failure');
 } } = {}) {
@@ -524,6 +530,15 @@ test('local Numbers wrong answer costs one life and a later correct answer score
     assert.equal(harness.calls.wrongPopups, 1);
 
     vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
+    assert.equal(vm.runInContext('score', harness.context), 0, 'the correct platform must also be locked during feedback');
+    assert.equal(vm.runInContext('answered', harness.context), false);
+
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[0] })', harness.context);
+    assert.equal(vm.runInContext('lives', harness.context), 2, 'rapid repeat clicks during feedback must not cost another life');
+    assert.equal(harness.calls.wrongPopups, 1, 'rapid repeat clicks during feedback must not show another error');
+
+    finishWrongAnswerFeedback(harness);
+    vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
 
     assert.equal(vm.runInContext('score', harness.context), 75);
     assert.equal(vm.runInContext('lives', harness.context), 2);
@@ -558,6 +573,7 @@ test('verified Numbers wrong attempt keeps its index and a correct retry advance
     assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 0);
     assert.equal(vm.runInContext('answered', harness.context), false);
 
+    finishWrongAnswerFeedback(harness);
     vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
     await vm.runInContext('activeNumbersRun.pendingAnswers', harness.context);
 
@@ -598,6 +614,7 @@ test('verified Numbers queues a correct retry while a wrong-answer request is pe
 
     vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[1] })', harness.context);
     await wrongAnswerStarted;
+    finishWrongAnswerFeedback(harness);
     vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
 
     assert.equal(attempts.length, 1, 'the correct retry should wait behind the pending wrong answer');
@@ -632,6 +649,7 @@ test('Numbers skips a queued correct retry after a pending wrong answer fails an
 
     vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[1] })', harness.context);
     await wrongAnswerStarted;
+    finishWrongAnswerFeedback(harness);
     vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
 
     assert.equal(attempts.length, 1, 'the correct retry should wait behind the pending wrong answer');
@@ -688,6 +706,7 @@ test('Numbers advances the local fallback after an unvalidated wrong attempt is 
     assert.equal(vm.runInContext('activeNumbersRun.valid', harness.context), false);
     assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 0);
 
+    finishWrongAnswerFeedback(harness);
     vm.runInContext('handlePlatformClick({ currentTarget: clickPlatformButtons[2] })', harness.context);
     assert.equal(vm.runInContext('activeNumbersRun.questionIndex', harness.context), 1);
     await vm.runInContext('nextRound()', harness.context);
