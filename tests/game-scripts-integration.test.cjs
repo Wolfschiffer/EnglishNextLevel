@@ -1408,6 +1408,24 @@ test('screen navigation has no legacy bypass helpers', () => {
     assert.equal('showNumbersMenu' in harness.context, false);
 });
 
+test('leaving the Numbers menu or game closes its leaderboard without restoring hidden focus', () => {
+    for (const sourceScreen of ['numbersMenu', 'numbersGame']) {
+        const harness = createNavigationBrowserContext();
+        const closeOptions = [];
+        harness.context.closeWordsSettings = () => {};
+        harness.context.syncNumbersMenuBestScores = () => {};
+        harness.context.closeLeaderboardModal = (options) => closeOptions.push(options);
+        harness.loadScript('js/keyboard-accessibility.js');
+        harness.loadScript('js/game.js');
+
+        harness.context.showScreen(sourceScreen);
+        harness.context.showScreen('categories');
+
+        assert.equal(closeOptions.length, 1, `${sourceScreen} should close the active leaderboard`);
+        assert.equal(closeOptions[0].restoreFocus, false);
+    }
+});
+
 test('category cards navigate through the shared screen manager and support keyboard activation', () => {
     const harness = createNavigationBrowserContext();
     harness.context.closeWordsSettings = () => {};

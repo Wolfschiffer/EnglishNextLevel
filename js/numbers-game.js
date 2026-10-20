@@ -292,6 +292,10 @@ function showLeaderboardModal() {
     return numbersLeaderboard.showModal();
 }
 
+function closeLeaderboardModal(options) {
+    return numbersLeaderboard.closeModal(options);
+}
+
 // ============================================
 // 10. ANIMAÇÃO DA ÁGUIA
 // ============================================

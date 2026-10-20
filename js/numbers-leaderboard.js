@@ -1,5 +1,6 @@
 (function (root) {
     function create({ document = root.document, logger = root.console, debug = message => root.enlDebug?.(message) } = {}) {
+        let activeDialog = null;
         function escapeHtml(text) {
             const element = document.createElement('div');
             element.textContent = text;
@@ -55,6 +56,8 @@
                 return;
             }
 
+            activeDialog?.close?.({ restoreFocus: false });
+
             const dialog = dialogModule.create({
                 document,
                 client: root.EnglishNextLevelLeaderboardClient,
@@ -68,10 +71,17 @@
                 logger,
                 debug
             });
+            activeDialog = dialog;
             await dialog.open();
         }
 
-        return Object.freeze({ escapeHtml, saveToLeaderboard, showModal });
+        function closeModal(options) {
+            const dialog = activeDialog;
+            activeDialog = null;
+            return dialog?.close?.(options) || false;
+        }
+
+        return Object.freeze({ escapeHtml, saveToLeaderboard, showModal, closeModal });
     }
 
     root.EnglishNextLevelNumbersLeaderboard = Object.freeze({ create });

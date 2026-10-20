@@ -107,6 +107,28 @@ test('uses local leaderboard storage for reads and fallback saves', () => {
     });
 });
 
+test('closes the active leaderboard dialog without returning focus during navigation', async () => {
+    const { api, window } = createHarness();
+    let closeOptions = null;
+    window.EnglishNextLevelLeaderboardDialog = {
+        create() {
+            return {
+                async open() {},
+                close(options) {
+                    closeOptions = options;
+                    return true;
+                }
+            };
+        }
+    };
+
+    await api.showModal();
+
+    assert.equal(api.closeModal({ restoreFocus: false }), true);
+    assert.deepEqual(closeOptions, { restoreFocus: false });
+    assert.equal(api.closeModal({ restoreFocus: false }), false);
+});
+
 test('treats the offline Firebase compatibility stub as unavailable cloud storage', async () => {
     const { api, window } = createHarness();
     window.enlFirebaseUnavailable = true;

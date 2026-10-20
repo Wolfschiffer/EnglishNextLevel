@@ -23,6 +23,7 @@
         const environment = dependencies.environment ?? root.enlFirebaseEnvironment;
         const logger = dependencies.logger || root.console;
         const debug = dependencies.debug || ((message) => root.enlDebug?.(message));
+        let closeActiveModal = null;
         const globalScopeTitle = client?.getLeaderboardScopeTitle(environment)
             || 'Global Leaderboards';
         const localScopeTitle = 'Device Leaderboards';
@@ -40,6 +41,7 @@
         }
 
         async function open() {
+            closeActiveModal?.({ restoreFocus: false });
             const existingModal = document.querySelector('.leaderboard-modal');
             if (existingModal) existingModal.remove();
 
@@ -229,11 +231,19 @@
             });
 
             let releaseFocusTrap = () => {};
-            const close = () => {
+            let isClosed = false;
+            const close = ({ restoreFocus = true } = {}) => {
+                if (isClosed) return false;
+                isClosed = true;
                 releaseFocusTrap();
                 modal.remove();
-                if (previouslyFocusedElement?.isConnected) previouslyFocusedElement.focus();
+                if (restoreFocus && previouslyFocusedElement?.isConnected) {
+                    previouslyFocusedElement.focus({ preventScroll: true });
+                }
+                if (closeActiveModal === close) closeActiveModal = null;
+                return true;
             };
+            closeActiveModal = close;
             const closeButton = modal.querySelector('.close-modal');
             closeButton.onclick = close;
             modal.addEventListener('click', event => {
@@ -247,7 +257,12 @@
             await loadLeaderboardForMode('numbers');
         }
 
-        return { open };
+        return {
+            open,
+            close(options) {
+                return closeActiveModal?.(options) || false;
+            }
+        };
     }
 
     return { create };

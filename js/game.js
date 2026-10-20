@@ -91,6 +91,10 @@ function updatePhase2NavigationCopy(screen) {
 
 // Função para mostrar a tela
 function showScreen(screen, options = {}) {
+    if ([SCREENS.NUMBERS_MENU, SCREENS.NUMBERS_GAME].includes(currentScreen) && screen !== currentScreen) {
+        window.closeLeaderboardModal?.({ restoreFocus: false });
+    }
+
     if (currentScreen === SCREENS.NUMBERS_GAME && screen !== SCREENS.NUMBERS_GAME) {
         window.EnglishNextLevelNumbersResultLifecycle?.leaveScreen?.();
     }

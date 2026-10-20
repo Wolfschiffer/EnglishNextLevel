@@ -281,6 +281,38 @@ test('ignores an older cloud response after switching leaderboard tabs', async (
     assert.doesNotMatch(modal.querySelector('#leaderboard-list').children[0].innerHTML, /Old tab/);
 });
 
+test('ignores a pending cloud response after closing and reopening the leaderboard', async () => {
+    const pendingReads = [];
+    const harness = createDependencies({
+        isCloudConfigured: () => true,
+        getFirestore: () => createFirestoreWithGet(() => new Promise(resolve => pendingReads.push(resolve)))
+    });
+    const dialog = dialogModule.create(harness.dependencies);
+
+    const firstOpening = dialog.open();
+    const firstModal = harness.document.querySelector('.leaderboard-modal');
+    const firstList = firstModal.querySelector('#leaderboard-list');
+    assert.equal(firstList.innerHTML, '<div class="leaderboard-empty" role="status">Loading...</div>');
+
+    assert.equal(dialog.close({ restoreFocus: false }), true);
+    const secondOpening = dialog.open();
+    const secondModal = harness.document.querySelector('.leaderboard-modal');
+    const secondList = secondModal.querySelector('#leaderboard-list');
+
+    pendingReads[0](createSnapshot([{ name: 'Stale closed dialog score', score: 99 }]));
+    await firstOpening;
+    assert.equal(secondModal.isConnected, true);
+    assert.equal(secondList.innerHTML, '<div class="leaderboard-empty" role="status">Loading...</div>');
+    assert.equal(secondList.children.length, 0);
+
+    pendingReads[1](createSnapshot([{ name: 'Current dialog score', score: 12 }]));
+    await secondOpening;
+
+    assert.match(secondList.children[0].innerHTML, /Current dialog score/);
+    assert.doesNotMatch(secondList.children[0].innerHTML, /Stale closed dialog score/);
+    dialog.close({ restoreFocus: false });
+});
+
 test('Escape closes the dialog and restores focus to the opener', async () => {
     const harness = createDependencies();
     await dialogModule.create(harness.dependencies).open();
@@ -291,4 +323,18 @@ test('Escape closes the dialog and restores focus to the opener', async () => {
     assert.equal(modal.isConnected, false);
     assert.equal(harness.document.activeElement, harness.focusedElement);
     assert.equal(harness.focusTrapReleased, true);
+});
+
+test('navigation can close the dialog without restoring focus to the hidden opener', async () => {
+    const harness = createDependencies();
+    const dialog = dialogModule.create(harness.dependencies);
+    await dialog.open();
+    const modal = harness.document.querySelector('.leaderboard-modal');
+
+    assert.equal(dialog.close({ restoreFocus: false }), true);
+
+    assert.equal(modal.isConnected, false);
+    assert.equal(harness.focusTrapReleased, true);
+    assert.notStrictEqual(harness.document.activeElement, harness.focusedElement);
+    assert.equal(dialog.close({ restoreFocus: false }), false);
 });
