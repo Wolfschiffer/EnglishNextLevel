@@ -36,7 +36,7 @@ The emulator suite requires Node.js 22, npm, and Java JDK 21. The first run down
 
 If the Firebase SDK cannot load from its CDN, the page keeps the local guest option available and explains that account features are offline. Progress and scores then stay on the current device.
 
-After service worker v56 installs successfully online, it caches the local app shell and the pinned FSRS scheduler. Spaced Review can then schedule cards offline. Firebase SDKs still load from their CDN; account features use guest mode if Firebase is unavailable.
+After service worker v57 installs successfully online, it caches the local app shell and the pinned FSRS scheduler. Spaced Review can then schedule cards offline. Firebase SDKs still load from their CDN; account features use guest mode if Firebase is unavailable.
 
 ## Project layout
 
@@ -56,6 +56,7 @@ After service worker v56 installs successfully online, it caches the local app s
 - `js/numbers-game.js`: Numbers scoring and round flow.
 - `functions/shared/progress-profile-data.js`: shared progress normalization and merging for the browser and server.
 - `js/progress-profile-summary.js`: pure formatting and completion summaries for the progress screen.
+- `js/progress-profile-mutations.js`: pure local-first progress updates for scores, activities, and review cards.
 - `js/progress-profile-renderer.js`: profile identity, progress cards, and overall progress display.
 - `js/words-speech.js`: Words pronunciation and speech synthesis.
 - `js/vocabulary-game.js`: Words screen, timing, scoring, and menu coordination.
@@ -108,7 +109,7 @@ These checks cover JavaScript syntax, local leaderboard storage, progress recove
 
 ### Browser smoke checks
 
-The Playwright smoke suite opens the app through a local HTTP server at `http://127.0.0.1:4173/EnglishNextLevel/`. Most flows use a 390 × 844 viewport; responsive checks sample widths of 320, 390, 560, 768, 821, 980, and 1280 px and check for page-level horizontal overflow on the guest home, Words, Numbers, Topics, and Speak screens. The Topics flow checks the topic list, level selection, game selection, and Speak ready screen without requesting microphone access. Other checks cover keyboard navigation between the login tabs, completing a Words matching pair with Enter, submitting a correct answer in a Numbers round, and returning to the guest app shell after the service worker is installed and the browser goes offline. The tests block external requests; the login check supplies a Firebase SDK stub and verifies that Firebase stays in the local `demo-` test environment. The width checks do not replace a full visual review of every screen and size.
+The Playwright smoke suite opens the app through a local HTTP server, by default at `http://127.0.0.1:4173/EnglishNextLevel/`. Most flows use a 390 × 844 viewport; responsive checks sample widths of 320, 390, 560, 768, 821, 980, and 1280 px and check for page-level horizontal overflow on the guest home, Words, Numbers, Topics, and Speak screens. The Topics flow checks the topic list, level selection, game selection, and Speak ready screen without requesting microphone access. Other checks cover keyboard navigation between the login tabs, completing a Words matching pair with Enter, submitting a correct answer in a Numbers round, and returning to the guest app shell after the service worker is installed and the browser goes offline. The tests block external requests; the login check supplies a Firebase SDK stub and verifies that Firebase stays in the local `demo-` test environment. The width checks do not replace a full visual review of every screen and size.
 
 Install the root development dependency and Chromium once, then run the browser checks:
 
@@ -117,6 +118,8 @@ pnpm install --frozen-lockfile
 pnpm exec playwright install chromium
 pnpm test:browser
 ```
+
+The browser test server uses port `4173` by default. If that port is busy, set `ENL_TEST_PORT` to a free port before running the suite (for example, `$env:ENL_TEST_PORT = '4174'` in PowerShell); the app server and test network filter use the same setting.
 
 CI runs these checks in a separate job. They verify key browser flows but do not replace manual review of gameplay, microphone and audio behavior, or other screen sizes.
 

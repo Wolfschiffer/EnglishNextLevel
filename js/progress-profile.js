@@ -9,19 +9,18 @@
   const {
     PROGRESS_VERSION,
     PROGRESS_SYNC_TOO_LARGE_REASON,
-    VOCABULARY_REVIEW_CARD_ID,
     NUMBER_MODES,
     WORD_MODES,
-    bestTime,
-    emptyDayProgress,
     emptyProgress,
     localDateKey,
     mergeProgress,
-    normalizeDayProgress,
     normalizeProgress,
-    normalizeVocabularyReviews,
     safeNumber
   } = window.EnglishNextLevelProgressData;
+  const progressMutations = window.EnglishNextLevelProgressMutations;
+  if (!progressMutations) {
+    throw new Error('EnglishNextLevelProgressMutations must load before progress-profile.js.');
+  }
   const {
     formatScore,
     formatTime,
@@ -379,160 +378,60 @@
     }, 450);
   }
 
-  function getToday(progress) {
-    progress.history ||= { days: {} };
-    progress.history.days ||= {};
-    const key = localDateKey();
-    progress.history.days[key] = normalizeDayProgress(progress.history.days[key]);
-    return progress.history.days[key];
-  }
-
-  function touchDay(day) {
-    day.updatedAt = Date.now();
-  }
-
   function recordNumbersBest(modeId, score) {
-    if (!modeId) return false;
-    const progress = loadLocal();
-    const previousProgress = normalizeProgress(progress);
-    const today = getToday(progress);
-    const next = Math.max(0, Math.floor(safeNumber(score)));
-    const previous = Math.max(0, progress.numbers.bestScores[modeId] || 0);
-    progress.numbers.bestScores[modeId] = Math.max(previous, next);
-    today.numbers.bestScores[modeId] = Math.max(today.numbers.bestScores[modeId] || 0, next);
-    touchDay(today);
+    const current = loadLocal();
+    const previousProgress = normalizeProgress(current);
+    const now = Date.now();
+    const nextProgress = progressMutations.recordNumbersBest(current, modeId, score, {
+      dateKey: localDateKey(new Date(now)),
+      now
+    });
+    if (!nextProgress) return false;
     // game.js only calls this hook when a new Best Score is confirmed. Save even
     // if the legacy Numbers storage was imported a millisecond earlier, so the
     // cloud profile receives that new best as well.
-    return saveProgress(progress, previousProgress);
+    return saveProgress(nextProgress, previousProgress);
   }
 
-  function recordWordsResult({ mode, score, timeSeconds }) {
-    if (!WORD_MODES[mode]) return false;
-    const progress = loadLocal();
-    const previousProgress = normalizeProgress(progress);
-    const today = getToday(progress);
-    const entry = progress.words[mode] || { completed: false, bestScore: 0, bestTime: null };
-    const dailyEntry = today.words[mode] || { completed: false, bestScore: 0, bestTime: null };
-    const nextScore = Math.max(0, Math.floor(safeNumber(score)));
-    const nextTime = Math.max(0, Math.floor(safeNumber(timeSeconds)));
-
-    entry.completed = true;
-    entry.bestScore = Math.max(entry.bestScore || 0, nextScore);
-    if (nextTime > 0) entry.bestTime = bestTime(entry.bestTime, nextTime);
-    progress.words[mode] = entry;
-
-    dailyEntry.completed = true;
-    dailyEntry.bestScore = Math.max(dailyEntry.bestScore || 0, nextScore);
-    if (nextTime > 0) dailyEntry.bestTime = bestTime(dailyEntry.bestTime, nextTime);
-    today.words[mode] = dailyEntry;
-    touchDay(today);
-    return saveProgress(progress, previousProgress);
-  }
-
-  function recordVocabularyReviewItems({ mode, setId, items }) {
-    const expectedSetPrefix = mode === 'present' ? 'verbs' : mode === 'past' ? 'past' : '';
-    if (!expectedSetPrefix || !new RegExp(`^${expectedSetPrefix}(?:[1-9]|10)$`).test(String(setId || '')) || !Array.isArray(items)) {
-      return 0;
-    }
-
-    const progress = loadLocal();
-    const previousProgress = normalizeProgress(progress);
-    progress.vocabularyReviews ||= { cards: {} };
-    progress.vocabularyReviews.cards ||= {};
+  function recordWordsResult(result) {
+    const current = loadLocal();
+    const previousProgress = normalizeProgress(current);
     const now = Date.now();
-    let added = 0;
-
-    items.forEach((item) => {
-      const itemId = Number(item?.id);
-      const front = typeof item?.english === 'string' ? item.english.trim().slice(0, 160) : '';
-      const back = typeof item?.portuguese === 'string' ? item.portuguese.trim().slice(0, 160) : '';
-      if (!Number.isInteger(itemId) || itemId < 0 || itemId > 999 || !front || !back) return;
-
-      const id = `${mode}:${setId}:${itemId}`;
-      if (progress.vocabularyReviews.cards[id]) return;
-
-      progress.vocabularyReviews.cards[id] = {
-        mode,
-        setId,
-        front,
-        back,
-        due: now,
-        stability: 0,
-        difficulty: 0,
-        elapsed_days: 0,
-        scheduled_days: 0,
-        reps: 0,
-        lapses: 0,
-        learning_steps: 0,
-        state: 0,
-        last_review: null,
-        updatedAt: now
-      };
-      added += 1;
+    const nextProgress = progressMutations.recordWordsResult(current, result, {
+      dateKey: localDateKey(new Date(now)),
+      now
     });
+    return nextProgress ? saveProgress(nextProgress, previousProgress) : false;
+  }
 
-    if (added && !saveProgress(progress, previousProgress)) {
-      return 0;
-    }
-    return added;
+  function recordVocabularyReviewItems(input) {
+    const current = loadLocal();
+    const { progress: nextProgress, added } = progressMutations.recordVocabularyReviewItems(current, input, {
+      now: Date.now()
+    });
+    if (!added) return 0;
+    const previousProgress = normalizeProgress(current);
+    return saveProgress(nextProgress, previousProgress) ? added : 0;
   }
 
   function recordVocabularyReviewCard(cardId, cardData) {
-    if (typeof cardId !== 'string' || !VOCABULARY_REVIEW_CARD_ID.test(cardId)) return false;
-    const normalized = normalizeVocabularyReviews({ cards: { [cardId]: cardData } }).cards[cardId];
-    if (!normalized) return false;
-
-    const progress = loadLocal();
-    const previousProgress = normalizeProgress(progress);
-    progress.vocabularyReviews ||= { cards: {} };
-    progress.vocabularyReviews.cards ||= {};
-    progress.vocabularyReviews.cards[cardId] = {
-      ...normalized,
-      updatedAt: Date.now()
-    };
-    return saveProgress(progress, previousProgress);
+    const current = loadLocal();
+    const nextProgress = progressMutations.recordVocabularyReviewCard(current, cardId, cardData, {
+      now: Date.now()
+    });
+    if (!nextProgress) return false;
+    return saveProgress(nextProgress, normalizeProgress(current));
   }
 
-  function recordTopicResult({ topicId, levelId, volumeId, gameType, score, timeSeconds }) {
-    if (!topicId || !levelId || !volumeId || !['match', 'speak'].includes(gameType)) return false;
-
-    const progress = loadLocal();
-    const previousProgress = normalizeProgress(progress);
-    const today = getToday(progress);
-    const nextScore = Math.max(0, Math.min(1000, Math.floor(safeNumber(score))));
-    const nextTime = Math.max(0, Math.floor(safeNumber(timeSeconds)));
-
-    progress.topics[topicId] ||= {};
-    progress.topics[topicId][levelId] ||= {};
-    progress.topics[topicId][levelId][volumeId] ||= { match: false, speak: false };
-    progress.topics[topicId][levelId][volumeId][gameType] = true;
-
-    today.topics[topicId] ||= {};
-    today.topics[topicId][levelId] ||= {};
-    today.topics[topicId][levelId][volumeId] ||= { match: false, speak: false };
-    today.topics[topicId][levelId][volumeId][gameType] = true;
-
-    progress.topicStats ||= {};
-    progress.topicStats[topicId] ||= {};
-    progress.topicStats[topicId][levelId] ||= {};
-    progress.topicStats[topicId][levelId][volumeId] ||= {};
-    const current = progress.topicStats[topicId][levelId][volumeId][gameType] || { bestScore: 0, bestTime: null };
-    current.bestScore = Math.max(current.bestScore || 0, nextScore);
-    if (nextTime > 0) current.bestTime = bestTime(current.bestTime, nextTime);
-    progress.topicStats[topicId][levelId][volumeId][gameType] = current;
-
-    today.topicStats ||= {};
-    today.topicStats[topicId] ||= {};
-    today.topicStats[topicId][levelId] ||= {};
-    today.topicStats[topicId][levelId][volumeId] ||= {};
-    const daily = today.topicStats[topicId][levelId][volumeId][gameType] || { bestScore: 0, bestTime: null };
-    daily.bestScore = Math.max(daily.bestScore || 0, nextScore);
-    if (nextTime > 0) daily.bestTime = bestTime(daily.bestTime, nextTime);
-    today.topicStats[topicId][levelId][volumeId][gameType] = daily;
-
-    touchDay(today);
-    return saveProgress(progress, previousProgress);
+  function recordTopicResult(result) {
+    const current = loadLocal();
+    const previousProgress = normalizeProgress(current);
+    const now = Date.now();
+    const nextProgress = progressMutations.recordTopicResult(current, result, {
+      dateKey: localDateKey(new Date(now)),
+      now
+    });
+    return nextProgress ? saveProgress(nextProgress, previousProgress) : false;
   }
 
   function renderProfile() {

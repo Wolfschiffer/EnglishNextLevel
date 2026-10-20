@@ -2,7 +2,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { expect, test } = require('@playwright/test');
 
-const baseURL = 'http://127.0.0.1:4173/EnglishNextLevel/';
+const testPort = require('../scripts/test-port.cjs');
+const baseURL = `http://127.0.0.1:${testPort}/EnglishNextLevel/`;
 const appOrigin = new URL(baseURL).origin;
 const firebaseSdkStub = fs.readFileSync(
     path.join(__dirname, 'fixtures', 'firebase-sdk-stub.js'),

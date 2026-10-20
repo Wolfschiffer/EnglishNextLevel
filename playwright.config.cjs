@@ -1,6 +1,7 @@
 const { defineConfig } = require('@playwright/test');
 
-const baseURL = 'http://127.0.0.1:4173/EnglishNextLevel/';
+const testPort = require('./scripts/test-port.cjs');
+const baseURL = `http://127.0.0.1:${testPort}/EnglishNextLevel/`;
 
 module.exports = defineConfig({
     testDir: './browser-tests',

@@ -38,6 +38,7 @@ const CORE_SCRIPTS = [
     'js/numbers-fallback-questions.js',
     'js/numbers-game.js',
     'functions/shared/progress-profile-data.js',
+    'js/progress-profile-mutations.js',
     'js/progress-profile-summary.js',
     'js/progress-profile-renderer.js',
     ...TOPIC_DATA_SCRIPTS,

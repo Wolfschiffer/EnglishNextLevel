@@ -125,12 +125,14 @@ function createHarness({
         }
     };
     const dataSource = fs.readFileSync(path.join(__dirname, '../functions/shared/progress-profile-data.js'), 'utf8');
+    const mutationsSource = fs.readFileSync(path.join(__dirname, '../js/progress-profile-mutations.js'), 'utf8');
     const summarySource = fs.readFileSync(path.join(__dirname, '../js/progress-profile-summary.js'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '../js/progress-profile-renderer.js'), 'utf8');
     const source = fs.readFileSync(path.join(__dirname, '../js/progress-profile.js'), 'utf8');
 
     vm.runInNewContext(dataSource, { window });
     progressData = window.EnglishNextLevelProgressData;
+    vm.runInNewContext(mutationsSource, { window });
     vm.runInNewContext(summarySource, { window });
     vm.runInNewContext(rendererSource, { window });
 
