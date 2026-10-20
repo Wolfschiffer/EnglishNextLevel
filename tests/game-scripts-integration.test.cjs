@@ -1464,10 +1464,25 @@ test('Words submenu is hidden before asynchronous browser back completes', () =>
     const submenu = harness.elements.get('simple-verbs-submenu');
     assert.equal(submenu.style.display, 'block');
 
-    harness.context.goBack();
+    assert.equal(harness.context.goBack(), true, 'browser-history navigation should report that popstate is expected');
 
     assert.deepEqual(harness.history.goCalls, [-1]);
     assert.equal(submenu.style.display, 'none');
+});
+
+test('goBack reports a synchronous result when browser history is unavailable', () => {
+    const harness = createNavigationBrowserContext();
+    harness.context.closeWordsSettings = () => {};
+    harness.context.syncNumbersMenuBestScores = () => {};
+    harness.loadScript('js/keyboard-accessibility.js');
+    harness.loadScript('js/game.js');
+    harness.context.showScreen('categories');
+    harness.context.navigateTo('wordsSubmenu');
+    harness.history.state = { screen: 'invalid-app-history' };
+
+    assert.equal(harness.context.goBack(), false);
+    assert.equal(harness.context.document.body.getAttribute('data-screen'), 'categories');
+    assert.deepEqual(harness.history.goCalls, []);
 });
 
 test('mobile bottom navigation opens Progress and Settings for a guest', () => {

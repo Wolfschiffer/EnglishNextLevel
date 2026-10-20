@@ -165,6 +165,8 @@ const vocabularyResultDialog = window.EnglishNextLevelVocabularyResultDialog.cre
     getScore: () => vocabScore,
     getElapsedSeconds: () => vocabElapsedSeconds,
     getGameType: () => currentVerbGameType,
+    getBackFocusTarget: () => Array.from(document.querySelectorAll('.game-card[data-words-mode]'))
+        .find((card) => card.dataset.wordsMode === currentVocabularySetId),
     formatTime: formatVocabularyTime,
     scheduleFrame: (callback) => requestAnimationFrame(callback),
     setTimeoutFn: (callback, delay) => setTimeout(callback, delay),

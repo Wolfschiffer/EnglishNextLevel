@@ -348,6 +348,7 @@ function cleanBeforeBack() {
 
 // Voltar uma ou mais telas.
 // Botões internos usam a MESMA pilha do botão físico/gesto do aparelho.
+// Retorna true somente quando solicita navegação interna via history.go(), concluída pelo fluxo popstate.
 function goBack(steps = 1) {
     const requestedSteps = Math.max(1, Number.parseInt(steps, 10) || 1);
     window.enlDebug?.(`◀ goBack chamado (${requestedSteps})`);
@@ -357,14 +358,14 @@ function goBack(steps = 1) {
         // Na raiz do jogo, deixa o navegador voltar normalmente para a página anterior.
         if (currentScreen === SCREENS.CATEGORIES || currentScreen === SCREENS.LOGIN) {
             window.history.back();
-            return;
+            return false;
         }
 
         // Segurança para algum estado antigo/sem histórico.
         showScreen(SCREENS.CATEGORIES);
         navigationStack = [];
         replaceCurrentBrowserState(SCREENS.CATEGORIES);
-        return;
+        return false;
     }
 
     const actualSteps = Math.min(requestedSteps, navigationStack.length);
@@ -373,7 +374,7 @@ function goBack(steps = 1) {
         // Esconde os submenus imediatamente; o popstate troca para a tela de destino.
         cleanBeforeBack();
         window.history.go(-actualSteps);
-        return;
+        return true;
     }
 
     // Fallback para navegadores muito antigos ou histórico não inicializado.
@@ -383,6 +384,7 @@ function goBack(steps = 1) {
     }
     showScreen(previousScreen);
     replaceCurrentBrowserState(previousScreen);
+    return false;
 }
 
 // Recebe tanto o botão físico/gesto de voltar quanto history.back()/history.go()
