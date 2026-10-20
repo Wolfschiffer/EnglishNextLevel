@@ -86,7 +86,7 @@ After service worker v55 installs successfully online, it caches the local app s
 - `js/topics/`: topic matching, speech, menu, and statistics. `speech-answer.js` checks recognized answers; `speech-audio.js` handles speech synthesis; `speech-settings.js` owns Speak audio preferences and controls; `speech-recognition.js` owns browser microphone recognition and retry behavior; `speech-page-lifecycle.js` suspends and resumes microphone use as the page loses or regains focus.
 - `images/`: assets served by the site.
 - `tests/` and `scripts/`: automated checks.
-- `browser-tests/`: Playwright smoke tests for the mobile login, Words activity, and offline guest navigation.
+- `browser-tests/`: Playwright smoke tests for mobile login, Words and Numbers activities, and offline guest navigation.
 - `playwright.config.cjs`: browser-test settings and the local test server.
 - `scripts/serve-test-site.cjs`: loopback-only HTTP server that serves the project at its GitHub Pages subpath during browser tests.
 - `Testing/`: local artwork sources and review exports; image and media files are excluded from Git.
@@ -108,7 +108,7 @@ These checks cover JavaScript syntax, local leaderboard storage, progress recove
 
 ### Browser smoke checks
 
-The Playwright smoke suite opens the app through a local HTTP server at `http://127.0.0.1:4173/EnglishNextLevel/`, using a 390 × 844 viewport. It checks keyboard navigation between the login tabs, guest navigation into a Words activity and completing a matching pair with Enter, and returning to the guest app shell after the service worker is installed and the browser goes offline. The tests block external requests; the login check supplies a Firebase SDK stub and verifies that Firebase stays in the local `demo-` test environment.
+The Playwright smoke suite opens the app through a local HTTP server at `http://127.0.0.1:4173/EnglishNextLevel/`, using a 390 × 844 viewport. It checks keyboard navigation between the login tabs, guest navigation into a Words activity and completing a matching pair with Enter, starting a Numbers round and submitting the correct answer, and returning to the guest app shell after the service worker is installed and the browser goes offline. The tests block external requests; the login check supplies a Firebase SDK stub and verifies that Firebase stays in the local `demo-` test environment.
 
 Install the root development dependency and Chromium once, then run the browser checks:
 
