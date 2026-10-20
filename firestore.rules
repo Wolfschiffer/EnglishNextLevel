@@ -56,5 +56,10 @@ service cloud.firestore {
       // Run creation counters are managed only by trusted server code.
       allow read, write: if false;
     }
+
+    match /callableRateLimits/{userId}/operations/{operationId} {
+      // Callable request counters are managed only by trusted server code.
+      allow read, write: if false;
+    }
   }
 }

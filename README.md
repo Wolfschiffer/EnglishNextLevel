@@ -123,7 +123,7 @@ Verbose diagnostic messages are off by default. Add `?debug=1` to the page URL t
 
 The server starts each question timer before returning its prompt. Network and rendering delay can therefore make the global speed bonus lower than the in-game estimate.
 
-The run-start limit is per account, but the other callable functions do not yet have a separate per-call rate limit or App Check enforcement. Repeated calls from authenticated, verified accounts could increase function invocations and Firestore reads. They do not let clients write an arbitrary score directly to the leaderboard. Before deploying the Functions broadly, consider App Check or broader request throttling and test it against the QA project.
+Numbers run starts are limited to 10 per account in 10 minutes. Starting a question and submitting an answer are each limited to 60 validly shaped calls per account per minute; finishing a run and submitting its score are each limited to 10 calls per account per minute. These server-side limits use Firestore transactions, so concurrent requests for the same account share one counter. Each limited call also reads its counter and writes it when accepted. The limits reduce repeated calls from verified accounts, but do not stop account farming or replace App Check. App Check still needs configuration and testing against the QA project before broad deployment.
 
 Each callable function now has a maximum of 10 instances to limit automatic scaling during traffic spikes. This is a per-function capacity setting, not a per-account request limit or a hard spending cap. If a function reaches that ceiling and no instance becomes available within 30 seconds, new requests may be rejected with HTTP 429. Verify expected traffic in QA before deployment.
 

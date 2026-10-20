@@ -185,6 +185,24 @@ async function main() {
         await expectStatus(directLimitWrite, 403, 'Client cannot create or change a Numbers run limit');
         results.push('direct client Numbers run limit write denied');
 
+        const callableLimitPath = firestoreBase + '/callableRateLimits/' +
+            owner.localId + '/operations/startNumbersQuestion';
+        const directCallableLimitRead = await fetch(callableLimitPath, {
+            headers: headers(owner.idToken)
+        });
+        await expectStatus(directCallableLimitRead, 403,
+            'Client cannot read a server-side callable rate limit');
+        results.push('direct client callable rate limit read denied');
+
+        const directCallableLimitWrite = await fetch(callableLimitPath, {
+            method: 'PATCH',
+            headers: { ...headers(owner.idToken), 'content-type': 'application/json' },
+            body: JSON.stringify({ fields: { count: { integerValue: '1' } } })
+        });
+        await expectStatus(directCallableLimitWrite, 403,
+            'Client cannot create or change a callable rate limit');
+        results.push('direct client callable rate limit write denied');
+
         for (const result of results) console.log(`PASS ${result}`);
         console.log(`\n${results.length} Firestore emulator rule checks passed.`);
     } finally {

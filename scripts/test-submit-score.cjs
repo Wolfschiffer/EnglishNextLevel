@@ -30,6 +30,7 @@ const requireFunctions = createRequire(path.join(__dirname, '..', 'functions', '
 const { initializeApp, deleteApp } = requireFunctions('firebase-admin/app');
 const { getAuth } = requireFunctions('firebase-admin/auth');
 const { FieldValue, Timestamp, getFirestore } = requireFunctions('firebase-admin/firestore');
+const { CALLABLE_RATE_LIMITS } = requireFunctions('./callable-rate-limit');
 
 const app = initializeApp({ projectId: PROJECT_ID }, `numbers-run-test-${randomUUID()}`);
 const auth = getAuth(app);
@@ -42,6 +43,7 @@ let userRef = null;
 let scoreRef = null;
 const runRefs = [];
 const limitRefs = [];
+const callableLimitRefs = new Map();
 
 async function readJson(response) {
     const text = await response.text();
@@ -60,6 +62,21 @@ async function post(url, data, token) {
 
 async function callFunction(name, token, data) {
     return post(`${functionBase}/${name}`, { data }, token);
+}
+
+function getCallableLimitRef(uid, operation) {
+    const ref = db.collection('callableRateLimits')
+        .doc(uid)
+        .collection('operations')
+        .doc(operation);
+    callableLimitRefs.set(ref.path, ref);
+    return ref;
+}
+
+function trackCallableLimitRefs(uid) {
+    for (const operation of Object.keys(CALLABLE_RATE_LIMITS)) {
+        getCallableLimitRef(uid, operation);
+    }
 }
 
 async function expectCallableError(response, expectedStatus, description) {
@@ -144,6 +161,7 @@ async function main() {
 
         await auth.updateUser(account.localId, { emailVerified: true });
         account = await signIn(email, password);
+        trackCallableLimitRefs(account.localId);
         await userRef.set({ name: 'Trusted Profile Name', email, createdAt: new Date() });
         const limitRef = db.doc(`numbersRunLimits/${account.localId}`);
         limitRefs.push(limitRef);
@@ -189,6 +207,7 @@ async function main() {
         otherVerifiedAccount = await signUp(otherEmail, otherPassword);
         await auth.updateUser(otherVerifiedAccount.localId, { emailVerified: true });
         otherVerifiedAccount = await signIn(otherEmail, otherPassword);
+        trackCallableLimitRefs(otherVerifiedAccount.localId);
         const otherLimitRef = db.doc(`numbersRunLimits/${otherVerifiedAccount.localId}`);
         limitRefs.push(otherLimitRef);
         const otherUserRun = await expectCallableResult(
@@ -236,7 +255,28 @@ async function main() {
         );
         console.log('PASS unfinished run cannot be submitted');
 
+        const questionStartLimit = CALLABLE_RATE_LIMITS.startNumbersQuestion;
+        const questionStartLimitRef = getCallableLimitRef(account.localId, 'startNumbersQuestion');
+        await questionStartLimitRef.set({
+            windowStartedAtMs: Date.now(),
+            count: questionStartLimit.maxRequests
+        });
+        await expectCallableError(
+            await callFunction('startNumbersQuestion', account.idToken, { runId, questionIndex: 0 }),
+            'RESOURCE_EXHAUSTED',
+            'Question starts over the per-account limit must be rejected'
+        );
+        assert.equal((await runRef.get()).data().roundStartedAtMs, null,
+            'A rate-limited question start must not change the run');
+        await questionStartLimitRef.set({
+            windowStartedAtMs: Date.now() - questionStartLimit.windowMs - 1,
+            count: questionStartLimit.maxRequests
+        });
+
         const firstQuestionStart = await startQuestion(account.idToken, runId, 0);
+        const resetQuestionStartLimit = (await questionStartLimitRef.get()).data();
+        assert.equal(resetQuestionStartLimit.count, 1,
+            'An expired per-call rate-limit window should start a fresh count');
         assert.deepEqual(firstQuestionStart, {
             started: true,
             questionIndex: 0,
@@ -288,6 +328,23 @@ async function main() {
 
         const wrongValue = firstQuestion.options.find(value => value !== firstQuestion.value);
         const wrongAttemptId = randomUUID();
+        const answerLimit = CALLABLE_RATE_LIMITS.recordNumbersAnswer;
+        const answerLimitRef = getCallableLimitRef(account.localId, 'recordNumbersAnswer');
+        await answerLimitRef.set({
+            windowStartedAtMs: Date.now(),
+            count: answerLimit.maxRequests
+        });
+        await expectCallableError(
+            await callFunction('recordNumbersAnswer', account.idToken, {
+                runId, questionIndex: 0, answerValue: wrongValue, attemptId: wrongAttemptId
+            }),
+            'RESOURCE_EXHAUSTED',
+            'Answer submissions over the per-account limit must be rejected'
+        );
+        assert.equal((await runRef.get()).data().attemptCount, 0,
+            'A rate-limited answer must not change the run');
+        await answerLimitRef.delete();
+
         const wrongResult = await answer(account.idToken, runId, 0, wrongValue, wrongAttemptId);
         assert.equal(wrongResult.correct, false);
         assert.equal(wrongResult.questionIndex, 0);
@@ -330,6 +387,21 @@ async function main() {
         assert.ok(Number.isSafeInteger(run.finishedAtMs));
         assert.equal(run.roundStartedAtMs, null);
 
+        const finishLimit = CALLABLE_RATE_LIMITS.finishNumbersRun;
+        const finishLimitRef = getCallableLimitRef(account.localId, 'finishNumbersRun');
+        await finishLimitRef.set({
+            windowStartedAtMs: Date.now(),
+            count: finishLimit.maxRequests
+        });
+        await expectCallableError(
+            await callFunction('finishNumbersRun', account.idToken, { runId }),
+            'RESOURCE_EXHAUSTED',
+            'Run finishes over the per-account limit must be rejected'
+        );
+        assert.equal((await runRef.get()).data().status, 'ready-to-finish',
+            'A rate-limited finish must not change the run');
+        await finishLimitRef.delete();
+
         const finalResult = await expectCallableResult(
             await callFunction('finishNumbersRun', account.idToken, {
                 runId,
@@ -348,6 +420,21 @@ async function main() {
             'Finishing a run twice should return the saved result'
         ), finalResult);
         console.log('PASS server owns question timing and final score calculation');
+
+        const submitLimit = CALLABLE_RATE_LIMITS.submitScore;
+        const submitLimitRef = getCallableLimitRef(account.localId, 'submitScore');
+        await submitLimitRef.set({
+            windowStartedAtMs: Date.now(),
+            count: submitLimit.maxRequests
+        });
+        await expectCallableError(
+            await callFunction('submitScore', account.idToken, { runId }),
+            'RESOURCE_EXHAUSTED',
+            'Score submissions over the per-account limit must be rejected'
+        );
+        assert.equal((await runRef.get()).data().leaderboardSubmitted, false,
+            'A rate-limited score submission must not change the run');
+        await submitLimitRef.delete();
 
         const saved = await expectCallableResult(
             await callFunction('submitScore', account.idToken, {
@@ -412,6 +499,7 @@ async function main() {
     } finally {
         for (const runRef of runRefs) await runRef.delete().catch(() => {});
         for (const limitRef of limitRefs) await limitRef.delete().catch(() => {});
+        for (const limitRef of callableLimitRefs.values()) await limitRef.delete().catch(() => {});
         if (scoreRef) await scoreRef.delete().catch(() => {});
         if (userRef) await userRef.delete().catch(() => {});
         for (const user of [account, otherVerifiedAccount].filter(Boolean)) {

@@ -3,6 +3,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestore');
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2/options');
+const { consumeCallableRateLimit } = require('./callable-rate-limit');
 const { normalizeProfileName, normalizeRunId, SCORE_MODES } = require('./score-validation');
 const {
     INITIAL_LIVES,
@@ -24,6 +25,8 @@ const RUN_START_WINDOW_MS = 10 * 60 * 1000;
 const MAX_RUN_STARTS_PER_WINDOW = 10;
 const MAX_SCORE = 50000;
 const RESULT_SUBMISSION_WINDOW_MS = 24 * 60 * 60 * 1000;
+const consumeRateLimit = (uid, operation) =>
+    consumeCallableRateLimit({ db, HttpsError }, uid, operation);
 
 function requireVerifiedUser(request) {
     if (!request.auth) {
@@ -129,6 +132,7 @@ exports.startNumbersQuestion = onCall(async (request) => {
         throw new HttpsError('invalid-argument', 'The Numbers question is invalid.');
     }
 
+    await consumeRateLimit(uid, 'startNumbersQuestion');
     const runRef = getRunReference(runId);
     const now = Date.now();
 
@@ -188,6 +192,7 @@ exports.recordNumbersAnswer = onCall(async (request) => {
         throw new HttpsError('invalid-argument', 'The answer attempt is invalid.');
     }
 
+    await consumeRateLimit(uid, 'recordNumbersAnswer');
     const runRef = getRunReference(runId);
     const now = Date.now();
 
@@ -290,6 +295,7 @@ exports.finishNumbersRun = onCall(async (request) => {
     const runId = normalizeRunId(request.data);
     if (!runId) throw new HttpsError('invalid-argument', 'The Numbers run is invalid.');
 
+    await consumeRateLimit(uid, 'finishNumbersRun');
     const runRef = getRunReference(runId);
     const now = Date.now();
 
@@ -352,6 +358,7 @@ exports.submitScore = onCall(async (request) => {
         throw new HttpsError('invalid-argument', 'Submit a completed Numbers run.');
     }
 
+    await consumeRateLimit(uid, 'submitScore');
     const runRef = getRunReference(runId);
     const userRef = db.collection('users').doc(uid);
     const scoreId = createHash('sha256').update(uid).digest('hex');
