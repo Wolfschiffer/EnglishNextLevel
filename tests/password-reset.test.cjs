@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const passwordReset = require('../js/password-reset.js');
+const authTabsModule = require('../js/auth-tabs.js');
 
 function createClassList(initial = []) {
     const values = new Set(initial);
@@ -19,6 +20,7 @@ function createClassList(initial = []) {
 
 function createElement(properties = {}) {
     const listeners = new Map();
+    const attributes = new Map();
     return {
         hidden: false,
         value: '',
@@ -26,6 +28,7 @@ function createElement(properties = {}) {
         textContent: '',
         style: {},
         classList: createClassList(),
+        dataset: {},
         addEventListener(name, callback) {
             const callbacks = listeners.get(name) || [];
             callbacks.push(callback);
@@ -34,6 +37,8 @@ function createElement(properties = {}) {
         async dispatch(name, event = {}) {
             for (const callback of listeners.get(name) || []) await callback(event);
         },
+        setAttribute(name, value) { attributes.set(name, String(value)); },
+        getAttribute(name) { return attributes.get(name) ?? null; },
         focus() { this.focused = true; },
         ...properties
     };
@@ -52,8 +57,12 @@ function createHarness(sendPasswordResetEmail = async () => {}) {
         'login-form': createElement({ classList: createClassList(['active']) }),
         'register-form': createElement({ classList: createClassList() })
     };
-    const loginTab = createElement({ classList: createClassList(['active']) });
-    const registerTab = createElement({ classList: createClassList() });
+    const loginTab = createElement({ classList: createClassList(['active']), dataset: { tab: 'login' }, tabIndex: 0 });
+    const registerTab = createElement({ classList: createClassList(), dataset: { tab: 'register' }, tabIndex: -1 });
+    loginTab.setAttribute('aria-controls', 'login-form');
+    loginTab.setAttribute('aria-selected', 'true');
+    registerTab.setAttribute('aria-controls', 'register-form');
+    registerTab.setAttribute('aria-selected', 'false');
     const authTabs = createElement({ style: { display: '' } });
     const guestOption = createElement({ style: { display: '' } });
     const attributes = new Map();
@@ -75,8 +84,11 @@ function createHarness(sendPasswordResetEmail = async () => {}) {
             return selector === '.auth-tab' ? [loginTab, registerTab] : [];
         }
     };
+    const authTabController = authTabsModule.create({ document });
+    authTabController.initialize();
     const controller = passwordReset.create({
         document,
+        authTabs: authTabController,
         auth: {
             async sendPasswordResetEmail(email) {
                 resetCalls.push(email);
@@ -96,6 +108,7 @@ function createHarness(sendPasswordResetEmail = async () => {}) {
     return {
         attributes,
         authTabs,
+        authTabController,
         clearedIntervals,
         controller,
         elements,
@@ -116,6 +129,7 @@ test('password reset errors use safe messages for known and unknown codes', () =
 
 test('forgot-password opens the reset panel with the login email and back restores login', async () => {
     const harness = createHarness();
+    harness.authTabController.select('register');
     harness.controller.initialize();
     harness.controller.initialize();
 
@@ -125,7 +139,8 @@ test('forgot-password opens the reset panel with the login email and back restor
     assert.equal(harness.elements['email-verification-panel'].hidden, true);
     assert.equal(harness.authTabs.style.display, 'none');
     assert.equal(harness.guestOption.style.display, 'none');
-    assert.equal(harness.elements['login-form'].classList.contains('active'), false);
+    assert.equal(harness.elements['register-form'].classList.contains('active'), false);
+    assert.equal(harness.elements['register-form'].getAttribute('aria-hidden'), 'true');
     assert.equal(harness.loginScreenCalls(), 1);
     assert.equal(harness.attributes.get('data-screen'), 'login');
 
@@ -134,6 +149,9 @@ test('forgot-password opens the reset panel with the login email and back restor
     assert.equal(harness.authTabs.style.display, '');
     assert.equal(harness.guestOption.style.display, '');
     assert.equal(harness.elements['login-form'].classList.contains('active'), true);
+    assert.equal(harness.loginTab.getAttribute('aria-selected'), 'true');
+    assert.equal(harness.loginTab.tabIndex, 0);
+    assert.equal(harness.registerTab.getAttribute('aria-selected'), 'false');
     assert.equal(harness.elements['login-email'].focused, true);
 });
 

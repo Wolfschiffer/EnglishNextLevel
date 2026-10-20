@@ -131,11 +131,17 @@ function showLoginScreen() {
     document.body.setAttribute('data-screen', 'login');
 }
 
+const authTabsModule = window.EnglishNextLevelAuthTabs;
+if (!authTabsModule?.create) {
+    throw new Error('auth-tabs.js must load before firebase-config.js');
+}
+const authTabs = authTabsModule.create({ document });
+
 const passwordResetModule = window.EnglishNextLevelPasswordReset;
 if (!passwordResetModule?.create) {
     throw new Error('password-reset.js must load before firebase-config.js');
 }
-const passwordResetUI = passwordResetModule.create({ document, auth, showLoginScreen });
+const passwordResetUI = passwordResetModule.create({ document, auth, showLoginScreen, authTabs });
 
 const verificationModule = window.EnglishNextLevelEmailVerification;
 if (!verificationModule?.create) {
@@ -144,6 +150,7 @@ if (!verificationModule?.create) {
 const verificationUI = verificationModule.create({
     document,
     auth,
+    authTabs,
     updateAllUserNames,
     showLoginScreen,
     loadVerifiedUser,
@@ -325,6 +332,7 @@ const authUI = authUIModule.create({
     window,
     passwordResetUI,
     verificationUI,
+    authTabs,
     login,
     register,
     onGuestModeSelected: enterGuestMode,

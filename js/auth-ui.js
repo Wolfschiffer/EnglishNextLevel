@@ -14,6 +14,7 @@
         const window = dependencies.window || globalThis.window || globalThis;
         const passwordResetUI = dependencies.passwordResetUI;
         const verificationUI = dependencies.verificationUI;
+        const authTabsController = dependencies.authTabs;
         const login = dependencies.login;
         const register = dependencies.register;
         const onGuestModeSelected = dependencies.onGuestModeSelected || (() => {});
@@ -64,6 +65,9 @@
 
             passwordResetUI.initialize();
             verificationUI.initialize();
+            authTabsController?.initialize(() => {
+                if (passwordResetUI.isActive()) passwordResetUI.setMode(false);
+            });
 
             for (const id of [
                 'numbers-menu-container', 'game-container', 'vocab-game-container', 'words-menu-container'
@@ -77,32 +81,19 @@
 
             if (window.enlFirebaseUnavailable) {
                 const authIntro = document.getElementById('auth-intro');
-                const authTabs = document.querySelector('.auth-tabs');
+                const authTabList = document.querySelector('.auth-tabs');
                 if (authIntro) {
                     authIntro.textContent = 'Account services are unavailable. Continue as Guest to practice; progress stays on this device.';
                 }
-                if (authTabs) authTabs.style.display = 'none';
+                if (authTabList) authTabList.style.display = 'none';
+                authTabsController?.setPanelVisibility(false);
                 if (loginForm) {
-                    loginForm.classList.remove('active');
                     loginForm.style.display = 'none';
                 }
                 if (registerForm) {
-                    registerForm.classList.remove('active');
                     registerForm.style.display = 'none';
                 }
             }
-
-            const tabs = document.querySelectorAll('.auth-tab');
-            tabs.forEach((tab) => {
-                tab.addEventListener('click', () => {
-                    if (passwordResetUI.isActive()) passwordResetUI.setMode(false);
-                    tabs.forEach((item) => item.classList.remove('active'));
-                    tab.classList.add('active');
-                    const isLogin = tab.dataset.tab === 'login';
-                    if (loginForm) loginForm.classList.toggle('active', isLogin);
-                    if (registerForm) registerForm.classList.toggle('active', !isLogin);
-                });
-            });
 
             if (loginButton) {
                 loginButton.addEventListener('click', async () => {

@@ -125,6 +125,32 @@ test('index.html does not contain duplicate IDs', () => {
     assert.deepEqual([...duplicates], [], `Duplicate IDs: ${[...duplicates].join(', ')}`);
 });
 
+test('login and register controls expose linked tab and panel semantics', () => {
+    const tags = getStartTags(html);
+    const byId = (id) => tags.find((tag) => {
+        const match = /(?:^|\s)id\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(tag);
+        return (match?.[1] ?? match?.[2]) === id;
+    });
+    const loginTab = byId('login-tab');
+    const registerTab = byId('register-tab');
+    const loginPanel = byId('login-form');
+    const registerPanel = byId('register-form');
+
+    assert.match(loginTab, /role="tab"/);
+    assert.match(loginTab, /aria-selected="true"/);
+    assert.match(loginTab, /aria-controls="login-form"/);
+    assert.match(loginTab, /tabindex="0"/);
+    assert.match(registerTab, /role="tab"/);
+    assert.match(registerTab, /aria-selected="false"/);
+    assert.match(registerTab, /aria-controls="register-form"/);
+    assert.match(registerTab, /tabindex="-1"/);
+    assert.match(loginPanel, /role="tabpanel"/);
+    assert.match(loginPanel, /aria-labelledby="login-tab"/);
+    assert.match(registerPanel, /role="tabpanel"/);
+    assert.match(registerPanel, /aria-labelledby="register-tab"/);
+    assert.match(html, /js\/auth-tabs\.js"><\/script>[\s\S]*?js\/password-reset\.js"><\/script>/);
+});
+
 test('Words gameplay shell can shrink to a narrow mobile viewport', () => {
     const wordsStyles = fs.readFileSync(path.join(projectRoot, 'css/words-game.css'), 'utf8');
     const shellRule = /body\[data-screen="wordsGame"\]\s+#category-container\s*\{([^}]*)\}/.exec(wordsStyles);

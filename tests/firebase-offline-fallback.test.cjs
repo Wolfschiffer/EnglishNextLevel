@@ -119,7 +119,7 @@ test('a missing optional Functions SDK does not disable available account servic
     vm.createContext(context);
     vm.runInContext(fallbackSource, context);
 
-    for (const file of ['password-reset.js', 'email-verification.js', 'auth-ui.js', 'firebase-config.js']) {
+    for (const file of ['auth-tabs.js', 'password-reset.js', 'email-verification.js', 'auth-ui.js', 'firebase-config.js']) {
         vm.runInContext(fs.readFileSync(path.join(root, 'js', file), 'utf8'), context, { filename: file });
     }
 
@@ -161,7 +161,7 @@ test('the login flow falls back to the local guest option when Firebase is missi
     vm.createContext(context);
     vm.runInContext(fallbackSource, context);
 
-    for (const file of ['password-reset.js', 'email-verification.js', 'auth-ui.js', 'firebase-config.js']) {
+    for (const file of ['auth-tabs.js', 'password-reset.js', 'email-verification.js', 'auth-ui.js', 'firebase-config.js']) {
         vm.runInContext(fs.readFileSync(path.join(root, 'js', file), 'utf8'), context, { filename: file });
     }
 

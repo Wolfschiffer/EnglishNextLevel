@@ -30,6 +30,7 @@
     function create(dependencies = {}) {
         const document = dependencies.document || globalThis.document;
         const auth = dependencies.auth;
+        const authTabs = dependencies.authTabs;
         const showLoginScreen = dependencies.showLoginScreen || (() => {});
         const scheduleTimeout = dependencies.setTimeout || globalThis.setTimeout.bind(globalThis);
         const scheduleInterval = dependencies.setInterval || globalThis.setInterval.bind(globalThis);
@@ -51,8 +52,6 @@
             const panel = document.getElementById('password-reset-panel');
             const verificationPanel = document.getElementById('email-verification-panel');
             const tabs = document.querySelector('.auth-tabs');
-            const loginForm = document.getElementById('login-form');
-            const registerForm = document.getElementById('register-form');
             const guestOption = document.querySelector('.guest-option');
 
             if (panel) panel.hidden = !active;
@@ -61,19 +60,14 @@
             if (guestOption) guestOption.style.display = active ? 'none' : '';
 
             if (active) {
-                loginForm?.classList.remove('active');
-                registerForm?.classList.remove('active');
+                authTabs?.setPanelVisibility(false);
                 showLoginScreen();
                 document.body.setAttribute('data-screen', 'login');
                 return;
             }
 
-            const loginTab = document.querySelector('.auth-tab[data-tab="login"]');
-            document.querySelectorAll('.auth-tab').forEach(tab => {
-                tab.classList.toggle('active', tab === loginTab);
-            });
-            loginForm?.classList.add('active');
-            registerForm?.classList.remove('active');
+            authTabs?.select('login');
+            authTabs?.setPanelVisibility(true);
             setMessage('');
         }
 

@@ -49,11 +49,11 @@
 
   <div class="auth-access-panel">
   <div class="auth-tabs" role="tablist" aria-label="Account access">
-    <button class="auth-tab active" data-tab="login" type="button">Login</button>
-    <button class="auth-tab" data-tab="register" type="button">Register</button>
+    <button id="login-tab" class="auth-tab active" data-tab="login" type="button" role="tab" aria-selected="true" aria-controls="login-form" tabindex="0">Login</button>
+    <button id="register-tab" class="auth-tab" data-tab="register" type="button" role="tab" aria-selected="false" aria-controls="register-form" tabindex="-1">Register</button>
   </div>
 
-  <div id="login-form" class="auth-form active">
+  <div id="login-form" class="auth-form active" role="tabpanel" aria-labelledby="login-tab" aria-hidden="false">
     <label class="sr-only" for="login-email">Email</label>
     <input type="email" id="login-email" placeholder="Email" class="auth-input" autocomplete="email">
     <label class="sr-only" for="login-password">Password</label>
@@ -62,7 +62,7 @@
     <button id="login-btn" class="auth-btn" type="button">Login</button>
   </div>
 
-  <div id="register-form" class="auth-form">
+  <div id="register-form" class="auth-form" role="tabpanel" aria-labelledby="register-tab" aria-hidden="true">
     <label class="sr-only" for="register-name">Your name</label>
     <input type="text" id="register-name" placeholder="Your name" class="auth-input" autocomplete="name" maxlength="50">
     <label class="sr-only" for="register-email">Email</label>
@@ -1380,6 +1380,7 @@
 
 <script src="js/debug.js"></script>
 <script src="js/firebase-environment.js"></script>
+<script src="js/auth-tabs.js"></script>
 <script src="js/password-reset.js"></script>
 <script src="js/email-verification.js"></script>
 <script src="js/auth-ui.js"></script>

@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const test = require('node:test');
 const authUI = require('../js/auth-ui.js');
+const authTabsModule = require('../js/auth-tabs.js');
 
 function createClassList(initial = []) {
     const classes = new Set(initial);
@@ -19,6 +20,7 @@ function createClassList(initial = []) {
 
 function createElement(options = {}) {
     const listeners = new Map();
+    const attributes = new Map();
     const element = {
         style: {},
         classList: options.classList || createClassList(),
@@ -28,6 +30,7 @@ function createElement(options = {}) {
         hidden: options.hidden ?? false,
         disabled: false,
         removed: false,
+        tabIndex: options.tabIndex ?? 0,
         parentNode: { children: [], appendChild(child) { this.children.push(child); } },
         addEventListener(type, handler) {
             const handlers = listeners.get(type) || [];
@@ -42,6 +45,9 @@ function createElement(options = {}) {
         },
         remove() { this.removed = true; }
     };
+    element.setAttribute = (name, value) => attributes.set(name, String(value));
+    element.getAttribute = (name) => attributes.get(name) ?? null;
+    element.focus = () => { element.focused = true; };
     return element;
 }
 
@@ -55,9 +61,13 @@ function createHarness(overrides = {}) {
     ];
     const elements = new Map(ids.map((id) => [id, createElement()]));
     const tabs = [
-        createElement({ dataset: { tab: 'login' }, classList: createClassList(['active']) }),
-        createElement({ dataset: { tab: 'register' } })
+        createElement({ dataset: { tab: 'login' }, classList: createClassList(['active']), tabIndex: 0 }),
+        createElement({ dataset: { tab: 'register' }, tabIndex: -1 })
     ];
+    tabs[0].setAttribute('aria-controls', 'login-form');
+    tabs[0].setAttribute('aria-selected', 'true');
+    tabs[1].setAttribute('aria-controls', 'register-form');
+    tabs[1].setAttribute('aria-selected', 'false');
     const authTabs = createElement();
     const guestOption = createElement();
     const categoryButtons = createElement();
@@ -81,6 +91,7 @@ function createHarness(overrides = {}) {
             return element;
         }
     };
+    const authTabsController = authTabsModule.create({ document });
     const window = { document, enlDebug() {}, ...overrides.window };
     const calls = { passwordResetInitialize: 0, verificationInitialize: 0, passwordResetSetMode: 0, login: [], register: [], verificationShow: [], cooldown: [], logout: 0, guest: 0, updateGameUserName: 0 };
     const passwordResetUI = {
@@ -99,6 +110,7 @@ function createHarness(overrides = {}) {
         window,
         passwordResetUI,
         verificationUI,
+        authTabs: authTabsController,
         login: async (...args) => {
             calls.login.push(args);
             if (overrides.loginError) throw overrides.loginError;
@@ -127,7 +139,7 @@ function createHarness(overrides = {}) {
         setTimeout() { return 1; }
     });
 
-    return { ui, document, window, elements, tabs, authTabs, guestOption, categoryButtons, messages, calls };
+    return { ui, document, window, elements, tabs, authTabs, authTabsController, guestOption, categoryButtons, messages, calls };
 }
 
 test('auth UI initializes account modules once and switches between login and registration', async () => {
@@ -145,6 +157,9 @@ test('auth UI initializes account modules once and switches between login and re
     assert.equal(harness.tabs[1].classList.contains('active'), true);
     assert.equal(harness.elements.get('login-form').classList.contains('active'), false);
     assert.equal(harness.elements.get('register-form').classList.contains('active'), true);
+    assert.equal(harness.tabs[1].getAttribute('aria-selected'), 'true');
+    assert.equal(harness.tabs[1].tabIndex, 0);
+    assert.equal(harness.tabs[0].getAttribute('aria-selected'), 'false');
     assert.equal(harness.calls.passwordResetSetMode, 1);
 });
 

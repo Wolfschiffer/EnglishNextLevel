@@ -16,6 +16,7 @@
     function create(dependencies = {}) {
         const document = dependencies.document || globalThis.document;
         const auth = dependencies.auth;
+        const authTabs = dependencies.authTabs;
         const updateAllUserNames = dependencies.updateAllUserNames || (() => {});
         const showLoginScreen = dependencies.showLoginScreen || (() => {});
         const loadVerifiedUser = dependencies.loadVerifiedUser || (async () => {});
@@ -41,8 +42,6 @@
             const panel = document.getElementById('email-verification-panel');
             const resetPanel = document.getElementById('password-reset-panel');
             const tabs = document.querySelector('.auth-tabs');
-            const loginForm = document.getElementById('login-form');
-            const registerForm = document.getElementById('register-form');
             const guestOption = document.querySelector('.guest-option');
             const emailLabel = document.getElementById('verification-email');
 
@@ -52,17 +51,14 @@
             if (guestOption) guestOption.style.display = active ? 'none' : '';
 
             if (active) {
-                loginForm?.classList.remove('active');
-                registerForm?.classList.remove('active');
+                authTabs?.setPanelVisibility(false);
                 if (emailLabel) emailLabel.textContent = user?.email || '';
                 showLoginScreen();
                 document.body.setAttribute('data-screen', 'login');
                 return;
             }
 
-            const activeTab = document.querySelector('.auth-tab.active')?.dataset.tab || 'login';
-            loginForm?.classList.toggle('active', activeTab === 'login');
-            registerForm?.classList.toggle('active', activeTab === 'register');
+            authTabs?.setPanelVisibility(true);
             setMessage('');
         }
 
@@ -244,12 +240,7 @@
                 await auth.signOut();
             } finally {
                 setMode(false);
-                const loginTab = document.querySelector('.auth-tab[data-tab="login"]');
-                document.querySelectorAll('.auth-tab').forEach(tab => {
-                    tab.classList.toggle('active', tab === loginTab);
-                });
-                document.getElementById('login-form')?.classList.add('active');
-                document.getElementById('register-form')?.classList.remove('active');
+                authTabs?.select('login', { focus: true });
                 showLoginScreen();
             }
         }

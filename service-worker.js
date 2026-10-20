@@ -1,5 +1,5 @@
 // Increment this when app-shell files change so returning visitors fetch the new build.
-const CACHE_NAME = 'enl-shell-v54';
+const CACHE_NAME = 'enl-shell-v55';
 
 const SHELL_ASSETS = [
     './',
@@ -15,6 +15,7 @@ const SHELL_ASSETS = [
     './js/debug.js',
     './js/firebase-environment.js',
     './js/firebase-offline-fallback.js',
+    './js/auth-tabs.js',
     './js/password-reset.js',
     './js/email-verification.js',
     './js/auth-ui.js',

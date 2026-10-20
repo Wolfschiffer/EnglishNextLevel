@@ -1,6 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const verification = require('../js/email-verification.js');
+const authTabsModule = require('../js/auth-tabs.js');
 
 function createClassList(initial = []) {
     const values = new Set(initial);
@@ -19,6 +20,7 @@ function createClassList(initial = []) {
 
 function createElement(properties = {}) {
     const listeners = new Map();
+    const attributes = new Map();
     return {
         hidden: false,
         disabled: false,
@@ -34,6 +36,9 @@ function createElement(properties = {}) {
         async dispatch(name, event = {}) {
             for (const callback of listeners.get(name) || []) await callback(event);
         },
+        setAttribute(name, value) { attributes.set(name, String(value)); },
+        getAttribute(name) { return attributes.get(name) ?? null; },
+        focus() { this.focused = true; },
         ...properties
     };
 }
@@ -50,8 +55,12 @@ function createHarness(authOverrides = {}) {
         'login-form': createElement({ classList: createClassList(['active']) }),
         'register-form': createElement({ classList: createClassList() })
     };
-    const loginTab = createElement({ classList: createClassList(['active']), dataset: { tab: 'login' } });
-    const registerTab = createElement({ classList: createClassList(), dataset: { tab: 'register' } });
+    const loginTab = createElement({ classList: createClassList(['active']), dataset: { tab: 'login' }, tabIndex: 0 });
+    const registerTab = createElement({ classList: createClassList(), dataset: { tab: 'register' }, tabIndex: -1 });
+    loginTab.setAttribute('aria-controls', 'login-form');
+    loginTab.setAttribute('aria-selected', 'true');
+    registerTab.setAttribute('aria-controls', 'register-form');
+    registerTab.setAttribute('aria-selected', 'false');
     const authTabs = createElement({ style: { display: '' } });
     const guestOption = createElement({ style: { display: '' } });
     const attributes = new Map();
@@ -75,6 +84,8 @@ function createHarness(authOverrides = {}) {
             return selector === '.auth-tab' ? [loginTab, registerTab] : [];
         }
     };
+    const authTabController = authTabsModule.create({ document });
+    authTabController.initialize();
     const auth = {
         currentUser: null,
         async signOut() { this.currentUser = null; },
@@ -83,6 +94,7 @@ function createHarness(authOverrides = {}) {
     const controller = verification.create({
         document,
         auth,
+        authTabs: authTabController,
         updateAllUserNames(name) { verificationRequiredUsers.push(name); },
         showLoginScreen() { loginScreenCalls += 1; },
         async loadVerifiedUser(user) { verifiedUsers.push(user); },
@@ -105,6 +117,7 @@ function createHarness(authOverrides = {}) {
         attributes,
         auth,
         authTabs,
+        authTabController,
         clearedIntervals,
         controller,
         elements,
@@ -209,6 +222,7 @@ test('resend sends a new verification email and starts the cooldown', async () =
 test('switching accounts signs out and restores the login form', async () => {
     let signOuts = 0;
     const harness = createHarness({ async signOut() { signOuts += 1; } });
+    harness.authTabController.select('register');
     harness.controller.show({ email: 'student@example.test' });
     harness.controller.initialize();
 
@@ -217,6 +231,9 @@ test('switching accounts signs out and restores the login form', async () => {
     assert.equal(signOuts, 1);
     assert.equal(harness.elements['email-verification-panel'].hidden, true);
     assert.equal(harness.elements['login-form'].classList.contains('active'), true);
+    assert.equal(harness.registerTab.getAttribute('aria-selected'), 'false');
+    assert.equal(harness.loginTab.getAttribute('aria-selected'), 'true');
+    assert.equal(harness.loginTab.focused, true);
     assert.equal(harness.loginScreenCalls(), 2);
 });
 

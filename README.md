@@ -36,7 +36,7 @@ The emulator suite requires Node.js 22, npm, and Java JDK 21. The first run down
 
 If the Firebase SDK cannot load from its CDN, the page keeps the local guest option available and explains that account features are offline. Progress and scores then stay on the current device.
 
-After service worker v54 installs successfully online, it caches the local app shell and the pinned FSRS scheduler. Spaced Review can then schedule cards offline. Firebase SDKs still load from their CDN; account features use guest mode if Firebase is unavailable.
+After service worker v55 installs successfully online, it caches the local app shell and the pinned FSRS scheduler. Spaced Review can then schedule cards offline. Firebase SDKs still load from their CDN; account features use guest mode if Firebase is unavailable.
 
 ## Project layout
 
@@ -72,6 +72,7 @@ After service worker v54 installs successfully online, it caches the local app s
 - `js/firebase-environment.js`: selects production, QA, or local emulator configuration from the site URL.
 - `js/firebase-offline-fallback.js`: preserves guest play when the Firebase Auth or Firestore SDK cannot load.
 - `js/password-reset.js`: password reset form, generic account-safe responses, and resend cooldown.
+- `js/auth-tabs.js`: accessible login/register tab selection, keyboard navigation, and active panel state.
 - `js/email-verification.js`: email-verification screen, resend flow, and verification cooldown.
 - `js/auth-ui.js`: login, registration, guest entry, and sign-out interface handlers.
 - `js/firebase-config.js`: Firebase initialization, sign-in, registration, and session state.
