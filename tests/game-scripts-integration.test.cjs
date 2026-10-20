@@ -334,7 +334,7 @@ function createNavigationBrowserContext() {
         'mobile-nav-home', 'mobile-nav-progress', 'mobile-nav-settings',
         'words-settings-overlay', 'audio-settings-kicker',
         'category-numbers', 'category-words', 'category-topics',
-        'numbers-menu-container', 'words-menu-container', 'vocab-game-container',
+        'numbers-menu-container', 'words-menu-container', 'topics-menu-container', 'vocab-game-container',
         'simple-verbs-submenu', 'simple-verbs-past-submenu',
         'back-to-category-btn', 'back-to-category-from-vocab'
     ]) {
@@ -1489,6 +1489,35 @@ test('category cards navigate through the shared screen manager and support keyb
     assert.equal(spaceHarness.history.state, null, 'Space activates the card on key release');
     topicsCard.dispatch('keyup', { key: ' ', preventDefault() {} });
     assert.equal(spaceHarness.history.state.screen, 'topicsMenu');
+});
+
+test('delayed startup navigation does not override a guest opening Topics', () => {
+    const harness = createNavigationBrowserContext();
+    const pendingTimers = [];
+    harness.context.closeWordsSettings = () => {};
+    harness.context.syncNumbersMenuBestScores = () => {};
+    harness.context.setTimeout = (callback) => {
+        pendingTimers.push(callback);
+        return pendingTimers.length;
+    };
+    harness.loadScript('js/keyboard-accessibility.js');
+    harness.loadScript('js/game.js');
+    harness.loadScript('js/category-navigation.js');
+
+    // Match the guest flow: it reveals Categories without setting currentScreen.
+    harness.elements.get('category-container').style.display = 'block';
+    harness.context.initNavigation();
+    assert.equal(pendingTimers.length, 1, 'startup navigation should still be pending');
+
+    harness.elements.get('category-topics').click();
+    assert.equal(harness.history.state.screen, 'topicsMenu');
+    assert.equal(harness.elements.get('topics-menu-container').style.display, 'block');
+
+    pendingTimers.shift()();
+
+    assert.equal(harness.history.state.screen, 'topicsMenu');
+    assert.equal(harness.elements.get('category-container').style.display, 'none');
+    assert.equal(harness.elements.get('topics-menu-container').style.display, 'block');
 });
 
 test('category back buttons share browser-history navigation', () => {

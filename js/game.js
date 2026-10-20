@@ -433,6 +433,9 @@ function startNumberGame(gameType) {
 function initNavigation() {
     const initialize = () => {
         setTimeout(() => {
+            // A guest can navigate before this delayed startup runs.
+            if (currentScreen) return;
+
             const initialScreen = (window.currentUser || window.isGuest)
                 ? SCREENS.CATEGORIES
                 : SCREENS.LOGIN;
