@@ -53,6 +53,15 @@ if (USE_LOCAL_FIREBASE_EMULATORS) {
 if (firebase.functions) {
     const functions = firebase.functions();
     if (USE_LOCAL_FIREBASE_EMULATORS) functions.useEmulator('127.0.0.1', 5001);
+    if (typeof functions.httpsCallable === 'function') {
+        const syncProgress = functions.httpsCallable('syncProgress');
+        window.enlSyncProgress = async (progress, expectedUid, profileName) => {
+            const payload = { progress, expectedUid };
+            if (typeof profileName === 'string') payload.profileName = profileName;
+            const response = await syncProgress(payload);
+            return response.data;
+        };
+    }
 }
 
 // ============================================
@@ -154,17 +163,25 @@ async function loadVerifiedUser(user) {
     window.currentUser = user;
     isGuest = false;
     window.isGuest = false;
+    const fallbackName = (user.displayName || user.email?.split('@')[0] || 'Student').trim().slice(0, 50) || 'Student';
+    currentUserName = fallbackName;
+    window.currentUserName = fallbackName;
+    updateAllUserNames(fallbackName);
 
+    let storedName = '';
     try {
         const doc = await db.collection('users').doc(user.uid).get();
-        currentUserName = doc.exists && doc.data()?.name
-            ? doc.data().name
-            : (user.email?.split('@')[0] || 'Student');
+        const profile = doc.exists ? doc.data() : null;
+        storedName = typeof profile?.name === 'string' ? profile.name.trim().slice(0, 50) : '';
     } catch (error) {
         console.warn('Não foi possível carregar o perfil do Firestore:', error);
-        currentUserName = user.email?.split('@')[0] || 'Student';
     }
 
+    // A slow profile read from a previous account must not overwrite the name
+    // selected for a newer auth state.
+    if (window.currentUser?.uid !== user.uid) return;
+
+    currentUserName = storedName || fallbackName;
     window.currentUserName = currentUserName;
     updateAllUserNames(currentUserName);
 

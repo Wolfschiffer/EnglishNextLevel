@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const progressData = require('../js/progress-profile-data.js');
+const progressData = require('../functions/shared/progress-profile-data.js');
 
 globalThis.EnglishNextLevelProgressData = progressData;
 const summary = require('../js/progress-profile-summary.js');

@@ -4,6 +4,7 @@ const { FieldValue, Timestamp, getFirestore } = require('firebase-admin/firestor
 const { HttpsError, onCall } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2/options');
 const { consumeCallableRateLimit } = require('./callable-rate-limit');
+const { normalizeProgressPayload, syncProgressData } = require('./progress-sync');
 const { normalizeProfileName, normalizeRunId, SCORE_MODES } = require('./score-validation');
 const {
     INITIAL_LIVES,
@@ -21,20 +22,18 @@ initializeApp();
 const db = getFirestore();
 const RUN_COLLECTION = 'numbersRuns';
 const MAX_RUN_ATTEMPTS_PER_QUESTION = INITIAL_LIVES - 1;
-const RUN_START_WINDOW_MS = 10 * 60 * 1000;
-const MAX_RUN_STARTS_PER_WINDOW = 10;
 const MAX_SCORE = 50000;
 const RESULT_SUBMISSION_WINDOW_MS = 24 * 60 * 60 * 1000;
 const consumeRateLimit = (uid, operation) =>
     consumeCallableRateLimit({ db, HttpsError }, uid, operation);
 
-function requireVerifiedUser(request) {
+function requireVerifiedUser(request, action = 'submit a global score') {
     if (!request.auth) {
-        throw new HttpsError('unauthenticated', 'Sign in to submit a global score.');
+        throw new HttpsError('unauthenticated', `Sign in to ${action}.`);
     }
 
     if (request.auth.token.email_verified !== true) {
-        throw new HttpsError('permission-denied', 'Verify your email before submitting a global score.');
+        throw new HttpsError('permission-denied', `Verify your email before you ${action}.`);
     }
 
     return request.auth.uid;
@@ -58,6 +57,25 @@ function getPublicQuestion(question) {
     return { word: question.word, options: [...question.options] };
 }
 
+exports.syncProgress = onCall(async (request) => {
+    const uid = requireVerifiedUser(request, 'sync saved progress');
+    await consumeRateLimit(uid, 'syncProgress');
+    if (request.data?.expectedUid !== uid) {
+        throw new HttpsError('permission-denied', 'The signed-in account changed before progress could sync.');
+    }
+    const progress = normalizeProgressPayload(request.data?.progress, HttpsError);
+
+    return syncProgressData({
+        db,
+        uid,
+        progress,
+        profileName: request.data?.profileName,
+        email: request.auth.token.email,
+        FieldValue,
+        HttpsError
+    });
+});
+
 exports.startNumbersRun = onCall(async (request) => {
     const uid = requireVerifiedUser(request);
     const mode = typeof request.data?.mode === 'string' ? request.data.mode : '';
@@ -70,9 +88,10 @@ exports.startNumbersRun = onCall(async (request) => {
         throw new HttpsError('invalid-argument', 'The selected Numbers mode has no questions.');
     }
 
+    await consumeRateLimit(uid, 'startNumbersRun');
+
     const now = Date.now();
     const runRef = getRunReference(db.collection(RUN_COLLECTION).doc().id);
-    const limitRef = db.collection('numbersRunLimits').doc(uid);
     const run = {
         uid,
         mode,
@@ -93,28 +112,7 @@ exports.startNumbersRun = onCall(async (request) => {
         createdAt: FieldValue.serverTimestamp()
     };
 
-    await db.runTransaction(async (transaction) => {
-        const limitSnapshot = await transaction.get(limitRef);
-        const limit = limitSnapshot.exists ? limitSnapshot.data() : null;
-        const hasValidWindow = Number.isSafeInteger(limit?.windowStartedAtMs) &&
-            limit.windowStartedAtMs <= now &&
-            now < limit.windowStartedAtMs + RUN_START_WINDOW_MS &&
-            Number.isSafeInteger(limit.count) &&
-            limit.count > 0;
-
-        if (hasValidWindow && limit.count >= MAX_RUN_STARTS_PER_WINDOW) {
-            throw new HttpsError('resource-exhausted', 'Too many Numbers runs were started. Try again later.');
-        }
-
-        const windowStartedAtMs = hasValidWindow ? limit.windowStartedAtMs : now;
-        const count = hasValidWindow ? limit.count + 1 : 1;
-        transaction.create(runRef, run);
-        transaction.set(limitRef, {
-            windowStartedAtMs,
-            count,
-            expiresAt: Timestamp.fromMillis(windowStartedAtMs + RUN_START_WINDOW_MS)
-        });
-    });
+    await runRef.create(run);
 
     return {
         runId: runRef.id,

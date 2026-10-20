@@ -37,7 +37,7 @@ const CORE_SCRIPTS = [
     'js/numbers-answer-options.js',
     'js/numbers-fallback-questions.js',
     'js/numbers-game.js',
-    'js/progress-profile-data.js',
+    'functions/shared/progress-profile-data.js',
     'js/progress-profile-summary.js',
     'js/progress-profile-renderer.js',
     ...TOPIC_DATA_SCRIPTS,
@@ -233,23 +233,36 @@ function createNumbersRunFallbackHarness({ recordAnswer = async () => {
 function loadProgressWithCloud(harness, { failCloud = false } = {}) {
     const context = harness.context;
     let cloudUserData = null;
+    const userRef = {
+        uid: 'test-user',
+        async get() {
+            if (failCloud) throw new Error('network unavailable');
+            return { exists: cloudUserData !== null, data: () => cloudUserData };
+        }
+    };
     context.window.currentUser = { uid: 'test-user', email: 'qa@example.test' };
+    context.window.currentUserName = 'QA';
     context.firebase = { firestore: { FieldValue: { serverTimestamp: () => 'server timestamp' } } };
     context.db = {
         collection(name) {
             assert.equal(name, 'users');
-            return { doc(uid) { assert.equal(uid, 'test-user'); return { uid }; } };
-        },
-        async runTransaction(callback) {
-            if (failCloud) throw new Error('network unavailable');
-            let pendingWrite = null;
-            const result = await callback({
-                async get() { return { exists: cloudUserData !== null, data: () => cloudUserData }; },
-                set(_ref, data) { pendingWrite = data; }
-            });
-            if (pendingWrite) cloudUserData = { ...(cloudUserData || {}), ...pendingWrite };
-            return result;
+            return { doc(uid) { assert.equal(uid, 'test-user'); return userRef; } };
         }
+    };
+    context.window.enlSyncProgress = async (progress, expectedUid, profileName) => {
+        if (failCloud) throw new Error('network unavailable');
+        assert.equal(expectedUid, 'test-user');
+        const progressData = context.window.EnglishNextLevelProgressData;
+        const merged = progressData.mergeProgress(progress, cloudUserData?.progressV1);
+        cloudUserData = {
+            ...(cloudUserData || {}),
+            name: cloudUserData?.name?.trim() || profileName || 'QA',
+            email: cloudUserData?.email || context.window.currentUser.email,
+            createdAt: cloudUserData?.createdAt || 'server timestamp',
+            progressV1: merged,
+            progressUpdatedAt: 'server timestamp'
+        };
+        return merged;
     };
     harness.loadScript('js/progress-profile.js');
     return { get cloudUserData() { return cloudUserData; } };

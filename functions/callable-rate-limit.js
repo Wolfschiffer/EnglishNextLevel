@@ -1,8 +1,10 @@
 const CALLABLE_RATE_LIMITS = Object.freeze({
+    startNumbersRun: Object.freeze({ windowMs: 10 * 60_000, maxRequests: 10 }),
     startNumbersQuestion: Object.freeze({ windowMs: 60_000, maxRequests: 60 }),
     recordNumbersAnswer: Object.freeze({ windowMs: 60_000, maxRequests: 60 }),
     finishNumbersRun: Object.freeze({ windowMs: 60_000, maxRequests: 10 }),
-    submitScore: Object.freeze({ windowMs: 60_000, maxRequests: 10 })
+    submitScore: Object.freeze({ windowMs: 60_000, maxRequests: 10 }),
+    syncProgress: Object.freeze({ windowMs: 60_000, maxRequests: 60 })
 });
 
 async function consumeCallableRateLimit({ db, HttpsError }, uid, operation, clock = Date.now) {
@@ -40,7 +42,8 @@ async function consumeCallableRateLimit({ db, HttpsError }, uid, operation, cloc
         }
 
         transaction.set(limitRef, {
-            requestTimestampsMs: [...recentRequests, logicalNowMs]
+            requestTimestampsMs: [...recentRequests, logicalNowMs],
+            expiresAt: new Date(logicalNowMs + limit.windowMs)
         });
     });
 }

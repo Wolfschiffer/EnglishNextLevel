@@ -8,8 +8,6 @@ const RUN_RULES_VERSION = 2;
 const AUTH_HOST = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099';
 const FIRESTORE_HOST = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080';
 const FUNCTIONS_HOST = process.env.FUNCTIONS_EMULATOR_HOST || '127.0.0.1:5001';
-const RUN_START_WINDOW_MS = 10 * 60 * 1000;
-const MAX_RUN_STARTS_PER_WINDOW = 10;
 
 function requireLoopbackHost(host, port, serviceName) {
     const url = new URL(`http://${host}`);
@@ -31,6 +29,7 @@ const { initializeApp, deleteApp } = requireFunctions('firebase-admin/app');
 const { getAuth } = requireFunctions('firebase-admin/auth');
 const { FieldValue, Timestamp, getFirestore } = requireFunctions('firebase-admin/firestore');
 const { CALLABLE_RATE_LIMITS } = requireFunctions('./callable-rate-limit');
+const { MAX_PROGRESS_BYTES } = requireFunctions('./progress-sync');
 
 const app = initializeApp({ projectId: PROJECT_ID }, `numbers-run-test-${randomUUID()}`);
 const auth = getAuth(app);
@@ -42,8 +41,8 @@ let otherVerifiedAccount = null;
 let userRef = null;
 let scoreRef = null;
 const runRefs = [];
-const limitRefs = [];
 const callableLimitRefs = new Map();
+const extraUserRefs = [];
 
 async function readJson(response) {
     const text = await response.text();
@@ -159,12 +158,128 @@ async function main() {
         );
         console.log('PASS unverified account run creation denied');
 
+        await expectCallableError(
+            await callFunction('syncProgress', null, { progress: {} }),
+            'UNAUTHENTICATED',
+            'Unauthenticated progress sync must be rejected'
+        );
+        await expectCallableError(
+            await callFunction('syncProgress', account.idToken, { progress: {} }),
+            'PERMISSION_DENIED',
+            'Unverified progress sync must be rejected'
+        );
+        console.log('PASS unauthenticated and unverified progress sync denied');
+
         await auth.updateUser(account.localId, { emailVerified: true });
         account = await signIn(email, password);
         trackCallableLimitRefs(account.localId);
         await userRef.set({ name: 'Trusted Profile Name', email, createdAt: new Date() });
-        const limitRef = db.doc(`numbersRunLimits/${account.localId}`);
-        limitRefs.push(limitRef);
+
+        await expectCallableError(
+            await callFunction('syncProgress', account.idToken, {
+                progress: {}, expectedUid: 'another-account'
+            }),
+            'PERMISSION_DENIED',
+            'Progress sync must reject an expected account that differs from the token'
+        );
+        assert.equal((await getCallableLimitRef(account.localId, 'syncProgress').get())
+            .data().requestTimestampsMs.length, 1,
+        'Authenticated expected-account mismatches count toward the progress sync limit');
+
+        const [firstProgressResponse, secondProgressResponse] = await Promise.all([
+            callFunction('syncProgress', account.idToken, {
+                progress: { numbers: { bestScores: { numbers: 73 } } },
+                expectedUid: account.localId
+            }),
+            callFunction('syncProgress', account.idToken, {
+                progress: { words: { present: { completed: true, bestScore: 28, bestTime: 90 } } },
+                expectedUid: account.localId
+            })
+        ]);
+        const [firstProgress, secondProgress] = await Promise.all([
+            expectCallableResult(firstProgressResponse,
+                'First simultaneous device progress sync should succeed'),
+            expectCallableResult(secondProgressResponse,
+                'Second simultaneous device progress sync should succeed')
+        ]);
+        const finalProgress = (await userRef.get()).data().progressV1;
+        assert.equal(finalProgress.numbers.bestScores.numbers, 73,
+            'Concurrent device progress must preserve the Numbers score');
+        assert.equal(finalProgress.words.present.bestScore, 28,
+            'Concurrent device progress must preserve the Words score');
+        assert.ok(firstProgress.numbers.bestScores.numbers === 73 || secondProgress.numbers.bestScores.numbers === 73);
+        assert.ok(firstProgress.words.present.bestScore === 28 || secondProgress.words.present.bestScore === 28);
+        assert.equal((await userRef.get()).data().name, 'Trusted Profile Name',
+            'Progress sync must preserve the existing account profile');
+        console.log('PASS concurrent progress syncs merge device data and preserve profile fields');
+
+        await userRef.update({
+            'progressV1.legacyField': { obsolete: true },
+            'progressV1.numbers.legacyMode': 99
+        });
+        await expectCallableResult(
+            await callFunction('syncProgress', account.idToken, {
+                progress: {},
+                expectedUid: account.localId
+            }),
+            'Progress normalization should clean up legacy fields'
+        );
+        const normalizedSnapshot = await userRef.get();
+        const normalizedProgress = normalizedSnapshot.data().progressV1;
+        assert.equal(normalizedProgress.legacyField, undefined,
+            'Progress sync should remove obsolete root fields');
+        assert.equal(normalizedProgress.numbers.legacyMode, undefined,
+            'Progress sync should remove obsolete nested fields');
+
+        await expectCallableResult(
+            await callFunction('syncProgress', account.idToken, {
+                progress: {},
+                expectedUid: account.localId
+            }),
+            'An unchanged normalized progress sync should succeed'
+        );
+        assert.ok(normalizedSnapshot.updateTime.isEqual((await userRef.get()).updateTime),
+            'An unchanged normalized progress sync should not write the user document again');
+        console.log('PASS progress sync removes legacy nested fields without repeating writes');
+
+        await expectCallableError(
+            await callFunction('syncProgress', account.idToken, {
+                progress: { ignored: 'x'.repeat(MAX_PROGRESS_BYTES) },
+                expectedUid: account.localId
+            }),
+            'INVALID_ARGUMENT',
+            'Oversized progress sync must be rejected'
+        );
+        console.log('PASS oversized progress payload rejected');
+
+        assert.equal((await getCallableLimitRef(account.localId, 'syncProgress').get())
+            .data().requestTimestampsMs.length, 6,
+        'Authenticated invalid sync attempts count toward the progress sync limit');
+
+        const progressLimit = CALLABLE_RATE_LIMITS.syncProgress;
+        for (let count = 6; count < progressLimit.maxRequests; count++) {
+            await expectCallableResult(
+                await callFunction('syncProgress', account.idToken, {
+                    progress: { words: { present: { completed: true, bestScore: 28, bestTime: 90 } } },
+                    expectedUid: account.localId
+                }),
+                `Progress sync ${count + 1} within the account limit should succeed`
+            );
+        }
+        await expectCallableError(
+            await callFunction('syncProgress', account.idToken, {
+                progress: { words: { present: { completed: true, bestScore: 28, bestTime: 90 } } },
+                expectedUid: account.localId
+            }),
+            'RESOURCE_EXHAUSTED',
+            'Progress sync beyond the account limit must be rejected'
+        );
+        assert.equal((await getCallableLimitRef(account.localId, 'syncProgress').get())
+            .data().requestTimestampsMs.length, progressLimit.maxRequests);
+        console.log('PASS rolling per-account progress sync limit enforced');
+
+        const runStartLimit = CALLABLE_RATE_LIMITS.startNumbersRun;
+        const runStartLimitRef = getCallableLimitRef(account.localId, 'startNumbersRun');
 
         await expectCallableError(
             await callFunction('startNumbersRun', account.idToken, { mode: 'not-a-mode' }),
@@ -185,7 +300,7 @@ async function main() {
         const runRef = db.doc(`numbersRuns/${runId}`);
         runRefs.push(runRef);
 
-        for (let count = 1; count < MAX_RUN_STARTS_PER_WINDOW; count++) {
+        for (let count = 1; count < runStartLimit.maxRequests; count++) {
             const additionalRun = await expectCallableResult(
                 await callFunction('startNumbersRun', account.idToken, { mode: 'numbers' }),
                 `Run ${count + 1} within the rate limit should succeed`
@@ -198,7 +313,7 @@ async function main() {
             'Starting more than the allowed number of runs in a window must be rejected'
         );
         assert.equal((await db.collection('numbersRuns').where('uid', '==', account.localId).get()).size,
-            MAX_RUN_STARTS_PER_WINDOW,
+            runStartLimit.maxRequests,
             'A rejected start must not create another run');
         console.log('PASS per-account Numbers run start limit enforced without creating an extra run');
 
@@ -208,29 +323,46 @@ async function main() {
         await auth.updateUser(otherVerifiedAccount.localId, { emailVerified: true });
         otherVerifiedAccount = await signIn(otherEmail, otherPassword);
         trackCallableLimitRefs(otherVerifiedAccount.localId);
-        const otherLimitRef = db.doc(`numbersRunLimits/${otherVerifiedAccount.localId}`);
-        limitRefs.push(otherLimitRef);
+        const otherUserRef = db.doc(`users/${otherVerifiedAccount.localId}`);
+        extraUserRefs.push(otherUserRef);
+        const recoveredProfileProgress = await expectCallableResult(
+            await callFunction('syncProgress', otherVerifiedAccount.idToken, {
+                progress: { numbers: { bestScores: { numbers: 42 } } },
+                expectedUid: otherVerifiedAccount.localId
+            }),
+            'A verified account without a profile document should recover its profile during progress sync'
+        );
+        const recoveredProfileSnapshot = await otherUserRef.get();
+        const recoveredProfile = recoveredProfileSnapshot.data();
+        assert.equal(recoveredProfileProgress.numbers.bestScores.numbers, 42);
+        assert.equal(recoveredProfile.name, otherEmail.split('@')[0].slice(0, 50));
+        assert.equal(recoveredProfile.email, otherEmail);
+        assert.ok(recoveredProfile.createdAt instanceof Timestamp);
+        console.log('PASS progress sync repairs a missing profile from verified account data');
+
+        const otherRunStartLimitRef = getCallableLimitRef(otherVerifiedAccount.localId, 'startNumbersRun');
         const otherUserRun = await expectCallableResult(
             await callFunction('startNumbersRun', otherVerifiedAccount.idToken, { mode: 'numbers' }),
             'A different verified account should have an independent run limit'
         );
         runRefs.push(db.doc(`numbersRuns/${otherUserRun.runId}`));
+        assert.equal((await otherRunStartLimitRef.get()).data().requestTimestampsMs.length, 1,
+            'A different account should have an independent Numbers run-start limit');
         console.log('PASS Numbers run limit is isolated per account');
 
-        await limitRef.set({
-            windowStartedAtMs: Date.now() - RUN_START_WINDOW_MS - 1,
-            count: MAX_RUN_STARTS_PER_WINDOW,
-            expiresAt: Timestamp.fromMillis(Date.now() + RUN_START_WINDOW_MS)
+        await runStartLimitRef.set({
+            requestTimestampsMs: Array(runStartLimit.maxRequests)
+                .fill(Date.now() - runStartLimit.windowMs - 1)
         });
         const resetWindowRun = await expectCallableResult(
             await callFunction('startNumbersRun', account.idToken, { mode: 'numbers' }),
             'An expired rate-limit window should allow a new run'
         );
         runRefs.push(db.doc(`numbersRuns/${resetWindowRun.runId}`));
-        const resetLimit = (await limitRef.get()).data();
-        assert.equal(resetLimit.count, 1);
-        assert.ok(resetLimit.windowStartedAtMs >= Date.now() - 5000);
-        console.log('PASS expired Numbers run limit window resets');
+        const resetLimit = (await runStartLimitRef.get()).data();
+        assert.equal(resetLimit.requestTimestampsMs.length, 1);
+        assert.ok(resetLimit.requestTimestampsMs[0] >= Date.now() - 5000);
+        console.log('PASS expired Numbers run-start timestamps are removed');
 
         let runSnapshot = await runRef.get();
         let run = runSnapshot.data();
@@ -491,11 +623,11 @@ async function main() {
         );
         console.log('PASS stale scoring rules version rejected');
 
-        console.log('\n12 Numbers run and leaderboard checks passed.');
+        console.log('\nFirebase callable integration checks passed.');
     } finally {
         for (const runRef of runRefs) await runRef.delete().catch(() => {});
-        for (const limitRef of limitRefs) await limitRef.delete().catch(() => {});
         for (const limitRef of callableLimitRefs.values()) await limitRef.delete().catch(() => {});
+        for (const extraUserRef of extraUserRefs) await extraUserRef.delete().catch(() => {});
         if (scoreRef) await scoreRef.delete().catch(() => {});
         if (userRef) await userRef.delete().catch(() => {});
         for (const user of [account, otherVerifiedAccount].filter(Boolean)) {

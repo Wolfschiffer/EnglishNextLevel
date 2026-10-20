@@ -1,5 +1,5 @@
 // Increment this when app-shell files change so returning visitors fetch the new build.
-const CACHE_NAME = 'enl-shell-v50';
+const CACHE_NAME = 'enl-shell-v51';
 
 const SHELL_ASSETS = [
     './',
@@ -50,7 +50,7 @@ const SHELL_ASSETS = [
     './js/numbers-answer-options.js',
     './js/numbers-fallback-questions.js',
     './js/numbers-game.js',
-    './js/progress-profile-data.js',
+    './functions/shared/progress-profile-data.js',
     './js/progress-profile-summary.js',
     './js/progress-profile-renderer.js',
     './js/progress-profile.js',

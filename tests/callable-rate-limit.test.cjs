@@ -84,11 +84,14 @@ test('callable limits count requests in the rolling window and stay per account'
 
     assert.deepEqual(
         documents.get('callableRateLimits/user-a/operations/startNumbersQuestion'),
-        { requestTimestampsMs: [1_000 + limit.windowMs] }
+        {
+            requestTimestampsMs: [1_000 + limit.windowMs],
+            expiresAt: new Date(1_000 + limit.windowMs * 2)
+        }
     );
     assert.deepEqual(
         documents.get('callableRateLimits/user-b/operations/startNumbersQuestion'),
-        { requestTimestampsMs: [1_000] }
+        { requestTimestampsMs: [1_000], expiresAt: new Date(1_000 + limit.windowMs) }
     );
 });
 
@@ -179,6 +182,52 @@ test('a retried transaction uses the current time and preserves a concurrent req
     );
 
     assert.deepEqual(documents.get(referencePath), {
-        requestTimestampsMs: [concurrentRequestTime, concurrentRequestTime + 1]
+        requestTimestampsMs: [concurrentRequestTime, concurrentRequestTime + 1],
+        expiresAt: new Date(concurrentRequestTime + 1 + limit.windowMs)
     });
+});
+
+test('progress sync has a bounded rolling per-account rate limit', () => {
+    assert.deepEqual(CALLABLE_RATE_LIMITS.syncProgress, {
+        windowMs: 60_000,
+        maxRequests: 60
+    });
+});
+
+test('Numbers run starts use a rolling ten-minute per-account limit', async () => {
+    const { db, documents } = createFakeFirestore();
+    const limit = CALLABLE_RATE_LIMITS.startNumbersRun;
+    const options = { db, HttpsError };
+    const justBeforeBoundary = limit.windowMs - 1;
+
+    assert.deepEqual(limit, { windowMs: 10 * 60_000, maxRequests: 10 });
+
+    for (let count = 0; count < limit.maxRequests; count++) {
+        await consumeCallableRateLimit(
+            options,
+            'user-a',
+            'startNumbersRun',
+            () => justBeforeBoundary
+        );
+    }
+
+    await assert.rejects(
+        consumeCallableRateLimit(options, 'user-a', 'startNumbersRun', () => limit.windowMs + 1),
+        error => error.code === 'resource-exhausted'
+    );
+
+    await consumeCallableRateLimit(
+        options,
+        'user-a',
+        'startNumbersRun',
+        () => justBeforeBoundary + limit.windowMs
+    );
+
+    assert.deepEqual(
+        documents.get('callableRateLimits/user-a/operations/startNumbersRun'),
+        {
+            requestTimestampsMs: [justBeforeBoundary + limit.windowMs],
+            expiresAt: new Date(justBeforeBoundary + limit.windowMs * 2)
+        }
+    );
 });

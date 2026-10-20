@@ -8,6 +8,12 @@
       "indexes": []
     },
     {
+      "collectionGroup": "operations",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "numbersRunLimits",
       "fieldPath": "expiresAt",
       "ttl": true,

@@ -17,26 +17,13 @@ service cloud.firestore {
         && request.resource.data.createdAt is timestamp;
     }
 
-    function validProgressPayload() {
-      return request.resource.data.keys().hasAll(['progressV1', 'progressUpdatedAt'])
-        && request.resource.data.progressV1 is map
-        && request.resource.data.progressUpdatedAt == request.time;
-    }
-
-    function validProgressCreate() {
-      return request.resource.data.keys().hasOnly(['progressV1', 'progressUpdatedAt'])
-        && validProgressPayload();
-    }
-
     match /users/{userId} {
       allow get: if ownsUser(userId);
       allow list: if false;
-      allow create: if ownsUser(userId)
-        && (validProfileCreate() || validProgressCreate());
-      allow update: if ownsUser(userId)
-        && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['progressV1', 'progressUpdatedAt'])
-        && validProgressPayload();
+      allow create: if ownsUser(userId) && validProfileCreate();
+      // Progress writes go through the rate-limited syncProgress callable.
+      // Client profile updates are not needed by the current app.
+      allow update: if false;
       allow delete: if false;
     }
 

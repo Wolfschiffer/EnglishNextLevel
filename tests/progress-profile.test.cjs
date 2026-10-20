@@ -10,7 +10,7 @@ function clone(value) {
 
 function createHarness({
     failReads = false, failWrites = false, initialStorage = {}, guest = false,
-    afterTransaction = null
+    afterTransaction = null, beforeCloudRead = null
 } = {}) {
     const values = new Map(Object.entries(initialStorage));
     const authTimers = [];
@@ -31,9 +31,22 @@ function createHarness({
 
     let cloudUserData = null;
     let cloudWriteCount = 0;
-    let cloudTransactionCount = 0;
+    let cloudReadCount = 0;
+    let cloudCallableCount = 0;
+    let progressData = null;
     let cloudUnavailable = false;
-    const userRef = { uid: 'test-user' };
+    const userRef = {
+        uid: 'test-user',
+        async get() {
+            if (cloudUnavailable) throw new Error('network unavailable');
+            cloudReadCount += 1;
+            if (beforeCloudRead) await beforeCloudRead();
+            return {
+                exists: cloudUserData !== null,
+                data: () => clone(cloudUserData)
+            };
+        }
+    };
     const db = {
         collection(name) {
             assert.equal(name, 'users');
@@ -41,32 +54,6 @@ function createHarness({
                 assert.equal(uid, 'test-user');
                 return userRef;
             } };
-        },
-        async runTransaction(callback) {
-            if (cloudUnavailable) throw new Error('network unavailable');
-            cloudTransactionCount += 1;
-            let pendingWrite = null;
-            const transaction = {
-                async get(ref) {
-                    assert.equal(ref, userRef);
-                    return {
-                        exists: cloudUserData !== null,
-                        data: () => clone(cloudUserData)
-                    };
-                },
-                set(ref, data) {
-                    assert.equal(ref, userRef);
-                    pendingWrite = clone(data);
-                }
-            };
-
-            const result = await callback(transaction);
-            afterTransaction?.(storage);
-            if (pendingWrite) {
-                cloudUserData = { ...(cloudUserData || {}), ...pendingWrite };
-                cloudWriteCount += 1;
-            }
-            return clone(result);
         }
     };
 
@@ -86,6 +73,34 @@ function createHarness({
             return 1;
         }
     };
+    window.enlSyncProgress = async (progress, expectedUid, profileName) => {
+        if (cloudUnavailable) throw new Error('network unavailable');
+        assert.equal(expectedUid, 'test-user');
+        cloudCallableCount += 1;
+        const normalizedProgress = progressData.normalizeProgress(progress);
+        const cloudProgress = cloudUserData?.progressV1;
+        const next = progressData.mergeProgress(normalizedProgress, cloudProgress);
+        const normalizedCloud = progressData.normalizeProgress(cloudProgress);
+        const serialize = value => JSON.stringify(stableValue(value));
+        const hasProfileName = typeof cloudUserData?.name === 'string' && cloudUserData.name.trim().length > 0;
+        const hasProfileEmail = typeof cloudUserData?.email === 'string' && cloudUserData.email.trim().length > 0;
+        const needsProfileRepair = !hasProfileName || !hasProfileEmail || cloudUserData?.createdAt == null;
+        const needsWrite = needsProfileRepair || serialize(next) !== serialize(normalizedCloud)
+            || (cloudProgress != null && serialize(cloudProgress) !== serialize(normalizedCloud));
+        afterTransaction?.(storage);
+        if (needsWrite) {
+            cloudUserData = {
+                ...(cloudUserData || {}),
+                ...(!hasProfileName ? { name: profileName || 'QA' } : {}),
+                ...(!hasProfileEmail ? { email: window.currentUser.email } : {}),
+                ...(cloudUserData?.createdAt == null ? { createdAt: 'server timestamp' } : {}),
+                progressV1: clone(next),
+                progressUpdatedAt: 'server timestamp'
+            };
+            cloudWriteCount += 1;
+        }
+        return clone(next);
+    };
     const document = {
         readyState: 'complete',
         getElementById(id) { return id === 'progress-sync-status' ? syncStatus : null; },
@@ -101,12 +116,13 @@ function createHarness({
             authObserver = callback;
         }
     };
-    const dataSource = fs.readFileSync(path.join(__dirname, '../js/progress-profile-data.js'), 'utf8');
+    const dataSource = fs.readFileSync(path.join(__dirname, '../functions/shared/progress-profile-data.js'), 'utf8');
     const summarySource = fs.readFileSync(path.join(__dirname, '../js/progress-profile-summary.js'), 'utf8');
     const rendererSource = fs.readFileSync(path.join(__dirname, '../js/progress-profile-renderer.js'), 'utf8');
     const source = fs.readFileSync(path.join(__dirname, '../js/progress-profile.js'), 'utf8');
 
     vm.runInNewContext(dataSource, { window });
+    progressData = window.EnglishNextLevelProgressData;
     vm.runInNewContext(summarySource, { window });
     vm.runInNewContext(rendererSource, { window });
 
@@ -128,14 +144,28 @@ function createHarness({
         setCurrentUser(user) { window.currentUser = user; },
         setSpacedReviewManager(manager) { window.EnglishNextLevelSpacedReviewManager = manager; },
         setCloudUnavailable(value) { cloudUnavailable = value; },
-        setCloudUserData(value) { cloudUserData = clone(value); },
+        setCloudUserData(value) {
+            cloudUserData = value == null ? value : {
+                name: 'Learner',
+                email: 'qa@example.test',
+                createdAt: 'existing profile timestamp',
+                ...clone(value)
+            };
+        },
         dispatchWindowEvent(type) { (windowListeners.get(type) || []).forEach((callback) => callback()); },
         notifyAuth(user) { authObserver(user); },
         flushAuthTimers() { authTimers.splice(0).forEach((callback) => callback()); },
         get cloudUserData() { return cloudUserData; },
         get cloudWriteCount() { return cloudWriteCount; },
-        get cloudTransactionCount() { return cloudTransactionCount; }
+        get cloudReadCount() { return cloudReadCount; },
+        get cloudCallableCount() { return cloudCallableCount; }
     };
+}
+
+function stableValue(value) {
+    if (Array.isArray(value)) return value.map(stableValue);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.keys(value).sort().map(key => [key, stableValue(value[key])]));
 }
 
 test('guest progress reports a save failure when local storage is unavailable', () => {
@@ -205,10 +235,47 @@ test('cloud sync skips a write when local and remote progress already match', as
 
     await harness.api.refreshProfile();
 
-    assert.equal(harness.cloudTransactionCount, 1);
+    assert.equal(harness.cloudReadCount, 1);
+    assert.equal(harness.cloudCallableCount, 0);
     assert.equal(harness.cloudWriteCount, 0);
     assert.deepEqual(harness.cloudUserData.progressV1, existingProgress);
     assert.equal(harness.cloudUserData.progressUpdatedAt, 'previous timestamp');
+});
+
+test('cloud sync repairs a missing profile even when no progress changed', async () => {
+    const harness = createHarness();
+
+    await harness.api.refreshProfile();
+
+    assert.equal(harness.cloudCallableCount, 1);
+    assert.equal(harness.cloudWriteCount, 1);
+    assert.equal(harness.cloudUserData.name, 'QA');
+    assert.equal(harness.cloudUserData.email, 'qa@example.test');
+    assert.equal(harness.cloudUserData.createdAt, 'server timestamp');
+});
+
+test('cloud sync repairs missing profile metadata while preserving existing profile fields', async () => {
+    const harness = createHarness();
+    harness.setCloudUserData({ name: '  ', email: '', createdAt: null, customField: 'preserved' });
+
+    await harness.api.refreshProfile();
+
+    assert.equal(harness.cloudUserData.name, 'QA');
+    assert.equal(harness.cloudUserData.email, 'qa@example.test');
+    assert.equal(harness.cloudUserData.createdAt, 'server timestamp');
+    assert.equal(harness.cloudUserData.customField, 'preserved');
+});
+
+test('cloud sync repairs missing metadata when the stored profile name is already valid', async () => {
+    const harness = createHarness();
+    harness.setCloudUserData({ name: 'Existing Learner', email: '', createdAt: null });
+
+    await harness.api.refreshProfile();
+
+    assert.equal(harness.cloudCallableCount, 1);
+    assert.equal(harness.cloudUserData.name, 'Existing Learner');
+    assert.equal(harness.cloudUserData.email, 'qa@example.test');
+    assert.equal(harness.cloudUserData.createdAt, 'server timestamp');
 });
 
 test('cloud sync writes normalized progress when the stored cloud shape is incomplete', async () => {
@@ -427,11 +494,36 @@ test('local progress syncs to Firestore after the connection returns', async () 
 
     harness.setCloudUnavailable(false);
     harness.dispatchWindowEvent('online');
-    assert.equal(harness.cloudTransactionCount, 1, 'online event should start a Firestore transaction');
+    assert.equal(harness.cloudReadCount, 1, 'online event should read the saved profile');
     await new Promise((resolve) => setImmediate(resolve));
 
+    assert.equal(harness.cloudCallableCount, 1, 'online event should send pending progress through the callable');
     assert.equal(harness.cloudWriteCount, 1);
     assert.equal(harness.cloudUserData.progressV1.numbers.bestScores.numbers, 57);
+});
+
+test('cloud sync does not send a prior account progress after the account changes during the read', async () => {
+    let releaseCloudRead;
+    let markCloudReadStarted;
+    const cloudReadStarted = new Promise(resolve => { markCloudReadStarted = resolve; });
+    const cloudReadGate = new Promise(resolve => { releaseCloudRead = resolve; });
+    const harness = createHarness({
+        beforeCloudRead: async () => {
+            markCloudReadStarted();
+            await cloudReadGate;
+        }
+    });
+
+    harness.api.recordNumbersBest('numbers', 57);
+    const pendingSync = harness.api.refreshProfile();
+    await cloudReadStarted;
+    harness.setCurrentUser({ uid: 'other-user', email: 'other@example.test' });
+    releaseCloudRead();
+    await pendingSync;
+
+    assert.equal(harness.cloudCallableCount, 0);
+    assert.equal(harness.cloudWriteCount, 0);
+    assert.equal(harness.cloudUserData, null);
 });
 
 test('completed Words sets enter a persistent review queue that syncs to the account', async () => {

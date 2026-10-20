@@ -73,22 +73,46 @@
     return Number.isFinite(numeric) ? numeric : fallback;
   }
 
+  function ownValue(object, key) {
+    return object && Object.prototype.hasOwnProperty.call(object, key)
+      ? object[key]
+      : undefined;
+  }
+
+  function setOwnValue(object, key, value) {
+    Object.defineProperty(object, key, {
+      configurable: true,
+      enumerable: true,
+      value,
+      writable: true
+    });
+    return value;
+  }
+
+  function ensureOwnRecord(object, key) {
+    const existing = ownValue(object, key);
+    if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
+      return existing;
+    }
+    return setOwnValue(object, key, {});
+  }
+
   function normalizeTopicTree(input) {
     const topics = {};
     if (!input || typeof input !== 'object') return topics;
 
     Object.entries(input).forEach(([topicId, levels]) => {
       if (!levels || typeof levels !== 'object') return;
-      topics[topicId] = {};
+      const topic = setOwnValue(topics, topicId, {});
       Object.entries(levels).forEach(([levelId, volumes]) => {
         if (!volumes || typeof volumes !== 'object') return;
-        topics[topicId][levelId] = {};
+        const level = setOwnValue(topic, levelId, {});
         Object.entries(volumes).forEach(([volumeId, games]) => {
           if (!games || typeof games !== 'object') return;
-          topics[topicId][levelId][volumeId] = {
+          setOwnValue(level, volumeId, {
             match: Boolean(games.match),
             speak: Boolean(games.speak)
-          };
+          });
         });
       });
     });
@@ -102,10 +126,10 @@
 
     Object.entries(input).forEach(([topicId, levels]) => {
       if (!levels || typeof levels !== 'object') return;
-      stats[topicId] = {};
+      const topic = setOwnValue(stats, topicId, {});
       Object.entries(levels).forEach(([levelId, volumes]) => {
         if (!volumes || typeof volumes !== 'object') return;
-        stats[topicId][levelId] = {};
+        const level = setOwnValue(topic, levelId, {});
         Object.entries(volumes).forEach(([volumeId, games]) => {
           if (!games || typeof games !== 'object') return;
           const normalizedGames = {};
@@ -120,7 +144,7 @@
             };
           });
           if (Object.keys(normalizedGames).length) {
-            stats[topicId][levelId][volumeId] = normalizedGames;
+            setOwnValue(level, volumeId, normalizedGames);
           }
         });
       });
@@ -217,24 +241,28 @@
     const merged = {};
     const topicIds = new Set([...Object.keys(leftTopics || {}), ...Object.keys(rightTopics || {})]);
     topicIds.forEach((topicId) => {
-      merged[topicId] = {};
+      const mergedTopic = setOwnValue(merged, topicId, {});
+      const leftTopic = ownValue(leftTopics, topicId) || {};
+      const rightTopic = ownValue(rightTopics, topicId) || {};
       const levelIds = new Set([
-        ...Object.keys(leftTopics?.[topicId] || {}),
-        ...Object.keys(rightTopics?.[topicId] || {})
+        ...Object.keys(leftTopic),
+        ...Object.keys(rightTopic)
       ]);
       levelIds.forEach((levelId) => {
-        merged[topicId][levelId] = {};
+        const mergedLevel = setOwnValue(mergedTopic, levelId, {});
+        const leftLevel = ownValue(leftTopic, levelId) || {};
+        const rightLevel = ownValue(rightTopic, levelId) || {};
         const volumeIds = new Set([
-          ...Object.keys(leftTopics?.[topicId]?.[levelId] || {}),
-          ...Object.keys(rightTopics?.[topicId]?.[levelId] || {})
+          ...Object.keys(leftLevel),
+          ...Object.keys(rightLevel)
         ]);
         volumeIds.forEach((volumeId) => {
-          const l = leftTopics?.[topicId]?.[levelId]?.[volumeId] || {};
-          const r = rightTopics?.[topicId]?.[levelId]?.[volumeId] || {};
-          merged[topicId][levelId][volumeId] = {
+          const l = ownValue(leftLevel, volumeId) || {};
+          const r = ownValue(rightLevel, volumeId) || {};
+          setOwnValue(mergedLevel, volumeId, {
             match: Boolean(l.match || r.match),
             speak: Boolean(l.speak || r.speak)
-          };
+          });
         });
       });
     });
@@ -246,28 +274,32 @@
     const topicIds = new Set([...Object.keys(leftStats || {}), ...Object.keys(rightStats || {})]);
 
     topicIds.forEach((topicId) => {
+      const leftTopic = ownValue(leftStats, topicId) || {};
+      const rightTopic = ownValue(rightStats, topicId) || {};
       const levelIds = new Set([
-        ...Object.keys(leftStats?.[topicId] || {}),
-        ...Object.keys(rightStats?.[topicId] || {})
+        ...Object.keys(leftTopic),
+        ...Object.keys(rightTopic)
       ]);
       levelIds.forEach((levelId) => {
+        const leftLevel = ownValue(leftTopic, levelId) || {};
+        const rightLevel = ownValue(rightTopic, levelId) || {};
         const volumeIds = new Set([
-          ...Object.keys(leftStats?.[topicId]?.[levelId] || {}),
-          ...Object.keys(rightStats?.[topicId]?.[levelId] || {})
+          ...Object.keys(leftLevel),
+          ...Object.keys(rightLevel)
         ]);
         volumeIds.forEach((volumeId) => {
           ['match', 'speak'].forEach((gameType) => {
-            const left = leftStats?.[topicId]?.[levelId]?.[volumeId]?.[gameType];
-            const right = rightStats?.[topicId]?.[levelId]?.[volumeId]?.[gameType];
+            const left = ownValue(ownValue(leftLevel, volumeId), gameType);
+            const right = ownValue(ownValue(rightLevel, volumeId), gameType);
             if (!left && !right) return;
 
-            merged[topicId] ||= {};
-            merged[topicId][levelId] ||= {};
-            merged[topicId][levelId][volumeId] ||= {};
-            merged[topicId][levelId][volumeId][gameType] = {
+            const mergedTopic = ensureOwnRecord(merged, topicId);
+            const mergedLevel = ensureOwnRecord(mergedTopic, levelId);
+            const mergedVolume = ensureOwnRecord(mergedLevel, volumeId);
+            setOwnValue(mergedVolume, gameType, {
               bestScore: Math.max(left?.bestScore || 0, right?.bestScore || 0),
               bestTime: bestTime(left?.bestTime, right?.bestTime)
-            };
+            });
           });
         });
       });

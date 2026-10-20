@@ -9,6 +9,7 @@ function initializeFirebaseAt(location) {
     const authCalls = [];
     const firestoreCalls = [];
     const functionsCalls = [];
+    const callableNames = [];
     const window = { location, addEventListener() {}, enlDebug() {} };
     const auth = {
         useEmulator(...args) { authCalls.push(args); }
@@ -17,7 +18,11 @@ function initializeFirebaseAt(location) {
         useEmulator(...args) { firestoreCalls.push(args); }
     };
     const functions = {
-        useEmulator(...args) { functionsCalls.push(args); }
+        useEmulator(...args) { functionsCalls.push(args); },
+        httpsCallable(name) {
+            callableNames.push(name);
+            return async payload => ({ data: payload });
+        }
     };
     const environmentSource = fs.readFileSync(path.join(__dirname, '../js/firebase-environment.js'), 'utf8');
     const source = fs.readFileSync(path.join(__dirname, '../js/firebase-config.js'), 'utf8');
@@ -39,7 +44,15 @@ function initializeFirebaseAt(location) {
     vm.runInContext(environmentSource, context);
     vm.runInContext(source.slice(0, end), context);
 
-    return { appConfig, authCalls, firestoreCalls, functionsCalls, environment: window.enlFirebaseEnvironment };
+    return {
+        appConfig,
+        authCalls,
+        firestoreCalls,
+        functionsCalls,
+        callableNames,
+        syncProgress: window.enlSyncProgress,
+        environment: window.enlFirebaseEnvironment
+    };
 }
 
 test('showing the login screen resets the mobile navigation state', () => {
@@ -108,6 +121,102 @@ test('local HTTP development connects only to the demo Firebase emulators', () =
     assert.deepEqual(local.authCalls, [['http://127.0.0.1:9099']]);
     assert.deepEqual(local.firestoreCalls, [['127.0.0.1', 8080]]);
     assert.deepEqual(local.functionsCalls, [['127.0.0.1', 5001]]);
+    assert.deepEqual(local.callableNames, ['syncProgress']);
+    assert.equal(typeof local.syncProgress, 'function');
+});
+
+test('progress callable sends the account identity captured by the sync request', async () => {
+    const local = initializeFirebaseAt({ protocol: 'http:', hostname: 'localhost' });
+    const progress = { numbers: { bestScores: { numbers: 42 } } };
+    const response = await local.syncProgress(progress, 'user-a', 'Learner');
+
+    assert.equal(response.expectedUid, 'user-a');
+    assert.equal(response.profileName, 'Learner');
+    assert.deepEqual(JSON.parse(JSON.stringify(response.progress)), progress);
+});
+
+test('verified account names are not shortened below the registered profile limit', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../js/firebase-config.js'), 'utf8');
+    const start = source.indexOf('async function loadVerifiedUser(user)');
+    const end = source.indexOf('\n// ============================================\n// FUNÇÕES DE AUTENTICAÇÃO', start);
+    assert.notEqual(start, -1);
+    assert.notEqual(end, -1);
+
+    const longName = 'Learner '.repeat(5).trim();
+    const element = { style: {}, classList: { add() {} } };
+    const context = vm.createContext({
+        window: {},
+        currentUser: null,
+        currentUserName: '',
+        isGuest: false,
+        verificationUI: { setMode() {} },
+        updateAllUserNames() {},
+        document: {
+            getElementById() { return element; },
+            querySelector() { return null; },
+            body: { setAttribute() {} }
+        },
+        db: {
+            collection() {
+                return { doc() { return { async get() {
+                    return { exists: true, data: () => ({ name: longName }) };
+                } }; } };
+            }
+        },
+        console: { warn() {} }
+    });
+    vm.runInContext(source.slice(start, end), context);
+
+    await context.loadVerifiedUser({ uid: 'long-name-user', email: 'learner@example.test' });
+
+    assert.equal(context.window.currentUserName, longName);
+});
+
+test('a delayed profile read cannot replace the current account name with a previous account name', async () => {
+    const source = fs.readFileSync(path.join(__dirname, '../js/firebase-config.js'), 'utf8');
+    const start = source.indexOf('async function loadVerifiedUser(user)');
+    const end = source.indexOf('\n// ============================================\n// FUNÇÕES DE AUTENTICAÇÃO', start);
+    const pendingReads = new Map();
+    const element = { style: {}, classList: { add() {} } };
+    assert.notEqual(start, -1);
+    assert.notEqual(end, -1);
+
+    const context = vm.createContext({
+        window: {},
+        currentUser: null,
+        currentUserName: '',
+        isGuest: false,
+        verificationUI: { setMode() {} },
+        updateAllUserNames() {},
+        document: {
+            getElementById() { return element; },
+            querySelector() { return null; },
+            body: { setAttribute() {} }
+        },
+        db: {
+            collection() {
+                return { doc(uid) { return { get() {
+                    return new Promise(resolve => pendingReads.set(uid, resolve));
+                } }; } };
+            }
+        },
+        console: { warn() {} }
+    });
+    vm.runInContext(source.slice(start, end), context);
+
+    const previousLoad = context.loadVerifiedUser({ uid: 'previous-user', email: 'previous@example.test' });
+    assert.equal(context.window.currentUserName, 'previous');
+
+    const currentLoad = context.loadVerifiedUser({ uid: 'current-user', email: 'current@example.test' });
+    assert.equal(context.window.currentUserName, 'current');
+
+    pendingReads.get('current-user')({ exists: true, data: () => ({ name: 'Current Saved Name' }) });
+    await currentLoad;
+    pendingReads.get('previous-user')({ exists: true, data: () => ({ name: 'Previous Saved Name' }) });
+    await previousLoad;
+
+    assert.equal(context.window.currentUser.uid, 'current-user');
+    assert.equal(context.window.currentUserName, 'Current Saved Name');
 });
 
 test('file URLs also use emulators instead of the live Firebase project', () => {
@@ -134,6 +243,7 @@ test('hosted site keeps the configured live Firebase project', () => {
     assert.deepEqual(hosted.authCalls, []);
     assert.deepEqual(hosted.firestoreCalls, []);
     assert.deepEqual(hosted.functionsCalls, []);
+    assert.deepEqual(hosted.callableNames, ['syncProgress']);
 });
 
 test('a nonstandard port on the GitHub Pages host uses local emulators', () => {
@@ -300,7 +410,7 @@ test('Firebase CLI defaults to a demo project and loopback-only emulators', () =
     assert.match(emulatorTests, /npm exec --yes --package=firebase-tools@\d+\.\d+\.\d+ -- firebase emulators:exec/);
     assert.match(emulatorTests, /--project demo-english-next-level/);
     assert.match(emulatorTests, /--only auth,firestore,functions/);
-    assert.match(emulatorTests, /test-firestore-rules\.cjs && node scripts\/test-submit-score\.cjs/);
+    assert.match(emulatorTests, /test-firestore-rules\.cjs && node scripts\/test-progress-sync-firestore\.cjs && node scripts\/test-submit-score\.cjs/);
     assert.equal(config.emulators.auth.host, '127.0.0.1');
     assert.equal(config.emulators.firestore.host, '127.0.0.1');
     assert.equal(config.emulators.ui.host, '127.0.0.1');

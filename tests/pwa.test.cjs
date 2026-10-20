@@ -67,7 +67,7 @@ test('service worker shell cache includes every local JavaScript and stylesheet 
     const assetsBlock = worker.match(/const SHELL_ASSETS = \[([\s\S]*?)\];/);
     assert.ok(assetsBlock, 'service worker must define its static app shell');
     const cachedAssets = new Set([...assetsBlock[1].matchAll(/'([^']+)'/g)].map((match) => match[1]));
-    const localEntrypoints = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="((?:\.\/)?(?:js|css)\/[^\"]+)"/g)]
+    const localEntrypoints = [...html.matchAll(/<(?:script|link)\b[^>]*\b(?:src|href)="((?:\.\/)?(?:js|css|functions\/shared)\/[^\"]+)"/g)]
         .map((match) => `./${match[1].replace(/^\.\//, '')}`);
 
     assert.ok(localEntrypoints.length > 0, 'index.html must reference local scripts or stylesheets');

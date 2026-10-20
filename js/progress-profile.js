@@ -214,7 +214,10 @@
   }
 
   function canUseCloud() {
-    return Boolean(!window.isGuest && window.currentUser?.uid && typeof db !== 'undefined');
+    return Boolean(
+      !window.isGuest && window.currentUser?.uid && typeof db !== 'undefined'
+      && typeof window.enlSyncProgress === 'function'
+    );
   }
 
   function stableProgressValue(value) {
@@ -247,23 +250,28 @@
         const docRef = db.collection('users').doc(uid);
         const local = loadLocal(true);
         importExistingNumbers(local);
-        const merged = await db.runTransaction(async (transaction) => {
-          const snapshot = await transaction.get(docRef);
-          const cloud = snapshot.exists ? snapshot.data()?.progressV1 : null;
-          const next = mergeProgress(local, cloud);
-          const normalizedCloud = normalizeProgress(cloud);
-          const hasMergedChanges = serializeProgress(next) !== serializeProgress(normalizedCloud);
-          const needsCloudNormalization = cloud != null
-            && serializeProgress(cloud) !== serializeProgress(normalizedCloud);
+        const snapshot = await docRef.get();
+        const cloudData = snapshot.exists ? snapshot.data() : null;
+        const cloud = cloudData?.progressV1;
+        const cloudProfileName = typeof cloudData?.name === 'string' ? cloudData.name.trim() : '';
+        const cloudProfileEmail = typeof cloudData?.email === 'string' ? cloudData.email.trim() : '';
+        const needsProfileRepair = !cloudProfileName || !cloudProfileEmail || cloudData?.createdAt == null;
+        const next = mergeProgress(local, cloud);
+        const normalizedCloud = normalizeProgress(cloud);
+        const hasMergedChanges = serializeProgress(next) !== serializeProgress(normalizedCloud);
+        const needsCloudNormalization = cloud != null
+          && serializeProgress(cloud) !== serializeProgress(normalizedCloud);
+        let merged = next;
 
-          if (hasMergedChanges || needsCloudNormalization) {
-            transaction.set(docRef, {
-              progressV1: next,
-              progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-            }, { merge: true });
+        if (hasMergedChanges || needsCloudNormalization || needsProfileRepair) {
+          if (window.isGuest || window.currentUser?.uid !== uid) return next;
+
+            const syncedProgress = await window.enlSyncProgress(local, uid, window.currentUserName);
+          if (!syncedProgress || typeof syncedProgress !== 'object' || Array.isArray(syncedProgress)) {
+            throw new Error('Progress sync returned an invalid response.');
           }
-          return next;
-        });
+          merged = normalizeProgress(syncedProgress);
+        }
 
         if (window.isGuest || window.currentUser?.uid !== uid) return merged;
 

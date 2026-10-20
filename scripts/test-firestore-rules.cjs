@@ -135,8 +135,28 @@ async function main() {
                 }]
             })
         });
-        await expectStatus(progressWrite, 200, 'Owner can sync progress with a server timestamp');
-        results.push('owner progress sync allowed');
+        await expectStatus(progressWrite, 403, 'Owner cannot write progress directly from the client');
+        results.push('direct client progress write denied');
+
+        const progressOnlyCreate = await fetch(`${firestoreBase}:commit`, {
+            method: 'POST',
+            headers: { ...headers(other.idToken), 'content-type': 'application/json' },
+            body: JSON.stringify({
+                writes: [{
+                    update: {
+                        name: `projects/${PROJECT_ID}/databases/(default)/documents/users/${other.localId}`,
+                        fields: { progressV1: { mapValue: { fields: {} } } }
+                    },
+                    updateMask: { fieldPaths: ['progressV1'] },
+                    updateTransforms: [{
+                        fieldPath: 'progressUpdatedAt',
+                        setToServerValue: 'REQUEST_TIME'
+                    }]
+                }]
+            })
+        });
+        await expectStatus(progressOnlyCreate, 403, 'Client cannot create a progress-only account document');
+        results.push('direct progress-only profile creation denied');
 
         const publicLeaderboardRead = await fetch(`${firestoreBase}/leaderboards/numbers/scores?pageSize=1`);
         await expectStatus(publicLeaderboardRead, 200, 'Leaderboard remains publicly readable');
