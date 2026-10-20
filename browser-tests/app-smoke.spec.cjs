@@ -173,6 +173,49 @@ test('guest home, Words, and Numbers screens fit common viewport widths', async 
     await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
 });
 
+test('guest Topics and Speak screens fit common viewport widths', async ({ page }) => {
+    const viewportWidths = [320, 390, 560, 768, 821, 980, 1280];
+    const mobileViewport = { width: 390, height: 844 };
+
+    await isolateBrowserNetwork(page.context(), { provideFirebaseStub: true });
+    await page.addInitScript(() => {
+        window.__enlRecognitionStartCalls = 0;
+        class SpeechRecognitionStub {
+            start() {
+                window.__enlRecognitionStartCalls += 1;
+            }
+
+            abort() {}
+            stop() {}
+        }
+        window.SpeechRecognition = SpeechRecognitionStub;
+        window.webkitSpeechRecognition = SpeechRecognitionStub;
+    });
+    await page.goto('./');
+    await page.getByRole('button', { name: 'Continue as Guest' }).click();
+    await page.getByRole('button', { name: 'Open Topics' }).click();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+
+    await page.setViewportSize(mobileViewport);
+    await page.locator('#topics-grid [data-topic-id="kitchen"]').click();
+    await expect(page.locator('#topic-level-container')).toBeVisible();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+
+    await page.setViewportSize(mobileViewport);
+    await page.locator('#topic-level-container [data-topic-level="common"]').click();
+    await expect(page.locator('#topic-game-menu-container')).toBeVisible();
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+
+    await page.setViewportSize(mobileViewport);
+    await page.locator('#topic-game-menu-container [data-topic-game="speak"]').click();
+    await expect(page.locator('#topic-speak-container')).toBeVisible();
+    await expect(page.locator('#topic-speak-start-overlay')).toHaveAttribute('aria-hidden', 'false');
+    await expect(page.locator('#topic-speak-start-title')).toBeVisible();
+    await expect(page.locator('#topic-speak-start-title')).toHaveText('Ready?');
+    await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
+    expect(await page.evaluate(() => window.__enlRecognitionStartCalls)).toBe(0);
+});
+
 test('installed app shell can reload and navigate as a guest offline', async ({ browser }) => {
     const context = await browser.newContext({
         serviceWorkers: 'allow',
