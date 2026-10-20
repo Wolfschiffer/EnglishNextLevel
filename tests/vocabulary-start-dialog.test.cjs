@@ -2,7 +2,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { create } = require('../js/vocabulary-start-dialog.js');
 
-function createHarness() {
+function createHarness({ onBackResult = true } = {}) {
     const overlayClasses = new Set();
     const bodyClasses = new Set();
     const listeners = new Map();
@@ -62,7 +62,7 @@ function createHarness() {
                 return () => { releaseCount += 1; };
             }
         },
-        onBack() { backCalls += 1; return true; }
+        onBack() { backCalls += 1; return onBackResult; }
     });
 
     return {
@@ -114,6 +114,20 @@ test('Escape closes the Vocabulary start dialog and returns focus after back nav
     harness.backFocusTarget.visible = true;
     harness.activeWindow.dispatch('popstate');
 
+    assert.equal(harness.backFocusTarget.focusCalls, 1);
+    assert.deepEqual(harness.backFocusTarget.lastFocusOptions, { preventScroll: true });
+    assert.equal(harness.activeWindow.listenerCount('popstate'), 0);
+});
+
+test('Escape restores focus synchronously when back navigation uses its fallback', () => {
+    const harness = createHarness({ onBackResult: false });
+    harness.dialogController.show();
+    harness.backFocusTarget.visible = true;
+
+    harness.trapCalls[0].options.onEscape();
+
+    assert.equal(harness.overlay['aria-hidden'], 'true');
+    assert.equal(harness.backCalls(), 1);
     assert.equal(harness.backFocusTarget.focusCalls, 1);
     assert.deepEqual(harness.backFocusTarget.lastFocusOptions, { preventScroll: true });
     assert.equal(harness.activeWindow.listenerCount('popstate'), 0);
