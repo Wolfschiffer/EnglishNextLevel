@@ -26,10 +26,42 @@
         const onBack = dependencies.onBack || (() => {});
         const removeWinScreen = dependencies.removeWinScreen || (() => {});
         const removeRestartButton = dependencies.removeRestartButton || (() => {});
+        const focusTrap = dependencies.focusTrap || root.EnlKeyboardAccessibility;
+        const activeWindow = dependencies.activeWindow || root;
+        const getBackFocusTarget = dependencies.getBackFocusTarget || (() => null);
         const logger = dependencies.logger || root.console;
+        let releaseFocusTrap = null;
 
         function remove() {
+            releaseFocusTrap?.();
+            releaseFocusTrap = null;
             document.querySelector('.numbers-result-modal')?.remove();
+        }
+
+        function returnToMenu() {
+            const returnFocusTarget = getBackFocusTarget();
+            let focusRestored = false;
+            const restoreFocus = () => {
+                if (focusRestored || !returnFocusTarget || returnFocusTarget.isConnected === false) return;
+                if (typeof returnFocusTarget.getClientRects === 'function' && returnFocusTarget.getClientRects().length === 0) return;
+
+                focusRestored = true;
+                activeWindow.removeEventListener?.('popstate', handlePopState);
+                returnFocusTarget.focus?.({ preventScroll: true });
+            };
+            const handlePopState = () => {
+                activeWindow.removeEventListener?.('popstate', handlePopState);
+                restoreFocus();
+            };
+
+            if (returnFocusTarget && typeof activeWindow.addEventListener === 'function') {
+                activeWindow.addEventListener('popstate', handlePopState);
+            }
+
+            remove();
+            const expectsPopState = onBack() === true;
+            if (!expectsPopState) activeWindow.removeEventListener?.('popstate', handlePopState);
+            restoreFocus();
         }
 
         function show(result, options = {}) {
@@ -101,7 +133,7 @@
                                     : 'This run was not verified for global scores. You can save it on this device; sign in with a verified email to submit a global score.'}</span>
                             </div>
                             <div class="numbers-result-save-row">
-                                <input id="numbers-result-name" class="numbers-result-name" type="text" maxlength="20" autocomplete="name" placeholder="Your name" value="${defaultName}">
+                                <input id="numbers-result-name" class="numbers-result-name" type="text" maxlength="20" autocomplete="name" aria-label="Name for the leaderboard" placeholder="Your name" value="${defaultName}">
                                 <button id="numbers-result-save" class="numbers-result-save" type="button">Save Score</button>
                             </div>
                             <div id="numbers-result-save-status" class="numbers-result-save-status" aria-live="polite"></div>
@@ -117,8 +149,17 @@
 
             document.body.appendChild(modal);
 
+            const dialog = modal.querySelector('.numbers-result-card');
             const restartButton = modal.querySelector('#numbers-result-restart');
             const menuButton = modal.querySelector('#numbers-result-menu');
+            const nameInput = won ? modal.querySelector('#numbers-result-name') : null;
+
+            if (dialog && typeof focusTrap?.trapDialogFocus === 'function') {
+                releaseFocusTrap = focusTrap.trapDialogFocus(dialog, {
+                    initialFocus: nameInput || restartButton,
+                    onEscape: returnToMenu
+                }) || null;
+            }
 
             restartButton?.addEventListener('click', () => {
                 remove();
@@ -126,12 +167,10 @@
             });
 
             menuButton?.addEventListener('click', () => {
-                remove();
-                onBack();
+                returnToMenu();
             });
 
             if (won) {
-                const nameInput = modal.querySelector('#numbers-result-name');
                 const saveButton = modal.querySelector('#numbers-result-save');
                 const saveStatus = modal.querySelector('#numbers-result-save-status');
 

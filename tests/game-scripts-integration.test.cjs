@@ -469,6 +469,40 @@ test('Numbers result modal still escapes the saved profile name', () => {
     assert.doesNotMatch(modal.innerHTML, /value="<img src=x>"/);
 });
 
+test('leaving Numbers releases the focus trap from the active result dialog', () => {
+    const harness = createBrowserContext();
+    for (const script of CORE_SCRIPTS) harness.loadScript(script);
+
+    const dialogElement = {};
+    let releaseCount = 0;
+    const originalCreateElement = harness.context.document.createElement;
+    harness.context.document.createElement = (tagName) => {
+        const modal = originalCreateElement(tagName);
+        modal.querySelector = selector => selector === '.numbers-result-card' ? dialogElement : null;
+        return modal;
+    };
+    harness.context.window.EnlKeyboardAccessibility = {
+        trapDialogFocus(dialog) {
+            assert.equal(dialog, dialogElement);
+            return () => { releaseCount++; };
+        }
+    };
+
+    vm.runInContext(`showNumbersResultModal({
+        baseScore: 10,
+        speedBonus: 1,
+        lifeBonus: 1,
+        totalGameTime: 8,
+        finalScore: 10,
+        isNewBest: false,
+        completedMode: 'numbers'
+    }, { won: true });`, harness.context);
+    assert.equal(releaseCount, 0);
+
+    harness.context.window.EnglishNextLevelNumbersResultLifecycle.leaveScreen();
+    assert.equal(releaseCount, 1);
+});
+
 test('Numbers 11–20 best score survives a local profile reload', () => {
     const storageValues = new Map();
 

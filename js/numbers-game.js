@@ -90,6 +90,7 @@ let highScores = createEmptyNumbersHighScores();
 // NUMBERS scoring source of truth. During a round, `score` is the base score.
 // Bonuses are applied only once when the round ends.
 let lastNumbersResult = null;
+let numbersResultDialogInstance = null;
 let activeNumbersRun = null;
 let activeNumbersRunProfileStorageKey = null;
 let numbersRunStartSequence = 0;
@@ -713,16 +714,22 @@ function getDefaultLeaderboardName() {
 }
 
 function createNumbersResultDialog() {
+    if (numbersResultDialogInstance) return numbersResultDialogInstance;
+
     const dialogModule = window.EnglishNextLevelNumbersResultDialog;
     if (!dialogModule) return null;
 
-    return dialogModule.create({
+    numbersResultDialogInstance = dialogModule.create({
         document,
         escapeHtml,
         formatTime: formatNumbersResultTime,
         formatScore: formatNumbersScore,
         getPlayerName: getDefaultLeaderboardName,
         getCurrentGame: () => currentGame,
+        getBackFocusTarget: () => Array.from(document.querySelectorAll('#numbers-menu-container [data-numbers-mode]'))
+            .find(card => card.dataset.numbersMode === currentGame),
+        focusTrap: window.EnlKeyboardAccessibility,
+        activeWindow: window,
         saveToLeaderboard,
         client: window.EnglishNextLevelLeaderboardClient,
         onRestart: startGame,
@@ -731,13 +738,14 @@ function createNumbersResultDialog() {
         removeRestartButton,
         logger: console
     });
+
+    return numbersResultDialogInstance;
 }
 
 function removeNumbersResultModal() {
     cancelPendingNumbersResultModal();
-    const dialogModule = window.EnglishNextLevelNumbersResultDialog;
-    if (dialogModule) {
-        dialogModule.create({ document }).remove();
+    if (numbersResultDialogInstance) {
+        numbersResultDialogInstance.remove();
         return;
     }
     document.querySelector('.numbers-result-modal')?.remove();
@@ -861,8 +869,7 @@ function showMenu() {
     // Back button. Manually showing the menu left currentScreen/history on
     // numbersGame, so clicking a game was ignored as "already on this screen".
     if (currentScreen === SCREENS.NUMBERS_GAME) {
-        goBack();
-        return;
+        return goBack();
     }
 
     // Defensive fallback for restored/legacy history states.
@@ -870,6 +877,7 @@ function showMenu() {
     currentScreen = SCREENS.NUMBERS_MENU;
     navigationStack = navigationStack.filter(screen => screen !== SCREENS.NUMBERS_GAME);
     replaceCurrentBrowserState(SCREENS.NUMBERS_MENU);
+    return false;
 }
 
 function removeRestartButton() { document.querySelector('.restart-btn')?.remove(); }
