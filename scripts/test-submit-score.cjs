@@ -258,8 +258,7 @@ async function main() {
         const questionStartLimit = CALLABLE_RATE_LIMITS.startNumbersQuestion;
         const questionStartLimitRef = getCallableLimitRef(account.localId, 'startNumbersQuestion');
         await questionStartLimitRef.set({
-            windowStartedAtMs: Date.now(),
-            count: questionStartLimit.maxRequests
+            requestTimestampsMs: Array(questionStartLimit.maxRequests).fill(Date.now())
         });
         await expectCallableError(
             await callFunction('startNumbersQuestion', account.idToken, { runId, questionIndex: 0 }),
@@ -269,14 +268,14 @@ async function main() {
         assert.equal((await runRef.get()).data().roundStartedAtMs, null,
             'A rate-limited question start must not change the run');
         await questionStartLimitRef.set({
-            windowStartedAtMs: Date.now() - questionStartLimit.windowMs - 1,
-            count: questionStartLimit.maxRequests
+            requestTimestampsMs: Array(questionStartLimit.maxRequests)
+                .fill(Date.now() - questionStartLimit.windowMs - 1)
         });
 
         const firstQuestionStart = await startQuestion(account.idToken, runId, 0);
         const resetQuestionStartLimit = (await questionStartLimitRef.get()).data();
-        assert.equal(resetQuestionStartLimit.count, 1,
-            'An expired per-call rate-limit window should start a fresh count');
+        assert.equal(resetQuestionStartLimit.requestTimestampsMs.length, 1,
+            'Expired per-call timestamps should be replaced with the new request');
         assert.deepEqual(firstQuestionStart, {
             started: true,
             questionIndex: 0,
@@ -331,8 +330,7 @@ async function main() {
         const answerLimit = CALLABLE_RATE_LIMITS.recordNumbersAnswer;
         const answerLimitRef = getCallableLimitRef(account.localId, 'recordNumbersAnswer');
         await answerLimitRef.set({
-            windowStartedAtMs: Date.now(),
-            count: answerLimit.maxRequests
+            requestTimestampsMs: Array(answerLimit.maxRequests).fill(Date.now())
         });
         await expectCallableError(
             await callFunction('recordNumbersAnswer', account.idToken, {
@@ -390,8 +388,7 @@ async function main() {
         const finishLimit = CALLABLE_RATE_LIMITS.finishNumbersRun;
         const finishLimitRef = getCallableLimitRef(account.localId, 'finishNumbersRun');
         await finishLimitRef.set({
-            windowStartedAtMs: Date.now(),
-            count: finishLimit.maxRequests
+            requestTimestampsMs: Array(finishLimit.maxRequests).fill(Date.now())
         });
         await expectCallableError(
             await callFunction('finishNumbersRun', account.idToken, { runId }),
@@ -424,8 +421,7 @@ async function main() {
         const submitLimit = CALLABLE_RATE_LIMITS.submitScore;
         const submitLimitRef = getCallableLimitRef(account.localId, 'submitScore');
         await submitLimitRef.set({
-            windowStartedAtMs: Date.now(),
-            count: submitLimit.maxRequests
+            requestTimestampsMs: Array(submitLimit.maxRequests).fill(Date.now())
         });
         await expectCallableError(
             await callFunction('submitScore', account.idToken, { runId }),
