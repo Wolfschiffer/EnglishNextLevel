@@ -90,7 +90,7 @@ JavaScript files are loaded as classic scripts from `index.html`, so script orde
 
 ## Quality checks
 
-Node.js is enough; the checks use built-in Node tools and do not need installed packages:
+The syntax check uses only Node.js. The full test suite also needs the Firebase Functions dependencies installed from `functions/package-lock.json`; run `npm ci` in `functions` as shown above:
 
 ```powershell
 node scripts/check-js.cjs
