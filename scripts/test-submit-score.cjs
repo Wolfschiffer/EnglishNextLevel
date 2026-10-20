@@ -30,6 +30,7 @@ const { getAuth } = requireFunctions('firebase-admin/auth');
 const { FieldValue, Timestamp, getFirestore } = requireFunctions('firebase-admin/firestore');
 const { CALLABLE_RATE_LIMITS } = requireFunctions('./callable-rate-limit');
 const { MAX_PROGRESS_BYTES } = requireFunctions('./progress-sync');
+const { PROGRESS_SYNC_TOO_LARGE_REASON } = require('../functions/shared/progress-profile-data');
 
 const app = initializeApp({ projectId: PROJECT_ID }, `numbers-run-test-${randomUUID()}`);
 const auth = getAuth(app);
@@ -78,7 +79,7 @@ function trackCallableLimitRefs(uid) {
     }
 }
 
-async function expectCallableError(response, expectedStatus, description) {
+async function expectCallableError(response, expectedStatus, description, expectedDetails = undefined) {
     const body = await readJson(response);
     assert.ok(
         !response.ok,
@@ -89,6 +90,13 @@ async function expectCallableError(response, expectedStatus, description) {
         expectedStatus,
         `${description}: HTTP ${response.status}: ${JSON.stringify(body)}`
     );
+    if (expectedDetails !== undefined) {
+        assert.deepEqual(
+            body.error?.details,
+            expectedDetails,
+            `${description}: HTTP ${response.status}: ${JSON.stringify(body)}`
+        );
+    }
 }
 
 async function expectCallableResult(response, description) {
@@ -247,8 +255,9 @@ async function main() {
                 progress: { ignored: 'x'.repeat(MAX_PROGRESS_BYTES) },
                 expectedUid: account.localId
             }),
-            'INVALID_ARGUMENT',
-            'Oversized progress sync must be rejected'
+            'RESOURCE_EXHAUSTED',
+            'Oversized progress sync must be rejected',
+            { reason: PROGRESS_SYNC_TOO_LARGE_REASON }
         );
         console.log('PASS oversized progress payload rejected');
 
