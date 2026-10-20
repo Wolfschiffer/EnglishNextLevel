@@ -24,6 +24,7 @@ const CORE_SCRIPTS = [
     'js/vocabulary-scoring.js',
     'js/words-speech.js',
     'js/vocabulary-result-dialog.js',
+    'js/vocabulary-start-dialog.js',
     'js/vocabulary-touch-input.js',
     'js/vocabulary-renderer.js',
     'js/vocabulary-matching.js',

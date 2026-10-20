@@ -149,6 +149,23 @@ const vocabularyRenderer = vocabularyRendererModule.create({
     handleDrop: vocabularyMatching.handleDrop,
     touchInput: vocabularyTouchInput
 });
+function getVocabularyBackFocusTarget() {
+    return Array.from(document.querySelectorAll('.game-card[data-words-mode]'))
+        .find((card) => card.dataset.wordsMode === currentVocabularySetId) || null;
+}
+
+const vocabularyStartDialog = window.EnglishNextLevelVocabularyStartDialog.create({
+    body: document.body,
+    overlay: vocabStartOverlay,
+    startButton: vocabStartBtn,
+    focusTrap: window.EnlKeyboardAccessibility,
+    activeWindow: window,
+    getBackFocusTarget: getVocabularyBackFocusTarget,
+    getIsOtherModalActive: () => Boolean(vocabResultOverlay?.classList.contains('active')),
+    scheduleFrame: (callback) => requestAnimationFrame(callback),
+    onBack: () => goBack(1)
+});
+
 const vocabularyResultDialog = window.EnglishNextLevelVocabularyResultDialog.create({
     body: document.body,
     overlay: vocabResultOverlay,
@@ -165,8 +182,7 @@ const vocabularyResultDialog = window.EnglishNextLevelVocabularyResultDialog.cre
     getScore: () => vocabScore,
     getElapsedSeconds: () => vocabElapsedSeconds,
     getGameType: () => currentVerbGameType,
-    getBackFocusTarget: () => Array.from(document.querySelectorAll('.game-card[data-words-mode]'))
-        .find((card) => card.dataset.wordsMode === currentVocabularySetId),
+    getBackFocusTarget: getVocabularyBackFocusTarget,
     formatTime: formatVocabularyTime,
     scheduleFrame: (callback) => requestAnimationFrame(callback),
     setTimeoutFn: (callback, delay) => setTimeout(callback, delay),
@@ -185,20 +201,11 @@ function clearVocabularyResultTimeout() {
 }
 
 function showVocabularyStartModal() {
-    if (!vocabStartOverlay) return;
-    vocabStartOverlay.classList.add('active');
-    vocabStartOverlay.setAttribute('aria-hidden', 'false');
-    document.body.classList.add('vocab-modal-open');
-
-    // Move o foco para o botão sem iniciar o jogo automaticamente.
-    requestAnimationFrame(() => vocabStartBtn?.focus());
+    return vocabularyStartDialog.show();
 }
 
-function hideVocabularyStartModal() {
-    if (!vocabStartOverlay) return;
-    vocabStartOverlay.classList.remove('active');
-    vocabStartOverlay.setAttribute('aria-hidden', 'true');
-    document.body.classList.remove('vocab-modal-open');
+function hideVocabularyStartModal(options) {
+    return vocabularyStartDialog.hide(options);
 }
 
 function beginVocabularyGame() {
@@ -210,7 +217,7 @@ function beginVocabularyGame() {
     EnglishSpeechEngine.prime('en-US');
 
     vocabGameStarted = true;
-    hideVocabularyStartModal();
+    hideVocabularyStartModal({ preserveReturnFocus: false });
     startVocabularyTimer();
 }
 

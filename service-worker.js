@@ -1,5 +1,5 @@
 // Increment this when app-shell files change so returning visitors fetch the new build.
-const CACHE_NAME = 'enl-shell-v48';
+const CACHE_NAME = 'enl-shell-v49';
 
 const SHELL_ASSETS = [
     './',
@@ -37,6 +37,7 @@ const SHELL_ASSETS = [
     './js/vocabulary-scoring.js',
     './js/words-speech.js',
     './js/vocabulary-result-dialog.js',
+    './js/vocabulary-start-dialog.js',
     './js/vocabulary-touch-input.js',
     './js/vocabulary-renderer.js',
     './js/vocabulary-matching.js',
