@@ -37,3 +37,29 @@ jobs:
 
       - name: Run Firebase Emulator integration checks
         run: npm run test:emulators
+
+  browser-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          package-manager-cache: false
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6.1.0
+        with:
+          version: 11.25.0
+
+      - name: Install browser test dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run browser smoke checks
+        run: pnpm test:browser
