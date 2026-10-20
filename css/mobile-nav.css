@@ -139,27 +139,31 @@
 }
 
 @media (max-width: 760px) {
-  body[data-firebase-environment="test"][data-screen="categories"],
-  body[data-firebase-environment="test"][data-screen="profile"],
-  body[data-firebase-environment="test"][data-screen="numbersMenu"],
-  body[data-firebase-environment="test"][data-screen="words"],
-  body[data-firebase-environment="test"][data-screen="wordsSubmenu"],
-  body[data-firebase-environment="test"][data-screen="wordsSubmenuPast"],
-  body[data-firebase-environment="test"][data-screen="topicsMenu"],
-  body[data-firebase-environment="test"][data-screen="topicLevel"],
-  body[data-firebase-environment="test"][data-screen="topicGameMenu"] {
+  body[data-firebase-environment="test"]:is(
+    [data-screen="categories"],
+    [data-screen="profile"],
+    [data-screen="numbersMenu"],
+    [data-screen="words"],
+    [data-screen="wordsSubmenu"],
+    [data-screen="wordsSubmenuPast"],
+    [data-screen="topicsMenu"],
+    [data-screen="topicLevel"],
+    [data-screen="topicGameMenu"]
+  ) {
     padding-bottom: calc(136px + env(safe-area-inset-bottom)) !important;
   }
 
-  body[data-firebase-environment="test"][data-screen="categories"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="profile"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="numbersMenu"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="words"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="wordsSubmenu"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="wordsSubmenuPast"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="topicsMenu"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="topicLevel"] .firebase-emulator-warning,
-  body[data-firebase-environment="test"][data-screen="topicGameMenu"] .firebase-emulator-warning {
+  body[data-firebase-environment="test"]:is(
+    [data-screen="categories"],
+    [data-screen="profile"],
+    [data-screen="numbersMenu"],
+    [data-screen="words"],
+    [data-screen="wordsSubmenu"],
+    [data-screen="wordsSubmenuPast"],
+    [data-screen="topicsMenu"],
+    [data-screen="topicLevel"],
+    [data-screen="topicGameMenu"]
+  ) .firebase-emulator-warning {
     bottom: calc(70px + env(safe-area-inset-bottom)) !important;
     z-index: 2399 !important;
   }
