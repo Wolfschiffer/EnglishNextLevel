@@ -217,6 +217,16 @@
     return Boolean(!window.isGuest && window.currentUser?.uid && typeof db !== 'undefined');
   }
 
+  function stableProgressValue(value) {
+    if (Array.isArray(value)) return value.map(stableProgressValue);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stableProgressValue(value[key])]));
+  }
+
+  function serializeProgress(value) {
+    return JSON.stringify(stableProgressValue(value));
+  }
+
   async function syncFromCloud(force = false, queueIfInFlight = false) {
     if (!canUseCloud()) {
       cloudLoadedUid = null;
@@ -241,11 +251,17 @@
           const snapshot = await transaction.get(docRef);
           const cloud = snapshot.exists ? snapshot.data()?.progressV1 : null;
           const next = mergeProgress(local, cloud);
+          const normalizedCloud = normalizeProgress(cloud);
+          const hasMergedChanges = serializeProgress(next) !== serializeProgress(normalizedCloud);
+          const needsCloudNormalization = cloud != null
+            && serializeProgress(cloud) !== serializeProgress(normalizedCloud);
 
-          transaction.set(docRef, {
-            progressV1: next,
-            progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-          }, { merge: true });
+          if (hasMergedChanges || needsCloudNormalization) {
+            transaction.set(docRef, {
+              progressV1: next,
+              progressUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+          }
           return next;
         });
 

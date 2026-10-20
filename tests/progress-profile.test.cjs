@@ -194,6 +194,38 @@ test('signed-in progress reports a cloud save when local storage is unavailable'
     assert.equal(harness.syncStatus.dataset.state, 'synced');
 });
 
+test('cloud sync skips a write when local and remote progress already match', async () => {
+    const harness = createHarness();
+    harness.api.recordNumbersBest('numbers', 42);
+    const existingProgress = clone(harness.api.getProgress());
+    harness.setCloudUserData({
+        progressV1: existingProgress,
+        progressUpdatedAt: 'previous timestamp'
+    });
+
+    await harness.api.refreshProfile();
+
+    assert.equal(harness.cloudTransactionCount, 1);
+    assert.equal(harness.cloudWriteCount, 0);
+    assert.deepEqual(harness.cloudUserData.progressV1, existingProgress);
+    assert.equal(harness.cloudUserData.progressUpdatedAt, 'previous timestamp');
+});
+
+test('cloud sync writes normalized progress when the stored cloud shape is incomplete', async () => {
+    const harness = createHarness();
+    harness.setCloudUserData({
+        progressV1: { numbers: { bestScores: { numbers: 29 } } },
+        progressUpdatedAt: 'previous timestamp'
+    });
+
+    await harness.api.refreshProfile();
+
+    assert.equal(harness.cloudWriteCount, 1);
+    assert.equal(harness.cloudUserData.progressV1.numbers.bestScores.numbers, 29);
+    assert.equal(typeof harness.cloudUserData.progressV1.words.present.completed, 'boolean');
+    assert.equal(harness.cloudUserData.progressUpdatedAt, 'server timestamp');
+});
+
 
 test('cloud sync preserves new progress when local storage writes fail', async () => {
     const harness = createHarness({ failWrites: true });
