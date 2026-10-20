@@ -24,6 +24,14 @@ function progressWithDailyHistory(startYear, dayCount) {
     return { history: { days } };
 }
 
+function progressWithTopics(startIndex, topicCount) {
+    const topics = {};
+    for (let index = 0; index < topicCount; index += 1) {
+        topics[`topic-${startIndex + index}`] = { level: { volume: {} } };
+    }
+    return { topics };
+}
+
 function clone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
 }
@@ -88,29 +96,45 @@ test('progress sync rejects non-map and oversized input before touching Firestor
     assert.equal(store.writeCount, 0);
 });
 
-test('progress sync tags normalized and merged payload size failures consistently', async () => {
+test('old daily history compacts before sync while preserving its cumulative timestamp', () => {
+    const compacted = normalizeProgressPayload(progressWithDailyHistory(2000, 2700), HttpsError);
+
+    assert.deepEqual(Object.keys(compacted.history.days), []);
+    assert.equal(compacted.updatedAt, 2700);
+});
+
+test('progress sync rejects normalized or merged profiles over 900 KiB without writing', async () => {
+    const oversizedNormalized = progressWithTopics(0, 22000);
+    assert.ok(Buffer.byteLength(JSON.stringify(oversizedNormalized), 'utf8') < MAX_PROGRESS_BYTES);
     assert.throws(
-        () => normalizeProgressPayload(progressWithDailyHistory(2000, 2700), HttpsError),
+        () => normalizeProgressPayload(oversizedNormalized, HttpsError),
         error => error.code === 'resource-exhausted'
             && error.details?.reason === PROGRESS_SYNC_TOO_LARGE_REASON
     );
+
+    const now = new Date('2026-10-20T12:00:00.000Z');
+    const first = normalizeProgressPayload(progressWithTopics(0, 12000), HttpsError, now);
+    const second = normalizeProgressPayload(progressWithTopics(12000, 12000), HttpsError, now);
+    assert.ok(Buffer.byteLength(JSON.stringify(first), 'utf8') < MAX_PROGRESS_BYTES);
+    assert.ok(Buffer.byteLength(JSON.stringify(second), 'utf8') < MAX_PROGRESS_BYTES);
 
     const store = createFakeFirestore({
         name: 'Learner',
         email: 'learner@example.test',
         createdAt: 'existing profile timestamp',
-        progressV1: normalizeProgressPayload(progressWithDailyHistory(2000, 1600), HttpsError)
+        progressV1: second
     });
 
     await assert.rejects(
         syncProgressData({
             db: store.db,
             uid: 'user-a',
-            progress: normalizeProgressPayload(progressWithDailyHistory(2010, 1600), HttpsError),
+            progress: first,
             profileName: 'Learner',
             email: 'learner@example.test',
             FieldValue: { serverTimestamp: () => 'server timestamp' },
-            HttpsError
+            HttpsError,
+            now
         }),
         error => error.code === 'resource-exhausted'
             && error.details?.reason === PROGRESS_SYNC_TOO_LARGE_REASON

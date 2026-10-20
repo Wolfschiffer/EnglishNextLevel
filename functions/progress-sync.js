@@ -33,7 +33,7 @@ function getJsonSize(value, HttpsError) {
     return Buffer.byteLength(serialized, 'utf8');
 }
 
-function normalizeProgressPayload(progress, HttpsError) {
+function normalizeProgressPayload(progress, HttpsError, now = new Date()) {
     if (!progress || typeof progress !== 'object' || Array.isArray(progress)) {
         throw new HttpsError('invalid-argument', 'Provide saved progress to sync.');
     }
@@ -42,7 +42,7 @@ function normalizeProgressPayload(progress, HttpsError) {
         throwProgressTooLargeError(HttpsError, 'Progress payload is too large to sync.');
     }
 
-    const normalized = normalizeProgress(progress);
+    const normalized = normalizeProgress(progress, now);
     if (getJsonSize(normalized, HttpsError) > MAX_PROGRESS_BYTES) {
         throwProgressTooLargeError(HttpsError, 'Normalized progress is too large to sync.');
     }
@@ -61,7 +61,7 @@ function serializeProgress(value) {
     return JSON.stringify(stableProgressValue(value));
 }
 
-async function syncProgressData({ db, uid, progress, profileName, email, FieldValue, HttpsError }) {
+async function syncProgressData({ db, uid, progress, profileName, email, FieldValue, HttpsError, now = new Date() }) {
     const userRef = db.collection('users').doc(uid);
 
     return db.runTransaction(async (transaction) => {
@@ -86,8 +86,8 @@ async function syncProgressData({ db, uid, progress, profileName, email, FieldVa
         }
 
         const cloudProgress = userData.progressV1;
-        const merged = mergeProgress(progress, cloudProgress);
-        const normalizedCloud = normalizeProgress(cloudProgress);
+        const merged = mergeProgress(progress, cloudProgress, now);
+        const normalizedCloud = normalizeProgress(cloudProgress, now);
 
         if (getJsonSize(merged, HttpsError) > MAX_PROGRESS_BYTES) {
             throwProgressTooLargeError(HttpsError, 'Saved progress is too large to sync.');

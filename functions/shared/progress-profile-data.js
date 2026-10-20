@@ -12,6 +12,9 @@
   const PROGRESS_VERSION = 4;
   const PROGRESS_SYNC_TOO_LARGE_REASON = 'progress-too-large';
   const MAX_VOCABULARY_REVIEW_CARDS = 500;
+  const HISTORY_RETENTION_YEARS = 2;
+  const HISTORY_TIMEZONE_GRACE_DAYS = 2;
+  const MAX_FUTURE_HISTORY_DAYS = 1;
   const VOCABULARY_REVIEW_CARD_ID = /^(present:verbs|past:past)(?:[1-9]|10):\d{1,3}$/;
 
   const NUMBER_MODES = [
@@ -42,9 +45,8 @@
       topics: {},
       topicStats: {},
       vocabularyReviews: { cards: {} },
-      // Daily snapshots are append-only by date. The UI still renders the
-      // cumulative fields above, while history prevents a new day/device from
-      // erasing older progress and gives later phases a safe place for stats.
+      // Keep recent daily snapshots for charts and preserve older results in
+      // the cumulative fields above so history can be compacted safely.
       history: { days: {} }
     };
   }
@@ -67,6 +69,42 @@
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  function isValidHistoryDateKey(dateKey) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+    if (!match) return false;
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (month < 1 || month > 12) return false;
+
+    const isLeapYear = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+    const daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    return day >= 1 && day <= daysInMonth[month - 1];
+  }
+
+  function historyRetentionWindow(now = new Date()) {
+    const timestamp = now instanceof Date ? now.getTime() : new Date(now).getTime();
+    const current = new Date(Number.isFinite(timestamp) ? timestamp : Date.now());
+    const todayYear = current.getUTCFullYear();
+    const todayMonth = current.getUTCMonth();
+    const todayDay = current.getUTCDate();
+    const today = Date.UTC(todayYear, todayMonth, todayDay);
+
+    const cutoffYear = todayYear - HISTORY_RETENTION_YEARS;
+    const isLeapYear = cutoffYear % 4 === 0 && (cutoffYear % 100 !== 0 || cutoffYear % 400 === 0);
+    const cutoffMonthDays = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    const cutoffDay = Math.min(todayDay, cutoffMonthDays[todayMonth]);
+    const cutoff = new Date(Date.UTC(cutoffYear, todayMonth, cutoffDay));
+    cutoff.setUTCDate(cutoff.getUTCDate() - HISTORY_TIMEZONE_GRACE_DAYS);
+
+    const latest = new Date(today + MAX_FUTURE_HISTORY_DAYS * 24 * 60 * 60 * 1000);
+    return {
+      cutoffDateKey: cutoff.toISOString().slice(0, 10),
+      latestDateKey: latest.toISOString().slice(0, 10)
+    };
   }
 
   function safeNumber(value, fallback = 0) {
@@ -336,6 +374,8 @@
   }
 
   function foldDayIntoCumulative(progress, day) {
+    progress.updatedAt = Math.max(progress.updatedAt || 0, day.updatedAt || 0);
+
     NUMBER_MODES.forEach(([modeId]) => {
       progress.numbers.bestScores[modeId] = Math.max(
         progress.numbers.bestScores[modeId] || 0,
@@ -355,7 +395,7 @@
     progress.topicStats = mergeTopicStatsTrees(progress.topicStats, day.topicStats);
   }
 
-  function normalizeProgress(input) {
+  function normalizeProgress(input, now = new Date()) {
     const base = emptyProgress();
     if (!input || typeof input !== 'object') return base;
 
@@ -381,16 +421,21 @@
     base.vocabularyReviews = normalizeVocabularyReviews(input.vocabularyReviews);
 
     const sourceDays = input.history?.days;
+    const { cutoffDateKey, latestDateKey } = historyRetentionWindow(now);
     if (sourceDays && typeof sourceDays === 'object') {
       Object.entries(sourceDays).forEach(([dateKey, dayValue]) => {
-        if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
-        base.history.days[dateKey] = normalizeDayProgress(dayValue);
+        if (!isValidHistoryDateKey(dateKey) || dateKey > latestDateKey) return;
+        const day = normalizeDayProgress(dayValue);
+        base.history.days[dateKey] = day;
+        foldDayIntoCumulative(base, day);
       });
     }
 
-    // The cumulative view is rebuilt from every preserved day as a safety net.
-    // This makes an old "today-only" payload incapable of wiping yesterday.
-    Object.values(base.history.days).forEach((day) => foldDayIntoCumulative(base, day));
+    // Preserve old best results before deleting their daily detail. UTC dates
+    // plus a two-day margin keep browser and Functions cutoffs aligned.
+    Object.keys(base.history.days).forEach((dateKey) => {
+      if (dateKey < cutoffDateKey) delete base.history.days[dateKey];
+    });
 
     return base;
   }
@@ -402,9 +447,9 @@
     return values.length ? Math.min(...values) : null;
   }
 
-  function mergeProgress(a, b) {
-    const left = normalizeProgress(a);
-    const right = normalizeProgress(b);
+  function mergeProgress(a, b, now = new Date()) {
+    const left = normalizeProgress(a, now);
+    const right = normalizeProgress(b, now);
     const merged = emptyProgress();
 
     merged.updatedAt = Math.max(left.updatedAt, right.updatedAt);
@@ -454,6 +499,7 @@
     emptyDayProgress,
     emptyProgress,
     localDateKey,
+    historyRetentionWindow,
     mergeProgress,
     normalizeDayProgress,
     normalizeProgress,

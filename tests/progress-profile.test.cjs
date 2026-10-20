@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { PROGRESS_SYNC_TOO_LARGE_REASON } = require('../functions/shared/progress-profile-data.js');
+const MAX_PROGRESS_BYTES = 900 * 1024;
 
 function clone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -34,6 +35,7 @@ function createHarness({
     let cloudWriteCount = 0;
     let cloudReadCount = 0;
     let cloudCallableCount = 0;
+    const cloudSyncInputs = [];
     let progressData = null;
     let cloudUnavailable = false;
     let cloudError = initialCloudError;
@@ -81,6 +83,7 @@ function createHarness({
         if (cloudError) throw cloudError;
         assert.equal(expectedUid, 'test-user');
         cloudCallableCount += 1;
+        cloudSyncInputs.push(clone(progress));
         const normalizedProgress = progressData.normalizeProgress(progress);
         const cloudProgress = cloudUserData?.progressV1;
         const next = progressData.mergeProgress(normalizedProgress, cloudProgress);
@@ -168,7 +171,8 @@ function createHarness({
         get cloudUserData() { return cloudUserData; },
         get cloudWriteCount() { return cloudWriteCount; },
         get cloudReadCount() { return cloudReadCount; },
-        get cloudCallableCount() { return cloudCallableCount; }
+        get cloudCallableCount() { return cloudCallableCount; },
+        get cloudSyncInputs() { return cloudSyncInputs.map(clone); }
     };
 }
 
@@ -187,6 +191,82 @@ test('guest progress reports a save failure when local storage is unavailable', 
     assert.equal(harness.syncStatus.dataset.state, 'error');
     assert.equal(harness.api.getProgress().words.present.bestScore, 0);
     assert.equal(harness.api.getProgress().words.present.completed, false);
+});
+
+test('successful local reads persist compacted history while preserving cumulative results', () => {
+    const storageKey = 'englishNextLevel.progress.v1.user.test-user';
+    const oldProgress = {
+        numbers: { bestScores: { numbers: 73 } },
+        vocabularyReviews: { cards: {
+            'present:verbs1:7': {
+                front: 'jump', back: 'pular', due: 10, updatedAt: 20,
+                state: 2, reps: 1, difficulty: 5
+            }
+        } },
+        history: { days: {
+            '2000-01-01': {
+                updatedAt: 100,
+                words: { present: { completed: true, bestScore: 25, bestTime: 60 } }
+            }
+        } }
+    };
+    const harness = createHarness({
+        initialStorage: { [storageKey]: JSON.stringify(oldProgress) }
+    });
+
+    const loaded = harness.api.getProgress();
+    const persisted = JSON.parse(harness.storage.getItem(storageKey));
+
+    assert.deepEqual(Object.keys(loaded.history.days), []);
+    assert.equal(loaded.words.present.completed, true);
+    assert.equal(loaded.words.present.bestScore, 25);
+    assert.equal(loaded.numbers.bestScores.numbers, 73);
+    assert.equal(loaded.vocabularyReviews.cards['present:verbs1:7'].front, 'jump');
+    assert.deepEqual(Object.keys(persisted.history.days), []);
+    assert.equal(persisted.words.present.bestScore, 25);
+});
+
+test('failed local reads never overwrite the stored history during migration', () => {
+    const storageKey = 'englishNextLevel.progress.v1.user.test-user';
+    const original = JSON.stringify({ history: { days: { '2000-01-01': {} } } });
+    const harness = createHarness({
+        failReads: true,
+        initialStorage: { [storageKey]: original }
+    });
+
+    harness.api.getProgress();
+    harness.storage.failReads = false;
+
+    assert.equal(harness.storage.getItem(storageKey), original);
+});
+
+test('large legacy local history is compacted before the profile sends it to cloud', async () => {
+    const storageKey = 'englishNextLevel.progress.v1.user.test-user';
+    const days = {};
+    for (let index = 0; index < 2700; index += 1) {
+        const dateKey = new Date(Date.UTC(2000, 0, 1 + index)).toISOString().slice(0, 10);
+        days[dateKey] = {
+            updatedAt: index + 1,
+            numbers: { bestScores: { numbers: index } },
+            legacyPadding: 'x'.repeat(450)
+        };
+    }
+    const legacyPayload = JSON.stringify({ history: { days } });
+    assert.ok(Buffer.byteLength(legacyPayload, 'utf8') > MAX_PROGRESS_BYTES);
+    const harness = createHarness({
+        initialStorage: { [storageKey]: legacyPayload }
+    });
+
+    await harness.api.refreshProfile();
+
+    const [sentProgress] = harness.cloudSyncInputs;
+    const compactedLocal = JSON.parse(harness.storage.getItem(storageKey));
+    assert.equal(harness.cloudCallableCount, 1);
+    assert.ok(Buffer.byteLength(JSON.stringify(sentProgress), 'utf8') < MAX_PROGRESS_BYTES);
+    assert.deepEqual(Object.keys(sentProgress.history.days), []);
+    assert.equal(sentProgress.numbers.bestScores.numbers, 2699);
+    assert.deepEqual(Object.keys(compactedLocal.history.days), []);
+    assert.equal(harness.cloudUserData.progressV1.numbers.bestScores.numbers, 2699);
 });
 
 test('Numbers, Words, and Topics records roll back when no storage can save them', () => {

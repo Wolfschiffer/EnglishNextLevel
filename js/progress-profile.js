@@ -77,16 +77,21 @@
     }
     if (!force && cache && cacheKey === key) return cache;
     let parsed = null;
+    let readSucceeded = false;
     try {
       parsed = JSON.parse(window.localStorage.getItem(key) || 'null');
+      readSucceeded = true;
     } catch (error) {
       console.warn('PROGRESS: could not read local progress.', error);
       if (cache && cacheKey === key) return cache;
     }
 
     cacheKey = key;
+    const sourceDayKeys = Object.keys(parsed?.history?.days || {});
     cache = normalizeProgress(parsed);
     importExistingNumbers(cache);
+    const historyWasCompacted = sourceDayKeys.some(dateKey => !Object.hasOwn(cache.history.days, dateKey));
+    if (readSucceeded && historyWasCompacted) writeLocalProgress(key, cache);
     return cache;
   }
 

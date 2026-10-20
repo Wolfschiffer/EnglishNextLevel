@@ -119,3 +119,55 @@ test('merges cumulative and daily progress while keeping the better results', ()
     assert.equal(day.words.present.bestTime, 60);
     assert.equal(day.topics.food.beginner.first.speak, true);
 });
+
+test('compacts daily history after folding old results into cumulative progress', () => {
+    const now = new Date('2026-10-20T23:30:00.000Z');
+    const progress = progressData.normalizeProgress({
+        updatedAt: 10,
+        vocabularyReviews: {
+            cards: {
+                'present:verbs1:7': {
+                    front: 'jump', back: 'pular', due: 10, updatedAt: 20,
+                    state: 2, reps: 1, difficulty: 5
+                }
+            }
+        },
+        history: { days: {
+            '2024-10-17': {
+                updatedAt: 50,
+                numbers: { bestScores: { numbers: 99 } },
+                words: { present: { completed: true, bestScore: 88, bestTime: 25 } },
+                topics: { food: { beginner: { first: { match: true, speak: true } } } },
+                topicStats: { food: { beginner: { first: {
+                    match: { bestScore: 900, bestTime: 20 },
+                    speak: { bestScore: 700, bestTime: 45 }
+                } } } }
+            },
+            '2024-10-18': {
+                updatedAt: 40,
+                numbers: { bestScores: { numbers: 20 } },
+                words: { present: { bestScore: 50, bestTime: 40 } }
+            },
+            '2024-02-30': { numbers: { bestScores: { numbers: 999 } } },
+            '2026-10-22': { numbers: { bestScores: { numbers: 1000 } } }
+        } }
+    }, now);
+
+    assert.deepEqual(Object.keys(progress.history.days), ['2024-10-18']);
+    assert.equal(progress.numbers.bestScores.numbers, 99);
+    assert.deepEqual(progress.words.present, { completed: true, bestScore: 88, bestTime: 25 });
+    assert.equal(progress.topics.food.beginner.first.match, true);
+    assert.equal(progress.topics.food.beginner.first.speak, true);
+    assert.deepEqual(progress.topicStats.food.beginner.first.match, { bestScore: 900, bestTime: 20 });
+    assert.deepEqual(progress.topicStats.food.beginner.first.speak, { bestScore: 700, bestTime: 45 });
+    assert.equal(progress.updatedAt, 50);
+    assert.equal(progress.vocabularyReviews.cards['present:verbs1:7'].front, 'jump');
+    assert.deepEqual(progressData.normalizeProgress(progress, now), progress);
+});
+
+test('uses a deterministic UTC retention window and clamps leap-day cutoffs', () => {
+    assert.deepEqual(
+        progressData.historyRetentionWindow(new Date('2024-02-29T23:30:00.000Z')),
+        { cutoffDateKey: '2022-02-26', latestDateKey: '2024-03-01' }
+    );
+});

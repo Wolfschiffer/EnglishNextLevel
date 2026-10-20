@@ -63,7 +63,8 @@ exports.syncProgress = onCall(async (request) => {
     if (request.data?.expectedUid !== uid) {
         throw new HttpsError('permission-denied', 'The signed-in account changed before progress could sync.');
     }
-    const progress = normalizeProgressPayload(request.data?.progress, HttpsError);
+    const now = new Date();
+    const progress = normalizeProgressPayload(request.data?.progress, HttpsError, now);
 
     return syncProgressData({
         db,
@@ -72,7 +73,8 @@ exports.syncProgress = onCall(async (request) => {
         profileName: request.data?.profileName,
         email: request.auth.token.email,
         FieldValue,
-        HttpsError
+        HttpsError,
+        now
     });
 });
 
