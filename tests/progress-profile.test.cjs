@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const { PROGRESS_SYNC_TOO_LARGE_REASON } = require('../functions/shared/progress-profile-data.js');
 
 function clone(value) {
     return value == null ? value : JSON.parse(JSON.stringify(value));
@@ -10,7 +11,7 @@ function clone(value) {
 
 function createHarness({
     failReads = false, failWrites = false, initialStorage = {}, guest = false,
-    afterTransaction = null, beforeCloudRead = null
+    afterTransaction = null, beforeCloudRead = null, cloudError: initialCloudError = null
 } = {}) {
     const values = new Map(Object.entries(initialStorage));
     const authTimers = [];
@@ -35,6 +36,7 @@ function createHarness({
     let cloudCallableCount = 0;
     let progressData = null;
     let cloudUnavailable = false;
+    let cloudError = initialCloudError;
     const userRef = {
         uid: 'test-user',
         async get() {
@@ -58,6 +60,7 @@ function createHarness({
     };
 
     const syncStatus = { textContent: '', dataset: {} };
+    const profileContainer = {};
     const window = {
         currentUser: guest ? null : { uid: 'test-user', email: 'qa@example.test' },
         currentUserName: 'QA',
@@ -75,6 +78,7 @@ function createHarness({
     };
     window.enlSyncProgress = async (progress, expectedUid, profileName) => {
         if (cloudUnavailable) throw new Error('network unavailable');
+        if (cloudError) throw cloudError;
         assert.equal(expectedUid, 'test-user');
         cloudCallableCount += 1;
         const normalizedProgress = progressData.normalizeProgress(progress);
@@ -103,7 +107,11 @@ function createHarness({
     };
     const document = {
         readyState: 'complete',
-        getElementById(id) { return id === 'progress-sync-status' ? syncStatus : null; },
+        getElementById(id) {
+            if (id === 'progress-sync-status') return syncStatus;
+            if (id === 'profile-container') return profileContainer;
+            return null;
+        },
         addEventListener() {}
     };
     const firebase = {
@@ -222,6 +230,37 @@ test('signed-in progress reports a cloud save when local storage is unavailable'
     assert.equal(harness.cloudUserData.progressV1.words.present.completed, true);
     assert.equal(harness.syncStatus.textContent, 'Synced');
     assert.equal(harness.syncStatus.dataset.state, 'synced');
+});
+
+test('oversized progress sync explains that the progress remains saved locally after profile render', async () => {
+    const harness = createHarness({
+        cloudError: Object.assign(new Error('Saved progress is too large to sync.'), {
+            code: 'functions/resource-exhausted',
+            details: { reason: PROGRESS_SYNC_TOO_LARGE_REASON }
+        })
+    });
+    harness.api.recordWordsResult({ mode: 'present', score: 25, timeSeconds: 90 });
+
+    await harness.api.refreshProfile();
+
+    assert.equal(harness.syncStatus.textContent, 'Too large to sync; saved locally');
+    assert.equal(harness.syncStatus.dataset.state, 'error');
+    assert.equal(harness.api.getProgress().words.present.bestScore, 25);
+});
+
+test('other resource-exhausted errors keep the generic local-save status', async () => {
+    const harness = createHarness({
+        cloudError: Object.assign(new Error('Too many requests. Try again later.'), {
+            code: 'functions/resource-exhausted'
+        })
+    });
+    harness.api.recordWordsResult({ mode: 'present', score: 25, timeSeconds: 90 });
+
+    await harness.api.refreshProfile();
+
+    assert.equal(harness.syncStatus.textContent, 'Saved locally');
+    assert.equal(harness.syncStatus.dataset.state, 'error');
+    assert.equal(harness.api.getProgress().words.present.bestScore, 25);
 });
 
 test('cloud sync skips a write when local and remote progress already match', async () => {

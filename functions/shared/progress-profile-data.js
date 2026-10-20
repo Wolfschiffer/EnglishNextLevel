@@ -10,6 +10,7 @@
   }
 })(typeof window !== 'undefined' ? window : globalThis, () => {
   const PROGRESS_VERSION = 4;
+  const PROGRESS_SYNC_TOO_LARGE_REASON = 'progress-too-large';
   const MAX_VOCABULARY_REVIEW_CARDS = 500;
   const VOCABULARY_REVIEW_CARD_ID = /^(present:verbs|past:past)(?:[1-9]|10):\d{1,3}$/;
 
@@ -445,6 +446,7 @@
 
   return {
     PROGRESS_VERSION,
+    PROGRESS_SYNC_TOO_LARGE_REASON,
     VOCABULARY_REVIEW_CARD_ID,
     NUMBER_MODES,
     WORD_MODES,

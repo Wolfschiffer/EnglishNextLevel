@@ -1,7 +1,17 @@
-const { mergeProgress, normalizeProgress } = require('./shared/progress-profile-data');
+const {
+    PROGRESS_SYNC_TOO_LARGE_REASON,
+    mergeProgress,
+    normalizeProgress
+} = require('./shared/progress-profile-data');
 
 const MAX_PROGRESS_BYTES = 900 * 1024;
 const MAX_STORED_PROFILE_NAME_LENGTH = 50;
+
+function throwProgressTooLargeError(HttpsError, message) {
+    throw new HttpsError('resource-exhausted', message, {
+        reason: PROGRESS_SYNC_TOO_LARGE_REASON
+    });
+}
 
 function normalizeStoredProfileName(name) {
     if (typeof name !== 'string') return null;
@@ -29,12 +39,12 @@ function normalizeProgressPayload(progress, HttpsError) {
     }
 
     if (getJsonSize(progress, HttpsError) > MAX_PROGRESS_BYTES) {
-        throw new HttpsError('invalid-argument', 'Progress payload is too large to sync.');
+        throwProgressTooLargeError(HttpsError, 'Progress payload is too large to sync.');
     }
 
     const normalized = normalizeProgress(progress);
     if (getJsonSize(normalized, HttpsError) > MAX_PROGRESS_BYTES) {
-        throw new HttpsError('invalid-argument', 'Normalized progress is too large to sync.');
+        throwProgressTooLargeError(HttpsError, 'Normalized progress is too large to sync.');
     }
     return normalized;
 }
@@ -80,7 +90,7 @@ async function syncProgressData({ db, uid, progress, profileName, email, FieldVa
         const normalizedCloud = normalizeProgress(cloudProgress);
 
         if (getJsonSize(merged, HttpsError) > MAX_PROGRESS_BYTES) {
-            throw new HttpsError('resource-exhausted', 'Saved progress is too large to sync.');
+            throwProgressTooLargeError(HttpsError, 'Saved progress is too large to sync.');
         }
 
         const hasNewProgress = serializeProgress(merged) !== serializeProgress(normalizedCloud);

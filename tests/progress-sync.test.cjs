@@ -1,5 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const { PROGRESS_SYNC_TOO_LARGE_REASON } = require('../functions/shared/progress-profile-data.js');
 const {
     MAX_PROGRESS_BYTES,
     normalizeProgressPayload,
@@ -7,10 +8,20 @@ const {
 } = require('../functions/progress-sync');
 
 class HttpsError extends Error {
-    constructor(code, message) {
+    constructor(code, message, details = null) {
         super(message);
         this.code = code;
+        this.details = details;
     }
+}
+
+function progressWithDailyHistory(startYear, dayCount) {
+    const days = {};
+    for (let index = 0; index < dayCount; index += 1) {
+        const date = new Date(Date.UTC(startYear, 0, 1 + index)).toISOString().slice(0, 10);
+        days[date] = { updatedAt: index + 1 };
+    }
+    return { history: { days } };
 }
 
 function clone(value) {
@@ -71,8 +82,40 @@ test('progress sync rejects non-map and oversized input before touching Firestor
     );
     assert.throws(
         () => normalizeProgressPayload({ note: 'x'.repeat(MAX_PROGRESS_BYTES) }, HttpsError),
-        error => error.code === 'invalid-argument'
+        error => error.code === 'resource-exhausted'
+            && error.details?.reason === PROGRESS_SYNC_TOO_LARGE_REASON
     );
+    assert.equal(store.writeCount, 0);
+});
+
+test('progress sync tags normalized and merged payload size failures consistently', async () => {
+    assert.throws(
+        () => normalizeProgressPayload(progressWithDailyHistory(2000, 2700), HttpsError),
+        error => error.code === 'resource-exhausted'
+            && error.details?.reason === PROGRESS_SYNC_TOO_LARGE_REASON
+    );
+
+    const store = createFakeFirestore({
+        name: 'Learner',
+        email: 'learner@example.test',
+        createdAt: 'existing profile timestamp',
+        progressV1: normalizeProgressPayload(progressWithDailyHistory(2000, 1600), HttpsError)
+    });
+
+    await assert.rejects(
+        syncProgressData({
+            db: store.db,
+            uid: 'user-a',
+            progress: normalizeProgressPayload(progressWithDailyHistory(2010, 1600), HttpsError),
+            profileName: 'Learner',
+            email: 'learner@example.test',
+            FieldValue: { serverTimestamp: () => 'server timestamp' },
+            HttpsError
+        }),
+        error => error.code === 'resource-exhausted'
+            && error.details?.reason === PROGRESS_SYNC_TOO_LARGE_REASON
+    );
+
     assert.equal(store.writeCount, 0);
 });
 

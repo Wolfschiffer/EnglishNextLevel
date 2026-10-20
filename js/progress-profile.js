@@ -8,6 +8,7 @@
   const NUMBERS_STORAGE_PREFIX = 'englishNextLevel.numbersHighScores.v1';
   const {
     PROGRESS_VERSION,
+    PROGRESS_SYNC_TOO_LARGE_REASON,
     VOCABULARY_REVIEW_CARD_ID,
     NUMBER_MODES,
     WORD_MODES,
@@ -31,6 +32,7 @@
   let cache = null;
   let cloudSyncTimer = null;
   let cloudSyncState = 'local';
+  let cloudSyncError = null;
   let localStorageUnavailable = false;
   let cloudLoadedUid = null;
   const cloudSyncInFlight = new Map();
@@ -192,8 +194,17 @@
     }
   }
 
-  function setSyncState(state) {
+  function isOversizedProgressSyncError(error) {
+    return error?.details?.reason === PROGRESS_SYNC_TOO_LARGE_REASON;
+  }
+
+  function setSyncState(state, syncError = null) {
     cloudSyncState = state;
+    if (state === 'error') {
+      if (syncError) cloudSyncError = syncError;
+    } else {
+      cloudSyncError = null;
+    }
     const el = document.getElementById('progress-sync-status');
     if (!el) return;
 
@@ -203,10 +214,15 @@
       return;
     }
 
+    const errorLabel = localStorageUnavailable
+      ? 'Progress not saved'
+      : isOversizedProgressSyncError(cloudSyncError)
+        ? 'Too large to sync; saved locally'
+        : 'Saved locally';
     const labels = {
       syncing: 'Syncing…',
       synced: 'Synced',
-      error: localStorageUnavailable ? 'Progress not saved' : 'Saved locally',
+      error: errorLabel,
       local: localStorageUnavailable ? 'Progress not saved' : 'Saved locally'
     };
     el.textContent = labels[state] || 'Saved locally';
@@ -321,7 +337,7 @@
             }
           }
           cloudLoadedUid = null;
-          setSyncState('error');
+          setSyncState('error', error);
           renderProfile();
           if (didRollback) {
             window.EnglishNextLevelSpacedReviewManager?.refresh?.({ rollback: true, ...reviewRollback });
