@@ -4569,6 +4569,16 @@ body[data-screen="topicGameMenu"]::before {
   box-shadow: inset 0 0 0 1px rgba(63,115,217,.08);
 }
 
+#numbers-menu-container .phase4-number-token {
+  width: max-content;
+  min-width: 62px;
+  max-width: 100%;
+  padding-inline: 8px;
+  flex-shrink: 0;
+  font-size: clamp(14px, 1.2vw, 18px);
+  white-space: nowrap;
+}
+
 #numbers-menu-container .game-card h3,
 #words-menu-container #simple-verbs-submenu .game-card h3,
 #words-menu-container #simple-verbs-past-submenu .game-card h3 {
@@ -4925,6 +4935,12 @@ body[data-screen="wordsSubmenuPast"] #words-menu-container #simple-verbs-btn .ph
     margin-bottom: 9px;
     border-radius: 15px;
     font-size: .82rem;
+  }
+
+  #numbers-menu-container .phase4-number-token {
+    min-width: 50px;
+    padding-inline: 7px;
+    font-size: clamp(12px, 3.3vw, 14px);
   }
 
   #numbers-menu-container .game-card h3,
