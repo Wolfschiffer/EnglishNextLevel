@@ -206,6 +206,24 @@ test('guest Topics and Speak screens fit common viewport widths', async ({ page 
     await expect(page.locator('#topic-game-menu-container')).toBeVisible();
     await expectNoHorizontalOverflowAtWidths(page, viewportWidths);
 
+    for (const [width, expectedColumns] of [[320, 1], [360, 1], [361, 2], [390, 2]]) {
+        await page.setViewportSize({ width, height: 844 });
+        await expectNoHorizontalOverflow(page);
+        const columnCount = await page.locator('#topic-volume-grid')
+            .evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.trim().split(/\s+/).length);
+        expect(columnCount).toBe(expectedColumns);
+
+        if (width === 320) {
+            const volumeLabelLineCounts = await page.locator('#topic-volume-grid .topic-volume-copy strong')
+                .evaluateAll((labels) => labels.map((label) => {
+                    const range = document.createRange();
+                    range.selectNodeContents(label);
+                    return new Set(Array.from(range.getClientRects(), (rect) => Math.round(rect.top))).size;
+                }));
+            expect(volumeLabelLineCounts).toEqual([1, 1]);
+        }
+    }
+
     await page.setViewportSize(mobileViewport);
     await page.locator('#topic-game-menu-container [data-topic-game="speak"]').click();
     await expect(page.locator('#topic-speak-container')).toBeVisible();

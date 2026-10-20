@@ -252,6 +252,12 @@
   }
 }
 
+@media (max-width: 360px) {
+  .topic-volume-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
 /* ---------- HARD RESET: prevent legacy rules from spanning every card ---------- */
 #topics-menu-container #topics-grid.topics-grid > button.topic-card,
 #topics-menu-container #topics-grid.topics-grid > .topic-card {

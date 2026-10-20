@@ -36,7 +36,7 @@ The emulator suite requires Node.js 22, npm, and Java JDK 21. The first run down
 
 If the Firebase SDK cannot load from its CDN, the page keeps the local guest option available and explains that account features are offline. Progress and scores then stay on the current device.
 
-After service worker v55 installs successfully online, it caches the local app shell and the pinned FSRS scheduler. Spaced Review can then schedule cards offline. Firebase SDKs still load from their CDN; account features use guest mode if Firebase is unavailable.
+After service worker v56 installs successfully online, it caches the local app shell and the pinned FSRS scheduler. Spaced Review can then schedule cards offline. Firebase SDKs still load from their CDN; account features use guest mode if Firebase is unavailable.
 
 ## Project layout
 
