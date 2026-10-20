@@ -149,7 +149,7 @@
                 hideCurrentCard();
                 if (emptyMessage) {
                     emptyMessage.hidden = false;
-                    emptyMessage.textContent = 'The review scheduler could not load. Connect to the internet and reload the page.';
+                    emptyMessage.textContent = 'The review scheduler could not load. Reload the app. If it is still unavailable, open the app online to update its cached files.';
                 }
                 if (status) status.textContent = 'Spaced review is unavailable right now.';
                 if (restoreFocus) status?.focus();

@@ -142,6 +142,49 @@ test('review manager safely reports unavailable when the FSRS library is missing
     assert.equal(manager.recordReview(dueCard.id, 'unknown'), null);
 });
 
+test('review panel gives offline-aware guidance when the scheduler is unavailable', () => {
+    const ids = [
+        'spaced-review-open-btn', 'spaced-review-close-btn', 'spaced-review-panel',
+        'spaced-review-due-count', 'spaced-review-status', 'spaced-review-empty',
+        'spaced-review-card', 'spaced-review-question-label', 'spaced-review-question',
+        'spaced-review-answer', 'spaced-review-reveal-btn', 'spaced-review-ratings'
+    ];
+    const elements = new Map(ids.map((id) => [id, makeElement()]));
+    const document = {
+        getElementById: (id) => elements.get(id) || null,
+        querySelector: () => null
+    };
+    const hadFsrs = Object.hasOwn(globalThis, 'FSRS');
+    const previousFsrs = globalThis.FSRS;
+    const hadProgress = Object.hasOwn(globalThis, 'EnglishNextLevelProgress');
+    const previousProgress = globalThis.EnglishNextLevelProgress;
+    const hadManager = Object.hasOwn(globalThis, 'EnglishNextLevelSpacedReviewManager');
+    const previousManager = globalThis.EnglishNextLevelSpacedReviewManager;
+    delete globalThis.FSRS;
+    globalThis.EnglishNextLevelProgress = makeProgress([dueCard]);
+
+    try {
+        const manager = reviewApi.initialize(document);
+        elements.get('spaced-review-open-btn').trigger('click');
+
+        assert.equal(manager.available, false);
+        assert.equal(elements.get('spaced-review-panel').hidden, false);
+        assert.equal(elements.get('spaced-review-empty').hidden, false);
+        assert.equal(
+            elements.get('spaced-review-empty').textContent,
+            'The review scheduler could not load. Reload the app. If it is still unavailable, open the app online to update its cached files.'
+        );
+        assert.equal(elements.get('spaced-review-status').textContent, 'Spaced review is unavailable right now.');
+    } finally {
+        if (hadFsrs) globalThis.FSRS = previousFsrs;
+        else delete globalThis.FSRS;
+        if (hadProgress) globalThis.EnglishNextLevelProgress = previousProgress;
+        else delete globalThis.EnglishNextLevelProgress;
+        if (hadManager) globalThis.EnglishNextLevelSpacedReviewManager = previousManager;
+        else delete globalThis.EnglishNextLevelSpacedReviewManager;
+    }
+});
+
 test('FSRS card serialization restores valid Date values', () => {
     const restored = reviewApi.restoreFsrsCard({ ...dueCard, due: 1_000, last_review: 500 });
 
