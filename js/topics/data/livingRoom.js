@@ -211,11 +211,11 @@ window.ENL_TOPIC_DATA_PARTS["livingRoom"] = {
               ]
             },
             {
-              "id": "ottoman",
-              "english": "ottoman",
+              "id": "pouf",
+              "english": "pouf",
               "portuguese": "pufe / apoio para os pés",
               "accepted": [
-                "ottoman"
+                "pouf"
               ]
             },
             {
