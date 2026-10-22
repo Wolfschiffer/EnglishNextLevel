@@ -404,6 +404,32 @@ function startOneWordRound(harness, english = 'grater') {
     return recognition;
 }
 
+test('Speak keeps Type Answer available after advancing to the second word', () => {
+    const harness = createSpeechHarness();
+    harness.api.prepare({
+        topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
+        level: {
+            id: 'common',
+            label: 'Common',
+            words: [
+                { id: 'grater', english: 'grater', portuguese: 'ralador' },
+                { id: 'ladle', english: 'ladle', portuguese: 'concha' }
+            ]
+        }
+    });
+    harness.elements.get('topic-speak-start-btn').dispatch('click');
+
+    const typeAnswer = harness.elements.get('topic-speak-type-toggle');
+    assert.equal(typeAnswer.hidden, false);
+
+    harness.elements.get('topic-speak-reveal').dispatch('click');
+    harness.advanceBy(3200);
+
+    assert.equal(harness.elements.get('topic-speak-portuguese').textContent, 'concha');
+    assert.equal(typeAnswer.hidden, false);
+    assert.equal(typeAnswer.disabled, false);
+});
+
 test('Speak checks lower-ranked alternatives and displays the canonical answer', () => {
     const harness = createSpeechHarness();
     const recognition = startOneWordRound(harness, {

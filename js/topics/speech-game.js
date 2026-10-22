@@ -314,6 +314,7 @@
     clearPendingPronunciation();
     recognitionController.clearAcceptRecognitionTimer();
     state.acceptingRecognition = false;
+    state.currentWordResolved = false;
     closeTypedAnswer();
     syncTypedAnswerAvailability();
     stopSpeech();
@@ -324,7 +325,6 @@
       return;
     }
 
-    state.currentWordResolved = false;
     updateHeader();
     updatePreviewAudioVisibility();
 
