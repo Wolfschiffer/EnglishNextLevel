@@ -9,6 +9,7 @@ const source = fs.readFileSync(path.join(__dirname, '../js/words-speech.js'), 'u
 function createHarness({ supported = true, voices = [{ lang: 'en-US', name: 'US voice' }], volume = 72, rate = 1.1 } = {}) {
     const spoken = [];
     let cancelCount = 0;
+    let resumeCount = 0;
     let voiceReadCount = 0;
 
     class FakeUtterance {
@@ -23,7 +24,8 @@ function createHarness({ supported = true, voices = [{ lang: 'en-US', name: 'US 
             return voices;
         },
         cancel() { cancelCount += 1; },
-        speak(utterance) { spoken.push(utterance); }
+        speak(utterance) { spoken.push(utterance); },
+        resume() { resumeCount += 1; }
     };
     const window = {
         SpeechSynthesisUtterance: FakeUtterance,
@@ -44,6 +46,7 @@ function createHarness({ supported = true, voices = [{ lang: 'en-US', name: 'US 
         context,
         spoken,
         get cancelCount() { return cancelCount; },
+        get resumeCount() { return resumeCount; },
         get voiceReadCount() { return voiceReadCount; }
     };
 }
@@ -59,7 +62,8 @@ test('Words pronunciation applies past-tense text, voice, rate, and shared volum
     assert.equal(harness.spoken[0].rate, 1.1);
     assert.equal(harness.spoken[0].volume, 0.72);
     assert.equal(harness.spoken[0].voice.name, 'US voice');
-    assert.equal(harness.cancelCount, 1);
+    assert.equal(harness.cancelCount, 0);
+    assert.equal(harness.resumeCount, 2);
 });
 
 test('Words pronunciation falls back to another English voice when US is unavailable', () => {
@@ -80,7 +84,7 @@ test('Words pronunciation stops current speech and does not speak when muted', (
     harness.context.playVerbAudio('run', 'present');
 
     assert.equal(harness.spoken.length, 1);
-    assert.equal(harness.cancelCount, 2);
+    assert.equal(harness.cancelCount, 1);
 });
 
 test('Words speech preload reads available voices without speaking', () => {
@@ -97,4 +101,27 @@ test('Words pronunciation safely does nothing when speech synthesis is unavailab
 
     assert.doesNotThrow(() => harness.context.playVerbAudio('hello', 'present'));
     assert.equal(harness.spoken.length, 0);
+});
+
+test('Words keeps rapid pronunciations in the browser queue instead of cutting them off', () => {
+    const harness = createHarness();
+
+    harness.context.playVerbAudio('walked', 'past');
+    harness.context.playVerbAudio('went', 'past');
+
+    assert.deepEqual(harness.spoken.map((utterance) => utterance.text), ['walked', 'went']);
+    assert.equal(harness.cancelCount, 0);
+    assert.equal(harness.resumeCount, 4);
+});
+
+test('Words ignores a duplicate queued pronunciation but allows replay after it ends', () => {
+    const harness = createHarness();
+
+    harness.context.playVerbAudio('went', 'past');
+    harness.context.playVerbAudio('went', 'past');
+    assert.equal(harness.spoken.length, 1);
+
+    harness.spoken[0].onend();
+    harness.context.playVerbAudio('went', 'past');
+    assert.equal(harness.spoken.length, 2);
 });

@@ -33,3 +33,22 @@ test('explicit accepted forms and speech aliases extend answer matching', () => 
     assert.equal(window.TopicSpeakAnswer.isCorrect('color', word), true);
     assert.equal(window.TopicSpeakAnswer.isCorrect('colourful', word), false);
 });
+
+test('Speak corrects a known close transcript to the expected word', () => {
+    const word = {
+        english: 'ladle',
+        recognitionAliases: ['ledo']
+    };
+
+    assert.deepEqual({ ...window.TopicSpeakAnswer.match('Ledo', word) }, {
+        correct: true,
+        answer: 'ladle',
+        corrected: true
+    });
+});
+
+test('Speak accepts only a one-letter recognition difference on longer words', () => {
+    assert.equal(window.TopicSpeakAnswer.isCorrect('refrigerater', { english: 'refrigerator' }), true);
+    assert.equal(window.TopicSpeakAnswer.isCorrect('plane', { english: 'plate' }), false);
+    assert.equal(window.TopicSpeakAnswer.isCorrect('greater', { english: 'peeler' }), false);
+});

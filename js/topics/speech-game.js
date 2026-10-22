@@ -247,11 +247,75 @@
     if (mic) mic.hidden = true;
   }
 
+  function closeTypedAnswer({ clear = true } = {}) {
+    const form = $('topic-speak-type-form');
+    const toggle = $('topic-speak-type-toggle');
+    const input = $('topic-speak-type-input');
+    if (form) form.hidden = true;
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    if (clear && input) input.value = '';
+  }
+
+  function syncTypedAnswerAvailability() {
+    const toggle = $('topic-speak-type-toggle');
+    if (!toggle) return;
+    const available = Boolean(state.started && !state.currentWordResolved && currentWord());
+    toggle.hidden = !available;
+    toggle.disabled = !available;
+    if (!available) closeTypedAnswer();
+  }
+
+  function toggleTypedAnswer() {
+    const form = $('topic-speak-type-form');
+    const toggle = $('topic-speak-type-toggle');
+    const input = $('topic-speak-type-input');
+    if (!form || !toggle || toggle.disabled) return;
+
+    if (!form.hidden) {
+      closeTypedAnswer();
+      return;
+    }
+
+    if (state.recognitionSessionWanted || state.listening || state.recognitionStarting) {
+      recognitionController.stopRecognition({ disableMic: false, endSession: true });
+      state.recognitionPaused = true;
+    }
+
+    form.hidden = false;
+    toggle.setAttribute('aria-expanded', 'true');
+    setStatus('Type the English word below.');
+    input?.focus({ preventScroll: true });
+  }
+
+  function submitTypedAnswer(event) {
+    event.preventDefault();
+    const word = currentWord();
+    const input = $('topic-speak-type-input');
+    const answer = String(input?.value || '').trim();
+    if (!word || !answer || state.currentWordResolved) {
+      if (!answer) setStatus('Type the English word first.', 'error');
+      input?.focus({ preventScroll: true });
+      return;
+    }
+
+    const match = speechAnswer.match(answer, word);
+    if (match.correct) {
+      closeTypedAnswer();
+      syncTypedAnswerAvailability();
+      showCorrectResult(word, match.answer, match.corrected);
+    } else {
+      showWrongResult(answer);
+      input?.focus({ preventScroll: true });
+    }
+  }
+
   function renderCurrentWord({ resumeListeningDelay = 0 } = {}) {
     clearAutoAdvance();
     clearPendingPronunciation();
     recognitionController.clearAcceptRecognitionTimer();
     state.acceptingRecognition = false;
+    closeTypedAnswer();
+    syncTypedAnswerAvailability();
     stopSpeech();
 
     const word = currentWord();
@@ -292,18 +356,22 @@
     }
   }
 
-  function showTranscript(transcript) {
+  function showTranscript(transcript, corrected = false) {
     const heard = $('topic-speak-heard');
     const transcriptEl = $('topic-speak-transcript');
+    const label = $('topic-speak-heard-label');
     if (transcriptEl) transcriptEl.textContent = transcript || '—';
+    if (label) label.textContent = corrected ? 'Correct word' : 'I heard';
     if (heard) heard.hidden = false;
   }
 
-  function showCorrectResult(word, transcript) {
+  function showCorrectResult(word, transcript, corrected = false) {
     state.currentWordResolved = true;
+    closeTypedAnswer();
+    syncTypedAnswerAvailability();
     speechSettings.playSfx('correct');
     updatePreviewAudioVisibility();
-    showTranscript(transcript);
+    showTranscript(transcript || word.english, corrected);
     setStatus('Correct! Moving to the next word…', 'correct');
 
     const result = $('topic-speak-result');
@@ -361,6 +429,8 @@
     state.acceptingRecognition = false;
     recognitionController.clearAcceptRecognitionTimer();
     state.currentWordResolved = true;
+    closeTypedAnswer();
+    syncTypedAnswerAvailability();
     updatePreviewAudioVisibility();
     hideHeard();
     setStatus('Answer shown. Moving to the next word…');
@@ -507,6 +577,8 @@
     setMicState(state.listening);
     stopSpeech();
     state.started = false;
+    closeTypedAnswer();
+    syncTypedAnswerAvailability();
     speechSettings.playSfx('win');
     updatePreviewAudioVisibility();
 
@@ -549,6 +621,7 @@
     primeSpeechOutput();
 
     state.started = true;
+    syncTypedAnswerAvailability();
     state.recognitionPaused = false;
     state.recognitionSessionWanted = Boolean(SpeechRecognitionCtor);
     hideStartOverlay();
@@ -659,6 +732,8 @@
     stopSpeech();
     state.started = false;
     state.currentWordResolved = false;
+    closeTypedAnswer();
+    syncTypedAnswerAvailability();
     pageLifecycle?.clearBlurLifecycleTimer();
     hideStartOverlay();
     closeSettings({ restoreFocus: false });
@@ -666,7 +741,12 @@
   }
 
   $('topic-speak-start-btn')?.addEventListener('click', startRound);
-  $('topic-speak-mic')?.addEventListener('click', () => recognitionController.toggleListening());
+  $('topic-speak-mic')?.addEventListener('click', () => {
+    closeTypedAnswer();
+    recognitionController.toggleListening();
+  });
+  $('topic-speak-type-toggle')?.addEventListener('click', toggleTypedAnswer);
+  $('topic-speak-type-form')?.addEventListener('submit', submitTypedAnswer);
   $('topic-speak-reveal')?.addEventListener('click', revealAnswer);
   $('topic-speak-audio')?.addEventListener('click', () => {
     const word = currentWord();
@@ -707,7 +787,7 @@
     SpeechRecognitionCtor,
     getElement: $,
     currentWord,
-    isCorrectAnswer: (transcript, word) => speechAnswer.isCorrect(transcript, word),
+    matchAnswer: (transcript, word) => speechAnswer.match(transcript, word),
     setStatus,
     setMicState,
     stopSpeech,

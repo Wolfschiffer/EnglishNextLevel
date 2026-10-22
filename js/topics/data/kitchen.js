@@ -227,7 +227,8 @@ window.ENL_TOPIC_DATA_PARTS["kitchen"] = {
               "recognitionAliases": [
                 "play doh",
                 "play dough",
-                "lego"
+                "lego",
+                "ledo"
               ]
             },
             {

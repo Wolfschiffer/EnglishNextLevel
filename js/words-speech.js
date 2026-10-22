@@ -9,6 +9,7 @@ const WORDS_TTS_OVERRIDES = {
 };
 
 let activeWordsUtterance = null;
+const pendingWordsSpeechTexts = new Map();
 
 function getVerbSpeechText(text, context) {
     const cleanText = String(text || '').trim();
@@ -35,6 +36,7 @@ function stopWordsPronunciation() {
             console.warn('WORDS TTS: could not stop speech.', error);
         }
     }
+    pendingWordsSpeechTexts.clear();
     activeWordsUtterance = null;
 }
 
@@ -45,8 +47,11 @@ function playVerbAudio(text, context) {
     }
 
     const voiceVolume = getWordsVoiceVolume();
-    stopWordsPronunciation();
-    if (voiceVolume <= 0) return;
+    if (voiceVolume <= 0) {
+        stopWordsPronunciation();
+        return;
+    }
+    if (pendingWordsSpeechTexts.has(speechText)) return;
 
     try {
         // Match TOPICS/SPEAK, whose direct speech synthesis works on mobile.
@@ -57,15 +62,30 @@ function playVerbAudio(text, context) {
         utterance.volume = voiceVolume / 100;
         if (voice) utterance.voice = voice;
 
+        pendingWordsSpeechTexts.set(speechText, utterance);
         activeWordsUtterance = utterance;
         const cleanup = () => {
+            if (pendingWordsSpeechTexts.get(speechText) === utterance) {
+                pendingWordsSpeechTexts.delete(speechText);
+            }
             if (activeWordsUtterance === utterance) activeWordsUtterance = null;
+        };
+        utterance.onstart = () => {
+            activeWordsUtterance = utterance;
         };
         utterance.onend = cleanup;
         utterance.onerror = cleanup;
 
+        // Preserve the browser's speech queue so a new word does not cut off
+        // the pronunciation already playing. Resume around speak() because
+        // some browsers leave the synthesis queue paused after interruptions.
+        window.speechSynthesis.resume?.();
         window.speechSynthesis.speak(utterance);
+        window.speechSynthesis.resume?.();
     } catch (error) {
+        if (pendingWordsSpeechTexts.get(speechText)) {
+            pendingWordsSpeechTexts.delete(speechText);
+        }
         activeWordsUtterance = null;
         console.warn('WORDS TTS: pronunciation failed.', error);
     }

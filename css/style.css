@@ -4725,6 +4725,7 @@ body[data-screen="words"] #words-menu-container #simple-verbs-past-btn {
   color: var(--phase4-navy) !important;
   font-size: 1.05rem !important;
   line-height: 1.18;
+  font-weight: 700;
 }
 
 #words-menu-container.phase4-menu-screen--words .phase4-word-mode-description {

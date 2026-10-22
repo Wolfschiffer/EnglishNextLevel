@@ -787,8 +787,17 @@
       <span id="topic-speak-mic-label">SPEAK</span>
     </button>
 
+    <button id="topic-speak-type-toggle" class="topic-speak-type-toggle" type="button" aria-expanded="false" aria-controls="topic-speak-type-form" disabled>TYPE ANSWER</button>
+    <form id="topic-speak-type-form" class="topic-speak-type-form" hidden>
+      <label for="topic-speak-type-input">Type the English word</label>
+      <div class="topic-speak-type-row">
+        <input id="topic-speak-type-input" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="done" required>
+        <button id="topic-speak-type-submit" type="submit">CHECK</button>
+      </div>
+    </form>
+
     <div id="topic-speak-heard" class="topic-speak-heard" aria-live="polite" hidden>
-      <span>I heard</span>
+      <span id="topic-speak-heard-label">I heard</span>
       <strong id="topic-speak-transcript"></strong>
     </div>
 
@@ -868,6 +877,22 @@
         </span>
       </label>
 
+      <div id="topic-speak-mic-choice" class="topic-speak-mic-choice" hidden>
+        <div class="topic-speak-setting-copy">
+          <strong>Microphone input</strong>
+          <small>Choose a connected microphone. This works only in browsers that can send a selected mic to speech recognition.</small>
+        </div>
+        <div class="topic-speak-mic-choice-controls">
+          <label class="sr-only" for="topic-speak-mic-select">Microphone</label>
+          <select id="topic-speak-mic-select" disabled>
+            <option value="">Use device default</option>
+          </select>
+          <button id="topic-speak-mic-refresh" class="topic-speak-mic-refresh" type="button">FIND MICROPHONES</button>
+        </div>
+        <p id="topic-speak-mic-choice-status" role="status" aria-live="polite"></p>
+      </div>
+      <p id="topic-speak-mic-device-note" class="topic-speak-mic-device-note" hidden>Your browser uses its default microphone for speech recognition. On phones, connect a headset and choose it in device audio settings. An active class call may still reserve the microphone.</p>
+
       <div class="topic-speak-volume-control">
         <div class="topic-speak-setting-copy">
           <strong>Voice volume</strong>
@@ -903,7 +928,7 @@
   <div id="topic-speak-start-overlay" class="topic-match-start-overlay" aria-hidden="true">
     <div class="topic-match-start-modal topic-speak-start-modal" role="dialog" aria-modal="true" aria-labelledby="topic-speak-start-title">
       <h2 id="topic-speak-start-title">Ready?</h2>
-      <p>Read each Portuguese word, tap the microphone and say it in American English. The timer starts when you press START.</p>
+      <p>Read each Portuguese word, then say or type it in American English. The timer starts when you press START.</p>
       <button id="topic-speak-start-btn" class="topic-match-start-btn" type="button">START</button>
     </div>
   </div>

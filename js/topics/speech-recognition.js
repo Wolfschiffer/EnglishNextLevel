@@ -1,4 +1,19 @@
 (function () {
+  const MIC_DEVICE_STORAGE_KEY = 'englishNextLevel.topicSpeak.microphoneDeviceId';
+
+  function supportsAudioTrackInput(browserWindow) {
+    const navigator = browserWindow.navigator || {};
+    const userAgent = String(navigator.userAgent || '');
+    if (navigator.userAgentData?.mobile === true || /Android|iPhone|iPad|iPod/i.test(userAgent)) return false;
+
+    // SpeechRecognition.start(audioTrack) is currently implemented in desktop
+    // Chromium 135+ and Edge mirrors that support. It is not available in the
+    // mobile Chromium or Safari implementations, so don't show a selector that
+    // would appear to work while recognition silently uses the default mic.
+    const chromiumVersion = userAgent.match(/(?:Edg|Chrome|Chromium)\/(\d+)/);
+    return Boolean(chromiumVersion && Number(chromiumVersion[1]) >= 135);
+  }
+
   function create({
     state,
     window: browserWindow,
@@ -6,7 +21,7 @@
     SpeechRecognitionCtor,
     getElement,
     currentWord,
-    isCorrectAnswer,
+    matchAnswer,
     setStatus,
     setMicState,
     stopSpeech,
@@ -16,6 +31,133 @@
     showWrongResult
   }) {
     const $ = getElement;
+    const browserNavigator = browserWindow.navigator || {};
+    const mediaDevices = browserNavigator.mediaDevices;
+    const canSelectMicrophone = Boolean(
+      SpeechRecognitionCtor &&
+      supportsAudioTrackInput(browserWindow) &&
+      mediaDevices?.getUserMedia &&
+      mediaDevices?.enumerateDevices
+    );
+    let selectedMicrophoneDeviceId = '';
+    let selectedMicrophoneStream = null;
+    let activeMicrophoneDeviceId = '';
+    let recognitionStartToken = 0;
+
+    try {
+      selectedMicrophoneDeviceId = browserWindow.sessionStorage.getItem(MIC_DEVICE_STORAGE_KEY) || '';
+    } catch (error) {
+      selectedMicrophoneDeviceId = '';
+    }
+
+    function saveSelectedMicrophone() {
+      try {
+        if (selectedMicrophoneDeviceId) {
+          browserWindow.sessionStorage.setItem(MIC_DEVICE_STORAGE_KEY, selectedMicrophoneDeviceId);
+        } else {
+          browserWindow.sessionStorage.removeItem(MIC_DEVICE_STORAGE_KEY);
+        }
+      } catch (error) {
+        // Restricted storage must not prevent microphone use.
+      }
+    }
+
+    function stopStream(stream) {
+      for (const track of stream?.getTracks?.() || []) {
+        try { track.stop(); } catch (error) {}
+      }
+    }
+
+    function releaseSelectedMicrophone() {
+      stopStream(selectedMicrophoneStream);
+      selectedMicrophoneStream = null;
+      activeMicrophoneDeviceId = '';
+    }
+
+    function setMicrophoneChoiceStatus(message) {
+      const status = $('topic-speak-mic-choice-status');
+      if (status) status.textContent = message;
+    }
+
+    function createMicrophoneOption(label, value) {
+      const option = browserDocument.createElement('option');
+      option.value = value;
+      option.textContent = label;
+      return option;
+    }
+
+    async function refreshMicrophoneChoices() {
+      const refreshButton = $('topic-speak-mic-refresh');
+      const select = $('topic-speak-mic-select');
+      if (!canSelectMicrophone || !refreshButton || !select) return;
+
+      refreshButton.disabled = true;
+      select.disabled = true;
+      setMicrophoneChoiceStatus('Allow microphone access to list connected microphones.');
+      let permissionStream = null;
+
+      try {
+        permissionStream = await mediaDevices.getUserMedia({ audio: true });
+        const devices = await mediaDevices.enumerateDevices();
+        const microphones = devices.filter((device) => device.kind === 'audioinput');
+
+        select.innerHTML = '';
+        select.appendChild(createMicrophoneOption('Use device default', ''));
+        let selectedDeviceStillExists = !selectedMicrophoneDeviceId;
+
+        microphones.forEach((device, index) => {
+          const label = String(device.label || `Microphone ${index + 1}`).trim();
+          select.appendChild(createMicrophoneOption(label, device.deviceId));
+          if (device.deviceId === selectedMicrophoneDeviceId) selectedDeviceStillExists = true;
+        });
+
+        if (!selectedDeviceStillExists) {
+          selectedMicrophoneDeviceId = '';
+          saveSelectedMicrophone();
+        }
+        select.value = selectedMicrophoneDeviceId;
+        select.disabled = microphones.length === 0;
+        setMicrophoneChoiceStatus(microphones.length
+          ? 'Choose a connected microphone. The choice applies when you next tap Speak.'
+          : 'No microphones were listed. The browser default will be used.');
+      } catch (error) {
+        setMicrophoneChoiceStatus(error?.name === 'NotAllowedError'
+          ? 'Microphone permission was denied. Allow it in browser settings, then try again.'
+          : 'Could not list microphones. The browser default will be used.');
+      } finally {
+        stopStream(permissionStream);
+        refreshButton.disabled = false;
+      }
+    }
+
+    function initializeMicrophoneChoices() {
+      const choicePanel = $('topic-speak-mic-choice');
+      const deviceNote = $('topic-speak-mic-device-note');
+      const select = $('topic-speak-mic-select');
+      const refreshButton = $('topic-speak-mic-refresh');
+      if (choicePanel) choicePanel.hidden = !canSelectMicrophone;
+      if (deviceNote) deviceNote.hidden = canSelectMicrophone;
+      if (!canSelectMicrophone) return;
+
+      if (select) {
+        select.addEventListener('change', () => {
+          selectedMicrophoneDeviceId = String(select.value || '');
+          saveSelectedMicrophone();
+          setMicrophoneChoiceStatus(selectedMicrophoneDeviceId
+            ? 'Microphone saved. It will be used the next time you tap Speak.'
+            : 'The browser default microphone will be used.');
+
+          if (state.listening || state.recognitionStarting || state.recognitionSessionWanted) {
+            stopRecognition({ disableMic: false, endSession: true });
+            state.recognitionPaused = true;
+            setStatus('Microphone changed. Tap Speak to reconnect.');
+          }
+        });
+      }
+      refreshButton?.addEventListener('click', refreshMicrophoneChoices);
+    }
+
+    initializeMicrophoneChoices();
 
     function pageCanUseMicrophone() {
       const visible = typeof browserDocument.visibilityState !== 'string' || browserDocument.visibilityState === 'visible';
@@ -43,6 +185,7 @@
       const activate = () => {
         state.acceptRecognitionTimer = null;
         if (!state.inSpeakScreen || !state.started || state.currentWordResolved || state.recognitionPaused || !pageCanUseMicrophone()) return;
+        setRecognitionPhrases(state.recognition, currentWord());
         state.ignoreRecognitionUntil = Date.now() + 220;
         state.acceptingRecognition = true;
         if (state.listening) setStatus('Listening… say the English word now.', 'listening');
@@ -55,7 +198,27 @@
       }
     }
 
+    function setRecognitionPhrases(recognition, word) {
+      const PhraseCtor = browserWindow.SpeechRecognitionPhrase || browserWindow.webkitSpeechRecognitionPhrase;
+      if (!recognition || !('phrases' in recognition) || typeof PhraseCtor !== 'function') return;
+
+      const phrases = [...new Set([
+        word?.english,
+        ...(Array.isArray(word?.accepted) ? word.accepted : []),
+        ...(Array.isArray(word?.recognitionAliases) ? word.recognitionAliases : [])
+      ].map((phrase) => String(phrase || '').trim()).filter(Boolean))];
+
+      try {
+        // Contextual biasing is experimental, so browsers without it keep the
+        // normal recognition path and the answer matcher handles alternatives.
+        recognition.phrases = phrases.map((phrase) => new PhraseCtor(phrase, 5));
+      } catch (error) {
+        // Unsupported implementations should not interrupt the Speak round.
+      }
+    }
+
     function stopRecognition({ disableMic = false, endSession = true } = {}) {
+      recognitionStartToken += 1;
       state.recognitionStarting = false;
       state.recognitionStartedAt = 0;
       state.acceptingRecognition = false;
@@ -65,6 +228,8 @@
       if (endSession) {
         state.recognitionSessionWanted = false;
       }
+
+      releaseSelectedMicrophone();
 
       if (state.recognition) {
         try {
@@ -122,9 +287,9 @@
       if (!SpeechRecognitionCtor) {
         showFallback(
           'Voice recognition is not available in this browser.',
-          'You can still study the word and listen to the American English pronunciation.'
+          'Type your answer below, or show the answer and listen to its American English pronunciation.'
         );
-        setStatus('Voice recognition is unavailable here. Use Show Answer to keep studying.', 'error');
+        setStatus('Voice recognition is unavailable here. Type your answer to keep playing.', 'error');
         return;
       }
 
@@ -188,8 +353,11 @@
         }
 
         const bestTranscript = alternatives[0] || '';
-        if (isCorrectAnswer(bestTranscript, word)) {
-          showCorrectResult(word, bestTranscript);
+        const correctAlternative = alternatives
+          .map((transcript) => ({ transcript, match: matchAnswer(transcript, word) }))
+          .find((candidate) => candidate.match?.correct);
+        if (correctAlternative) {
+          showCorrectResult(word, correctAlternative.match.answer, correctAlternative.match.corrected);
         } else {
           showWrongResult(bestTranscript);
         }
@@ -205,14 +373,28 @@
           'network': 'Voice recognition could not connect. Check your connection and try again.'
         };
 
-        if (['not-allowed', 'service-not-allowed', 'audio-capture'].includes(code)) {
+        if (code === 'audio-capture') {
+          releaseSelectedMicrophone();
+          state.recognitionPaused = true;
+          state.recognitionSessionWanted = false;
+          state.acceptingRecognition = false;
+          clearAcceptRecognitionTimer();
+          clearRecognitionRestartTimer();
+          setMicState(false);
+          const mic = $('topic-speak-mic');
+          if (mic) {
+            mic.hidden = false;
+            mic.disabled = false;
+          }
+          setStatus('Microphone is busy or unavailable. Type your answer, or free it and tap Speak to retry.', 'error');
+          return;
+        }
+
+        if (['not-allowed', 'service-not-allowed'].includes(code)) {
           state.recognitionBlocked = true;
-          const fallbackTitle = code === 'audio-capture'
-            ? 'No microphone is available.'
-            : 'Microphone access is blocked.';
           showFallback(
-            fallbackTitle,
-            'You can continue with Show Answer, then listen to the American English pronunciation.'
+            'Microphone access is blocked.',
+            'Type your answer below, or show the answer and listen to its American English pronunciation.'
           );
         }
 
@@ -224,6 +406,8 @@
         state.recognitionStartedAt = 0;
         state.acceptingRecognition = false;
         setMicState(false);
+
+        if (!state.recognitionSessionWanted) releaseSelectedMicrophone();
 
         if (state.recognitionSessionWanted && !state.recognitionPaused && state.inSpeakScreen && !state.recognitionBlocked && pageCanUseMicrophone()) {
           clearRecognitionRestartTimer();
@@ -255,15 +439,83 @@
       state.recognitionStartedAt = 0;
       setStatus('Starting microphone…');
 
-      try {
-        state.recognition.start();
-      } catch (error) {
+      const recognition = state.recognition;
+      const startToken = ++recognitionStartToken;
+
+      function startWithTrack(track = null) {
+        if (
+          startToken !== recognitionStartToken ||
+          !state.inSpeakScreen ||
+          !state.recognitionSessionWanted ||
+          state.recognitionPaused ||
+          !pageCanUseMicrophone()
+        ) return;
+
+        try {
+          if (track) recognition.start(track);
+          else recognition.start();
+        } catch (error) {
+          if (track) releaseSelectedMicrophone();
+          state.recognitionStarting = false;
+          if (track) {
+            state.recognitionSessionWanted = false;
+            state.recognitionPaused = true;
+          }
+          if (mic && pageCanUseMicrophone()) mic.disabled = false;
+          setMicState(false);
+          setStatus(track
+            ? 'Could not use that microphone. Choose another one in Settings, use the default, or type your answer.'
+            : 'Could not start the microphone yet. Tap Speak to retry.', 'error');
+          console.warn('TOPICS Speak: recognition start failed.', error);
+        }
+      }
+
+      if (!selectedMicrophoneDeviceId || !canSelectMicrophone) {
+        startWithTrack();
+        return;
+      }
+
+      const existingTrack = selectedMicrophoneStream?.getAudioTracks?.()[0];
+      if (activeMicrophoneDeviceId === selectedMicrophoneDeviceId && existingTrack?.readyState === 'live') {
+        startWithTrack(existingTrack);
+        return;
+      }
+
+      releaseSelectedMicrophone();
+      Promise.resolve().then(() => mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: selectedMicrophoneDeviceId },
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      })).then((stream) => {
+        const track = stream?.getAudioTracks?.()[0];
+        if (!track) {
+          stopStream(stream);
+          throw new Error('The selected microphone returned no audio track.');
+        }
+
+        if (startToken !== recognitionStartToken || !state.recognitionSessionWanted || !state.inSpeakScreen) {
+          stopStream(stream);
+          return;
+        }
+
+        selectedMicrophoneStream = stream;
+        activeMicrophoneDeviceId = selectedMicrophoneDeviceId;
+        startWithTrack(track);
+      }).catch((error) => {
+        if (startToken !== recognitionStartToken) return;
+        releaseSelectedMicrophone();
         state.recognitionStarting = false;
+        state.recognitionSessionWanted = false;
+        state.recognitionPaused = true;
         if (mic && pageCanUseMicrophone()) mic.disabled = false;
         setMicState(false);
-        setStatus('Could not start the microphone yet. Tap Speak to retry.', 'error');
-        console.warn('TOPICS Speak: recognition start failed.', error);
-      }
+        setStatus(error?.name === 'NotFoundError' || error?.name === 'OverconstrainedError'
+          ? 'That microphone is no longer available. Choose another microphone in Settings.'
+          : 'Could not open that microphone. Choose the device default in Settings or answer by typing.', 'error');
+      });
     }
 
     function toggleListening() {
@@ -301,6 +553,8 @@
 
     return {
       isSupported: Boolean(SpeechRecognitionCtor),
+      canSelectMicrophone,
+      refreshMicrophoneChoices,
       pageCanUseMicrophone,
       clearRecognitionRestartTimer,
       clearAcceptRecognitionTimer,
@@ -314,5 +568,5 @@
     };
   }
 
-  window.TopicSpeakRecognition = { create };
+  window.TopicSpeakRecognition = { create, supportsAudioTrackInput };
 })();

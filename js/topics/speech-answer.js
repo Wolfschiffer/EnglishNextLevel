@@ -29,14 +29,73 @@
       .filter(Boolean);
   }
 
-  function isCorrect(transcript, word) {
-    const normalized = normalize(transcript);
-    const withoutArticle = removeLeadingArticle(normalized);
+  function isOneEditApart(left, right) {
+    if (left === right || Math.abs(left.length - right.length) > 1) return false;
 
-    return acceptedAnswers(word).some((accepted) => {
-      return normalized === accepted || withoutArticle === accepted;
-    });
+    let leftIndex = 0;
+    let rightIndex = 0;
+    let edits = 0;
+
+    while (leftIndex < left.length && rightIndex < right.length) {
+      if (left[leftIndex] === right[rightIndex]) {
+        leftIndex += 1;
+        rightIndex += 1;
+        continue;
+      }
+
+      edits += 1;
+      if (edits > 1) return false;
+
+      if (left.length > right.length) leftIndex += 1;
+      else if (right.length > left.length) rightIndex += 1;
+      else {
+        leftIndex += 1;
+        rightIndex += 1;
+      }
+    }
+
+    if (leftIndex < left.length || rightIndex < right.length) edits += 1;
+    return edits === 1;
   }
 
-  window.TopicSpeakAnswer = { isCorrect, normalize };
+  function match(transcript, word) {
+    const normalized = normalize(transcript);
+    const withoutArticle = removeLeadingArticle(normalized);
+    const canonical = normalize(word?.english);
+    const answers = acceptedAnswers(word);
+
+    const exactAnswer = answers.find((accepted) => normalized === accepted || withoutArticle === accepted);
+    if (exactAnswer) {
+      return {
+        correct: true,
+        answer: word?.english || exactAnswer,
+        corrected: withoutArticle !== canonical
+      };
+    }
+
+    // Allow one small recognition spelling error only for longer answers.
+    // Short words are too easy to confuse with a different valid answer.
+    const compactTranscript = withoutArticle.replace(/[\s-]/g, '');
+    const nearAnswer = answers.find((accepted) => {
+      const compactAnswer = removeLeadingArticle(accepted).replace(/[\s-]/g, '');
+      return compactAnswer.length >= 8 && compactTranscript.length >= 7 &&
+        isOneEditApart(compactTranscript, compactAnswer);
+    });
+
+    if (nearAnswer) {
+      return {
+        correct: true,
+        answer: word?.english || nearAnswer,
+        corrected: true
+      };
+    }
+
+    return { correct: false, answer: null, corrected: false };
+  }
+
+  function isCorrect(transcript, word) {
+    return match(transcript, word).correct;
+  }
+
+  window.TopicSpeakAnswer = { isCorrect, match, normalize };
 })();

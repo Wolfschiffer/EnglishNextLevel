@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
 
-function createSpeechHarness() {
+function createSpeechHarness({ userAgent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/140.0.0.0 Safari/537.36' } = {}) {
     const elements = new Map();
     const documentListeners = new Map();
     const windowListeners = new Map();
@@ -20,14 +20,18 @@ function createSpeechHarness() {
     let focused = true;
     let visibilityState = 'visible';
     const spokenTexts = [];
+    const mediaRequests = [];
 
-    function createElement(id = '') {
+    function createElement(id = '', tagName = 'div') {
         const attributes = new Map();
         const classes = new Set();
         const listeners = new Map();
         const styleProperties = new Map();
         return {
             id,
+            tagName,
+            children: [],
+            options: [],
             textContent: '',
             dataset: {},
             visible: true,
@@ -45,14 +49,14 @@ function createSpeechHarness() {
             },
             addEventListener(event, callback) { listeners.set(event, callback); },
             removeEventListener(event) { listeners.delete(event); },
-            dispatch(event, value = {}) { listeners.get(event)?.({ target: this, ...value }); },
+            dispatch(event, value = {}) { return listeners.get(event)?.({ target: this, ...value }); },
             getAttribute(name) { return attributes.get(name) ?? null; },
             setAttribute(name, value) { attributes.set(name, String(value)); },
             removeAttribute(name) { attributes.delete(name); },
             focusCount: 0,
             focus(options) { this.focusCount += 1; this.lastFocusOptions = options; },
             getClientRects() { return this.visible ? [{}] : []; },
-            appendChild() {},
+            appendChild(child) { this.children.push(child); if (this.tagName === 'select') this.options = this.children; },
             append() {},
             insertBefore() {},
             querySelector(selector) {
@@ -81,6 +85,7 @@ function createSpeechHarness() {
         'topic-speak-start-overlay', 'topic-speak-start-dialog', 'topic-speak-start-btn', 'topic-speak-start-back-btn',
         'topic-speak-btn',
         'topic-speak-mic', 'topic-speak-mic-label', 'topic-speak-reveal', 'topic-speak-audio',
+        'topic-speak-type-toggle', 'topic-speak-type-form', 'topic-speak-type-input', 'topic-speak-type-submit',
         'topic-speak-play-again', 'topic-speak-back-topic', 'back-from-topic-speak',
         'topic-speak-preview-audio', 'topic-speak-settings-btn', 'topic-speak-settings-close',
         'topic-speak-settings-overlay', 'topic-speak-settings-dialog', 'topic-speak-preaudio-toggle', 'topic-speak-voice-volume',
@@ -88,21 +93,24 @@ function createSpeechHarness() {
         'topic-speak-sfx-volume-value', 'topic-speak-sfx-volume-icon', 'topic-speak-title',
         'topic-speak-level', 'topic-speak-current', 'topic-speak-total', 'topic-speak-portuguese',
         'topic-speak-result', 'topic-speak-result-icon', 'topic-speak-result-title',
-        'topic-speak-answer', 'topic-speak-heard', 'topic-speak-transcript', 'topic-speak-status',
+        'topic-speak-answer', 'topic-speak-heard', 'topic-speak-heard-label', 'topic-speak-transcript', 'topic-speak-status',
         'topic-speak-unsupported', 'topic-speak-fallback-title', 'topic-speak-fallback-text',
+        'topic-speak-mic-choice', 'topic-speak-mic-device-note', 'topic-speak-mic-select', 'topic-speak-mic-refresh', 'topic-speak-mic-choice-status',
         'topic-speak-review', 'topic-speak-review-list', 'topic-speak-review-first-audio',
         'topic-speak-play-area', 'topic-speak-container'
     ];
     allIds.forEach((id) => elements.set(id, createElement(id)));
+    elements.get('topic-speak-mic-select').tagName = 'select';
     elements.get('topic-speak-btn').visible = false;
 
     class FakeRecognition {
         constructor() {
             this.startCalls = 0;
             this.abortCalls = 0;
+            this.phrases = [];
             recognitionInstances.push(this);
         }
-        start() { this.startCalls += 1; }
+        start(track) { this.startCalls += 1; if (track) this.startTracks = [...(this.startTracks || []), track]; }
         abort() { this.abortCalls += 1; }
         emitStart() { this.onstart?.(); }
         emitEnd() { this.onend?.(); }
@@ -140,14 +148,41 @@ function createSpeechHarness() {
     const fakeDate = class extends Date {
         static now() { return now; }
     };
+    const storage = new Map();
+    const mediaDevices = {
+        async getUserMedia(constraints) {
+            mediaRequests.push(constraints);
+            const track = {
+                kind: 'audio',
+                readyState: 'live',
+                deviceId: constraints.audio?.deviceId?.exact || 'default-mic',
+                stop() { this.readyState = 'ended'; }
+            };
+            return { getAudioTracks() { return [track]; }, getTracks() { return [track]; } };
+        },
+        async enumerateDevices() {
+            return [
+                { kind: 'audioinput', deviceId: 'built-in-mic', label: 'Built-in microphone' },
+                { kind: 'audioinput', deviceId: 'headset-mic', label: 'Bluetooth headset microphone' }
+            ];
+        }
+    };
     const speechSynthesis = {
         cancel() {},
       speak(utterance) { spokenTexts.push(utterance.text); },
         resume() {},
         getVoices() { return []; }
     };
+    class FakeSpeechRecognitionPhrase {
+        constructor(phrase, boost) {
+            this.phrase = phrase;
+            this.boost = boost;
+        }
+    }
     const window = {
+        navigator: { userAgent, mediaDevices },
         SpeechRecognition: FakeRecognition,
+        SpeechRecognitionPhrase: FakeSpeechRecognitionPhrase,
         SpeechSynthesisUtterance: class { constructor(text) { this.text = text; } },
         speechSynthesis,
         EnglishNextLevelAudio: {
@@ -156,7 +191,11 @@ function createSpeechHarness() {
             playSfx() {},
             unlockSfx() {}
         },
-        sessionStorage: { getItem() { return null; }, setItem() {} },
+        sessionStorage: {
+            getItem(key) { return storage.get(key) || null; },
+            setItem(key, value) { storage.set(key, value); },
+            removeItem(key) { storage.delete(key); }
+        },
         EnlKeyboardAccessibility: {
             trapDialogFocus(dialog, options) {
                 focusTrapCalls.push({ dialog, options });
@@ -190,7 +229,7 @@ function createSpeechHarness() {
         set visibilityState(value) { visibilityState = value; },
         hasFocus() { return focused; },
         getElementById(id) { return elements.get(id) || null; },
-        createElement() { return createElement(); },
+        createElement(tagName) { return createElement('', tagName); },
         querySelectorAll() { return []; },
         addEventListener(event, callback) {
             if (!documentListeners.has(event)) documentListeners.set(event, new Set());
@@ -235,6 +274,8 @@ function createSpeechHarness() {
         focusTrapReleaseCount() { return focusTrapReleaseCount; },
         timers,
       spokenTexts,
+        mediaRequests,
+        mediaDevices,
         advanceBy,
         setFocused(value) { focused = value; },
         setVisibilityState(value) { visibilityState = value; },
@@ -345,12 +386,15 @@ test('Speak removes the return-focus listener when the first back destination st
 });
 
 function startOneWordRound(harness, english = 'grater') {
+    const word = typeof english === 'string'
+        ? { id: english, english, portuguese: 'ralador' }
+        : english;
     harness.api.prepare({
         topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
         level: {
             id: 'common',
             label: 'Common',
-            words: [{ id: english, english, portuguese: 'ralador' }]
+            words: [word]
         }
     });
     harness.elements.get('topic-speak-start-btn').dispatch('click');
@@ -360,15 +404,37 @@ function startOneWordRound(harness, english = 'grater') {
     return recognition;
 }
 
-test('Speak ignores lower-ranked transcript alternatives and displays the checked answer', () => {
+test('Speak checks lower-ranked alternatives and displays the canonical answer', () => {
     const harness = createSpeechHarness();
-    const recognition = startOneWordRound(harness);
+    const recognition = startOneWordRound(harness, {
+        id: 'grater',
+        english: 'grater',
+        portuguese: 'ralador',
+        recognitionAliases: ['greater']
+    });
 
-    recognition.emitResult(['gratitude', 'grater']);
+    recognition.emitResult(['gratitude', 'greater']);
 
-    assert.equal(harness.elements.get('topic-speak-transcript').textContent, 'gratitude');
-    assert.equal(harness.elements.get('topic-speak-result').hidden, true);
-    assert.match(harness.elements.get('topic-speak-status').textContent, /Not quite/);
+    assert.equal(harness.elements.get('topic-speak-transcript').textContent, 'grater');
+    assert.equal(harness.elements.get('topic-speak-heard-label').textContent, 'Correct word');
+    assert.equal(harness.elements.get('topic-speak-result').hidden, false);
+    assert.match(harness.elements.get('topic-speak-status').textContent, /Correct/);
+});
+
+test('Speak shows the corrected word for a curated speech-recognition alias', () => {
+    const harness = createSpeechHarness();
+    const recognition = startOneWordRound(harness, {
+        id: 'ladle',
+        english: 'ladle',
+        portuguese: 'concha',
+        recognitionAliases: ['ledo']
+    });
+
+    recognition.emitResult(['Ledo']);
+
+    assert.equal(harness.elements.get('topic-speak-transcript').textContent, 'ladle');
+    assert.equal(harness.elements.get('topic-speak-heard-label').textContent, 'Correct word');
+    assert.equal(harness.elements.get('topic-speak-result').hidden, false);
 });
 
 test('Speak shows a correct recognized word through the game result flow', () => {
@@ -378,8 +444,124 @@ test('Speak shows a correct recognized word through the game result flow', () =>
     recognition.emitResult(['grater']);
 
     assert.equal(harness.elements.get('topic-speak-transcript').textContent, 'grater');
+    assert.equal(harness.elements.get('topic-speak-heard-label').textContent, 'I heard');
     assert.equal(harness.elements.get('topic-speak-result').hidden, false);
     assert.match(harness.elements.get('topic-speak-status').textContent, /Correct/);
+});
+
+test('Speak can retry when a call or another app temporarily holds the microphone', () => {
+    const harness = createSpeechHarness();
+    const recognition = startOneWordRound(harness);
+
+    recognition.emitError('audio-capture');
+    recognition.emitEnd();
+
+    assert.equal(harness.elements.get('topic-speak-mic').hidden, false);
+    assert.equal(harness.elements.get('topic-speak-mic').disabled, false);
+    assert.match(harness.elements.get('topic-speak-status').textContent, /Microphone is busy or unavailable/);
+
+    harness.elements.get('topic-speak-mic').dispatch('click');
+    assert.equal(recognition.startCalls, 2);
+});
+
+test('Speak lists and uses a selected microphone in compatible desktop browsers', async () => {
+    const harness = createSpeechHarness();
+    const micChoice = harness.elements.get('topic-speak-mic-choice');
+    const select = harness.elements.get('topic-speak-mic-select');
+    const refresh = harness.elements.get('topic-speak-mic-refresh');
+
+    assert.equal(micChoice.hidden, false);
+    await refresh.dispatch('click');
+
+    assert.equal(select.disabled, false);
+    assert.deepEqual(select.options.map(({ value, textContent }) => ({ value, textContent })), [
+        { value: '', textContent: 'Use device default' },
+        { value: 'built-in-mic', textContent: 'Built-in microphone' },
+        { value: 'headset-mic', textContent: 'Bluetooth headset microphone' }
+    ]);
+
+    select.value = 'headset-mic';
+    select.dispatch('change');
+    harness.api.prepare({
+        topic: { id: 'kitchen', title: 'Kitchen Objects', englishVariant: 'en-US' },
+        level: { id: 'common', label: 'Common', words: [{ id: 'grater', english: 'grater', portuguese: 'ralador' }] }
+    });
+    harness.elements.get('topic-speak-start-btn').dispatch('click');
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const recognition = harness.recognitionInstances[0];
+    assert.equal(recognition.startCalls, 1);
+    assert.equal(recognition.startTracks[0].deviceId, 'headset-mic');
+    assert.deepEqual(JSON.parse(JSON.stringify(harness.mediaRequests.at(-1).audio.deviceId)), { exact: 'headset-mic' });
+});
+
+test('Speak explains that mobile browsers use the device microphone route', () => {
+    const harness = createSpeechHarness({
+        userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/140.0.0.0 Mobile Safari/537.36'
+    });
+
+    assert.equal(harness.elements.get('topic-speak-mic-choice').hidden, true);
+    assert.equal(harness.elements.get('topic-speak-mic-device-note').hidden, false);
+});
+
+test('Speak lets a student type an answer when the call holds the microphone', () => {
+    const harness = createSpeechHarness();
+    const recognition = startOneWordRound(harness);
+    const toggle = harness.elements.get('topic-speak-type-toggle');
+    const form = harness.elements.get('topic-speak-type-form');
+    const input = harness.elements.get('topic-speak-type-input');
+
+    recognition.emitError('audio-capture');
+    recognition.emitEnd();
+    assert.match(harness.elements.get('topic-speak-status').textContent, /Type your answer/);
+
+    toggle.dispatch('click');
+    assert.equal(form.hidden, false);
+    assert.equal(toggle.getAttribute('aria-expanded'), 'true');
+    assert.equal(input.focusCount, 1);
+
+    input.value = 'grater';
+    form.dispatch('submit', { preventDefault() {} });
+
+    assert.equal(harness.elements.get('topic-speak-result').hidden, false);
+    assert.equal(harness.elements.get('topic-speak-transcript').textContent, 'grater');
+    assert.equal(form.hidden, true);
+    assert.equal(toggle.hidden, true);
+});
+
+test('Speak keeps a typed wrong answer open for correction', () => {
+    const harness = createSpeechHarness();
+    startOneWordRound(harness);
+    const toggle = harness.elements.get('topic-speak-type-toggle');
+    const form = harness.elements.get('topic-speak-type-form');
+    const input = harness.elements.get('topic-speak-type-input');
+
+    toggle.dispatch('click');
+    input.value = 'greater';
+    form.dispatch('submit', { preventDefault() {} });
+    assert.equal(form.hidden, false);
+    assert.equal(harness.elements.get('topic-speak-result').hidden, true);
+    assert.equal(harness.elements.get('topic-speak-transcript').textContent, 'greater');
+
+    input.value = 'grater';
+    form.dispatch('submit', { preventDefault() {} });
+    assert.equal(harness.elements.get('topic-speak-result').hidden, false);
+});
+
+test('Speak biases supported recognition browsers toward the current answer', () => {
+    const harness = createSpeechHarness();
+    const recognition = startOneWordRound(harness, {
+        id: 'ladle',
+        english: 'ladle',
+        portuguese: 'concha',
+        accepted: ['ladle'],
+        recognitionAliases: ['ledo']
+    });
+
+    assert.deepEqual(JSON.parse(JSON.stringify(recognition.phrases.map(({ phrase, boost }) => ({ phrase, boost })))), [
+        { phrase: 'ladle', boost: 5 },
+        { phrase: 'ledo', boost: 5 }
+    ]);
 });
 
 test('Speak does not start a delayed correct-answer pronunciation after leaving', () => {
